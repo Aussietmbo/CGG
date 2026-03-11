@@ -1,0 +1,1268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TRR-G Substrate Evaluator v2 -- Dynamic Field Evolution</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&family=DM+Sans:wght@300;400;500;600&display=swap');
+
+  :root {
+    --bg: #06080c;
+    --panel: rgba(10, 14, 22, 0.96);
+    --panel-border: rgba(78, 205, 196, 0.12);
+    --text: #d0dce8;
+    --muted: #5a6a7a;
+    --accent: #4ecdc4;
+    --accent-dim: rgba(78, 205, 196, 0.3);
+    --accent2: #ff6b6b;
+    --accent2-dim: rgba(255, 107, 107, 0.3);
+    --accent3: #f7d794;
+    --slider-track: #131a28;
+    --btn-bg: rgba(78, 205, 196, 0.1);
+    --btn-border: rgba(78, 205, 196, 0.25);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    overflow: hidden;
+    height: 100vh;
+  }
+  #app {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    grid-template-rows: auto 1fr auto;
+    height: 100vh;
+  }
+
+  /* Title */
+  #titlebar {
+    grid-column: 1 / -1;
+    padding: 8px 20px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--panel-border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  #titlebar h1 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px; font-weight: 500;
+    color: var(--accent);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+  }
+  #titlebar .sub {
+    font-size: 10px; color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* Controls */
+  #controls {
+    background: var(--panel);
+    border-right: 1px solid var(--panel-border);
+    padding: 10px;
+    overflow-y: auto;
+    grid-row: 2 / 4;
+    scrollbar-width: thin;
+    scrollbar-color: var(--accent-dim) transparent;
+  }
+  .slbl {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; font-weight: 600;
+    color: var(--accent);
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    margin: 12px 0 6px 0;
+    padding-bottom: 3px;
+    border-bottom: 1px solid var(--panel-border);
+  }
+  .slbl:first-child { margin-top: 0; }
+  .row { margin-bottom: 6px; }
+  .row label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px; color: var(--muted);
+    margin-bottom: 2px;
+  }
+  .row label .v {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; color: var(--text);
+  }
+  input[type=range] {
+    -webkit-appearance: none;
+    width: 100%; height: 5px;
+    border-radius: 3px;
+    background: var(--slider-track);
+    outline: none;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    border: 2px solid var(--bg);
+  }
+  .brow { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 6px; }
+  .btn {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px; padding: 4px 8px;
+    border: 1px solid var(--btn-border);
+    background: var(--btn-bg); color: var(--accent);
+    border-radius: 4px; cursor: pointer;
+    transition: all 0.12s; white-space: nowrap;
+  }
+  .btn:hover { background: var(--accent); color: var(--bg); }
+  .btn.act { background: var(--accent); color: var(--bg); }
+  .btn.dng { border-color: var(--accent2-dim); color: var(--accent2); background: rgba(255,107,107,0.08); }
+  .btn.dng:hover { background: var(--accent2); color: var(--bg); }
+  .ro {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; color: var(--muted);
+    padding: 2px 0;
+    display: flex; justify-content: space-between;
+  }
+  .ro .rv { color: var(--accent); }
+  .ro .rv.warn { color: var(--accent2); }
+  .inst {
+    font-size: 10px; color: var(--muted);
+    line-height: 1.5; padding: 5px 7px;
+    background: rgba(78,205,196,0.04);
+    border-radius: 4px;
+    border: 1px solid rgba(78,205,196,0.06);
+    margin-bottom: 6px;
+  }
+  .inst kbd {
+    background: rgba(78,205,196,0.12);
+    padding: 1px 4px; border-radius: 3px;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text);
+  }
+  .vtabs { display: flex; gap: 0; margin-bottom: 6px; }
+  .vt {
+    flex: 1; font-family: 'JetBrains Mono', monospace;
+    font-size: 9px; padding: 4px 2px;
+    border: 1px solid var(--btn-border);
+    background: var(--btn-bg); color: var(--muted);
+    cursor: pointer; text-align: center;
+    transition: all 0.12s;
+  }
+  .vt:first-child { border-radius: 4px 0 0 4px; }
+  .vt:last-child { border-radius: 0 4px 4px 0; }
+  .vt.act { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+
+  /* Engine mode toggle */
+  .engine-toggle {
+    display: flex; gap: 0; margin-bottom: 8px;
+  }
+  .eng-btn {
+    flex: 1; font-family: 'JetBrains Mono', monospace;
+    font-size: 9px; padding: 6px 4px;
+    border: 1px solid var(--btn-border);
+    background: var(--btn-bg); color: var(--muted);
+    cursor: pointer; text-align: center;
+    transition: all 0.12s;
+  }
+  .eng-btn:first-child { border-radius: 4px 0 0 4px; }
+  .eng-btn:last-child { border-radius: 0 4px 4px 0; }
+  .eng-btn.act {
+    background: rgba(247,215,148,0.2); color: var(--accent3);
+    border-color: rgba(247,215,148,0.4);
+  }
+
+  /* Viewport */
+  #viewport {
+    position: relative; overflow: hidden;
+    background: #030508; cursor: crosshair;
+  }
+  #viewport canvas { position: absolute; top: 0; left: 0; }
+
+  /* Colorbar */
+  #cbar {
+    position: absolute; right: 12px; top: 12px;
+    width: 18px; height: 160px;
+    border: 1px solid var(--panel-border);
+    border-radius: 3px; overflow: hidden;
+    pointer-events: none;
+  }
+  .cbl {
+    position: absolute; right: 36px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px; color: var(--muted);
+    pointer-events: none; white-space: nowrap;
+  }
+  #cbl-max { top: 12px; }
+  #cbl-min { top: 164px; }
+  #cbl-title {
+    position: absolute; right: 12px; top: 178px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px; color: var(--accent);
+    pointer-events: none; width: 18px; text-align: center;
+  }
+
+  /* Status indicator */
+  #status-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #4ecdc4; display: inline-block;
+    animation: pulse 1.5s infinite;
+  }
+  #status-dot.paused { background: var(--accent2); animation: none; }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  /* Infobar */
+  #infobar {
+    grid-column: 2;
+    background: var(--panel);
+    border-top: 1px solid var(--panel-border);
+    padding: 5px 14px;
+    display: flex; align-items: center; gap: 20px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; color: var(--muted);
+    overflow-x: auto;
+  }
+  .eq { color: var(--text); white-space: nowrap; }
+  .eq sub { font-size: 8px; }
+
+  @media (max-width: 768px) {
+    #app { grid-template-columns: 1fr; grid-template-rows: auto 1fr auto auto; }
+    #controls { grid-row: auto; max-height: 35vh; border-right: none; border-top: 1px solid var(--panel-border); }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="titlebar">
+    <div>
+      <h1>TRR-G Substrate Evaluator</h1>
+      <span class="sub">Dynamic Field Evolution -- Mexican Hat + Matter Coupling (V22)</span>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center;">
+      <span id="status-dot"></span>
+      <span id="fps-display" style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);">-- FPS</span>
+    </div>
+  </div>
+
+  <div id="controls">
+    <div class="inst">
+      <kbd>Left-click</kbd> place source mass<br>
+      <kbd>Right-click</kbd> place test particle<br>
+      <kbd>Scroll</kbd> adjust mass value<br>
+      <kbd>Space</kbd> pause / resume
+    </div>
+
+    <div class="slbl">Physics Engine</div>
+    <div class="engine-toggle">
+      <div class="eng-btn act" data-engine="dynamic">PDE Solver</div>
+      <div class="eng-btn" data-engine="analytic">Analytic (1/r)</div>
+    </div>
+
+    <div class="slbl">View Mode</div>
+    <div class="vtabs">
+      <div class="vt act" data-mode="coherence">C(x)</div>
+      <div class="vt" data-mode="deltaC">&delta;C</div>
+      <div class="vt" data-mode="gradient">&nabla;</div>
+      <div class="vt" data-mode="metric">h<sub>00</sub></div>
+    </div>
+
+    <div class="slbl">Substrate Parameters</div>
+    <div class="row">
+      <label>&Psi;<sub>0</sub> (vacuum amplitude) <span class="v" id="lbl-psi0">1.00</span></label>
+      <input type="range" id="sl-psi0" min="0.2" max="3" step="0.05" value="1.0">
+    </div>
+    <div class="row">
+      <label>&lambda; (self-coupling) <span class="v" id="lbl-lam">1.00</span></label>
+      <input type="range" id="sl-lam" min="0.1" max="5" step="0.1" value="1.0">
+    </div>
+    <div class="row">
+      <label>c<sub>s</sub> (substrate speed) <span class="v" id="lbl-cs">10.0</span></label>
+      <input type="range" id="sl-cs" min="2" max="40" step="1" value="10">
+    </div>
+    <div class="row">
+      <label>g<sub>m</sub> (matter coupling) <span class="v" id="lbl-gm">2.00</span></label>
+      <input type="range" id="sl-gm" min="0.1" max="10" step="0.1" value="2.0">
+    </div>
+
+    <div class="slbl">Source Mass</div>
+    <div class="row">
+      <label>M (next placed) <span class="v" id="lbl-mass">3.0</span></label>
+      <input type="range" id="sl-mass" min="0.5" max="20" step="0.5" value="3.0">
+    </div>
+    <div class="row">
+      <label>Source width &sigma; <span class="v" id="lbl-sig">4.0</span></label>
+      <input type="range" id="sl-sig" min="2" max="12" step="0.5" value="4.0">
+    </div>
+
+    <div class="slbl">Solver</div>
+    <div class="row">
+      <label>Grid N <span class="v" id="lbl-N">128</span></label>
+      <input type="range" id="sl-N" min="64" max="256" step="32" value="128">
+    </div>
+    <div class="row">
+      <label>Sub-steps/frame <span class="v" id="lbl-sub">10</span></label>
+      <input type="range" id="sl-sub" min="1" max="40" step="1" value="10">
+    </div>
+    <div class="row">
+      <label>Damping &eta; <span class="v" id="lbl-eta">0.05</span></label>
+      <input type="range" id="sl-eta" min="0" max="0.5" step="0.01" value="0.05">
+    </div>
+
+    <div class="slbl">Test Particles</div>
+    <div class="row">
+      <label>Trail length <span class="v" id="lbl-trail">80</span></label>
+      <input type="range" id="sl-trail" min="0" max="300" step="10" value="80">
+    </div>
+
+    <div class="slbl">Display</div>
+    <div class="row">
+      <label>Brightness <span class="v" id="lbl-br">1.0</span></label>
+      <input type="range" id="sl-br" min="0.2" max="5" step="0.1" value="1.0">
+    </div>
+    <div class="row">
+      <label>Gradient overlay <span class="v" id="lbl-grd">Off</span></label>
+      <input type="range" id="sl-grd" min="0" max="1" step="1" value="0">
+    </div>
+
+    <div class="slbl">Presets</div>
+    <div class="brow">
+      <button class="btn" onclick="loadPreset('single')">Single Mass</button>
+      <button class="btn" onclick="loadPreset('binary')">Binary</button>
+      <button class="btn" onclick="loadPreset('triple')">Three-Body</button>
+      <button class="btn" onclick="loadPreset('ring')">Ring</button>
+    </div>
+
+    <div class="slbl">Actions</div>
+    <div class="brow">
+      <button class="btn" id="btn-pause" onclick="togglePause()">Pause</button>
+      <button class="btn" onclick="resetField()">Reset Field</button>
+      <button class="btn dng" onclick="clearAll()">Clear All</button>
+      <button class="btn dng" onclick="clearParticles()">Clear Particles</button>
+    </div>
+
+    <div class="slbl">Live Readouts</div>
+    <div class="ro"><span>Engine:</span><span class="rv" id="ro-eng">PDE Solver</span></div>
+    <div class="ro"><span>Sources:</span><span class="rv" id="ro-src">0</span></div>
+    <div class="ro"><span>Test particles:</span><span class="rv" id="ro-pts">0</span></div>
+    <div class="ro"><span>Sim time:</span><span class="rv" id="ro-t">0.00</span></div>
+    <div class="ro"><span>Sim steps:</span><span class="rv" id="ro-steps">0</span></div>
+    <div class="ro"><span>&delta;C<sub>max</sub>:</span><span class="rv" id="ro-dcmx">0.000</span></div>
+    <div class="ro"><span>C<sub>max</sub>:</span><span class="rv" id="ro-cmx">0.000</span></div>
+    <div class="ro"><span>&Psi;<sub>max</sub>:</span><span class="rv" id="ro-pmx">0.000</span></div>
+    <div class="ro"><span>Predicted |&Psi;|&sup2;(0):</span><span class="rv" id="ro-pred">--</span></div>
+    <div class="ro"><span>CFL dt:</span><span class="rv" id="ro-dt">--</span></div>
+    <div class="ro"><span>g<sub>m</sub>&Psi;<sub>0</sub>&sup2;:</span><span class="rv" id="ro-con">--</span></div>
+    <div class="ro"><span>Field energy:</span><span class="rv" id="ro-E">--</span></div>
+    <div class="ro"><span>|&nabla;&delta;C|<sub>max</sub>:</span><span class="rv" id="ro-gmax">--</span></div>
+
+    <div class="slbl">Equations (V22 Corrected)</div>
+    <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--muted);line-height:1.7;">
+      <div>d&sup2;&Psi;/dt&sup2; = c<sub>s</sub>&sup2;&nabla;&sup2;&Psi; &minus; &lambda;(|&Psi;|&sup2; &minus; &Psi;<sub>0</sub>&sup2;)&Psi; + g<sub>m</sub>&rho;&Psi;</div>
+      <div>V(&Psi;) = (&lambda;/4)(|&Psi;|&sup2; &minus; &Psi;<sub>0</sub>&sup2;)&sup2;</div>
+      <div>Static eq: |&Psi;|&sup2; = &Psi;<sub>0</sub>&sup2; + g<sub>m</sub>&rho;/&lambda;</div>
+      <div>&delta;C = |&Psi;|&sup2; &minus; &Psi;<sub>0</sub>&sup2;</div>
+      <div>a = &minus;c&sup2;&nabla;(&delta;C)</div>
+      <div>h<sub>00</sub> = &minus;2&delta;C</div>
+    </div>
+  </div>
+
+  <div id="viewport">
+    <canvas id="fCan"></canvas>
+    <canvas id="oCan"></canvas>
+    <div id="cbar"></div>
+    <div class="cbl" id="cbl-max"></div>
+    <div class="cbl" id="cbl-min"></div>
+    <div id="cbl-title">C(x)</div>
+  </div>
+
+  <div id="infobar">
+    <span>TRR-G V22</span>
+    <span class="eq">d&sup2;&Psi;/dt&sup2; = c<sub>s</sub>&sup2;&nabla;&sup2;&Psi; &minus; &lambda;(|&Psi;|&sup2;&minus;&Psi;<sub>0</sub>&sup2;)&Psi; + g<sub>m</sub>&rho;&Psi;</span>
+    <span class="eq">Static: |&Psi;|&sup2; = &Psi;<sub>0</sub>&sup2; + g<sub>m</sub>&rho;/&lambda;</span>
+    <span id="info-mode" style="color:var(--accent);">Mode: Coherence C(x)</span>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// TRR-G SUBSTRATE EVALUATOR v2
+// Dynamic field evolution: Klein-Gordon with Mexican hat + matter coupling
+// From V22 (corrected sign) and Paper II Section 14
+//
+// PDE: d^2 Psi/dt^2 = cs^2 * Lap(Psi) - lambda*(Psi^2 - Psi0^2)*Psi + gm*rho*Psi - eta*dPsi/dt
+// Integrator: Velocity Verlet (symplectic)
+// Grid: Periodic NxN
+// ============================================================
+
+const S = {
+  Psi0: 1.0,       // Vacuum amplitude
+  lambda: 1.0,     // Mexican hat self-coupling
+  cs: 10.0,        // Substrate propagation speed (grid units / sim time)
+  gm: 2.0,         // Matter coupling (+gm: V22 corrected sign)
+  nextMass: 3.0,
+  sigma: 4.0,      // Source Gaussian width (grid units)
+  N: 128,          // Grid size
+  subSteps: 10,    // PDE sub-steps per animation frame
+  eta: 0.05,       // Damping (helps field relax to equilibrium)
+  trailLen: 80,
+  brightness: 1.0,
+  showGrad: false,
+  viewMode: 'coherence',
+  engine: 'dynamic',  // 'dynamic' or 'analytic'
+  paused: false,
+  simTime: 0,
+  simSteps: 0,
+};
+
+// --- Field arrays ---
+let N = 128;
+let Psi, dPsi, rho, ddPsi;            // Float64Arrays: field, velocity, density, acceleration
+let gradX, gradY;                      // Gradient of deltaC for particle dynamics
+let sources = [];                  // {gx, gy, mass, sigma} in grid coords
+let particles = [];                // {x, y, vx, vy, trail} in viewport coords
+
+// --- Canvas ---
+let fCan, fCtx, oCan, oCtx;
+let vW = 800, vH = 600;
+const dpr = window.devicePixelRatio || 1;
+
+// --- Clock ---
+const clk = { last: performance.now(), frames: 0, fpsT: 0, fps: 0 };
+
+// ============================================================
+// INIT
+// ============================================================
+function init() {
+  fCan = document.getElementById('fCan');
+  fCtx = fCan.getContext('2d');
+  oCan = document.getElementById('oCan');
+  oCtx = oCan.getContext('2d');
+  resizeViewport();
+  window.addEventListener('resize', resizeViewport);
+  allocField();
+  buildColorbar();
+  setupControls();
+  setupInteraction();
+  requestAnimationFrame(loop);
+}
+
+function resizeViewport() {
+  const vp = document.getElementById('viewport');
+  vW = vp.clientWidth; vH = vp.clientHeight;
+  for (const c of [fCan, oCan]) {
+    c.style.width = vW + 'px';
+    c.style.height = vH + 'px';
+    c.width = vW * dpr;
+    c.height = vH * dpr;
+    c.getContext('2d').setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+}
+
+let ddPsiOld; // pre-allocated buffer for Verlet
+
+function allocField() {
+  N = S.N;
+  const sz = N * N;
+  Psi = new Float64Array(sz);
+  dPsi = new Float64Array(sz);
+  ddPsi = new Float64Array(sz);
+  ddPsiOld = new Float64Array(sz);
+  rho = new Float64Array(sz);
+  gradX = new Float64Array(sz);
+  gradY = new Float64Array(sz);
+  // Initialize to vacuum: Psi = Psi0 everywhere
+  Psi.fill(S.Psi0);
+  dPsi.fill(0);
+  S.simTime = 0;
+  S.simSteps = 0;
+  stampDensity();
+}
+
+// ============================================================
+// DENSITY FIELD
+// Source masses as Gaussian blobs on the grid
+// rho(x) = sum_i M_i / (2*pi*sigma^2) * exp(-|x-xi|^2 / (2*sigma^2))
+// ============================================================
+function stampDensity() {
+  rho.fill(0);
+  for (const src of sources) {
+    const sx = src.gx, sy = src.gy;
+    const s2 = src.sigma * src.sigma;
+    const norm = src.mass / (2 * Math.PI * s2);
+    const range = Math.ceil(src.sigma * 4);
+    for (let dy = -range; dy <= range; dy++) {
+      for (let dx = -range; dx <= range; dx++) {
+        const ix = ((sx + dx) % N + N) % N;
+        const iy = ((sy + dy) % N + N) % N;
+        const r2 = dx * dx + dy * dy;
+        rho[iy * N + ix] += norm * Math.exp(-r2 / (2 * s2));
+      }
+    }
+  }
+}
+
+// ============================================================
+// PDE SOLVER: Velocity Verlet for Klein-Gordon
+//
+// From V22 (corrected action, Paper II Sec 14):
+//   d^2 Psi/dt^2 = cs^2 * Lap(Psi) - lambda*(Psi^2 - Psi0^2)*Psi + gm*rho*Psi - eta*dPsi/dt
+//
+// Mexican hat: V(Psi) = (lambda/4)*(Psi^2 - Psi0^2)^2
+//   dV/dPsi = lambda*(Psi^2 - Psi0^2)*Psi
+//
+// Matter coupling: +gm*rho*Psi (V22 corrected sign: matter enhances amplitude)
+//
+// Static equilibrium: Psi^2 = Psi0^2 + gm*rho/lambda
+// ============================================================
+
+function computeAcceleration() {
+  const cs2 = S.cs * S.cs;
+  const lam = S.lambda;
+  const Psi0sq = S.Psi0 * S.Psi0;
+  const gm = S.gm;
+  const eta = S.eta;
+
+  for (let iy = 0; iy < N; iy++) {
+    const iyp = (iy + 1) % N;
+    const iym = (iy - 1 + N) % N;
+    for (let ix = 0; ix < N; ix++) {
+      const ixp = (ix + 1) % N;
+      const ixm = (ix - 1 + N) % N;
+      const idx = iy * N + ix;
+
+      // Laplacian (5-point stencil, dx = 1 grid unit)
+      const lap = Psi[iy * N + ixp] + Psi[iy * N + ixm]
+                + Psi[iyp * N + ix] + Psi[iym * N + ix]
+                - 4 * Psi[idx];
+
+      const psi = Psi[idx];
+      const psi2 = psi * psi;
+
+      // Mexican hat restoring force: -dV/dPsi = -lambda*(psi^2 - Psi0^2)*psi
+      const mhat = -lam * (psi2 - Psi0sq) * psi;
+
+      // Matter coupling: +gm * rho * psi (V22 corrected sign)
+      const matter = gm * rho[idx] * psi;
+
+      // Damping: -eta * dPsi/dt (dissipates transients, helps reach equilibrium)
+      const damp = -eta * dPsi[idx];
+
+      ddPsi[idx] = cs2 * lap + mhat + matter + damp;
+    }
+  }
+}
+
+function stepPDE(dt) {
+  const sz = N * N;
+
+  // Velocity Verlet step 1: update positions
+  // Psi(t+dt) = Psi(t) + dPsi(t)*dt + 0.5*ddPsi(t)*dt^2
+  for (let i = 0; i < sz; i++) {
+    Psi[i] += dPsi[i] * dt + 0.5 * ddPsi[i] * dt * dt;
+  }
+
+  // Store old acceleration (use pre-allocated buffer)
+  ddPsiOld.set(ddPsi);
+
+  // Compute new acceleration at Psi(t+dt)
+  computeAcceleration();
+
+  // Velocity Verlet step 2: update velocities
+  // dPsi(t+dt) = dPsi(t) + 0.5*(ddPsi_old + ddPsi_new)*dt
+  for (let i = 0; i < sz; i++) {
+    dPsi[i] += 0.5 * (ddPsiOld[i] + ddPsi[i]) * dt;
+  }
+
+  S.simTime += dt;
+  S.simSteps++;
+}
+
+// ============================================================
+// ANALYTIC SOLVER
+// From V22: deltaC(r) = GM/(c^2 * r) for a point mass (3D Green's function)
+// Equilibrium: |Psi|^2 = Psi0^2 + deltaC
+// Uses 3D 1/r potential projected to equatorial slice
+// ============================================================
+// ANALYTIC SOLVER
+// From V22: deltaC(r) = GM/(c^2 * r) for 3D Green's function
+// In sim units: the equilibrium is |Psi|^2 = Psi0^2 + gm*rho/lambda
+// We compute the Gaussian density rho, then set deltaC = gm*rho/lambda
+// and Psi = sqrt(Psi0^2 + deltaC). This is the static equilibrium of
+// the PDE, providing an instant snapshot of what the PDE solver converges to.
+// ============================================================
+function computeAnalytic() {
+  const Psi0 = S.Psi0;
+  const Psi0sq = Psi0 * Psi0;
+  // Use the stamped density field directly: deltaC = gm*rho/lambda
+  // This matches the exact static equilibrium of the Klein-Gordon equation
+  for (let i = 0; i < N * N; i++) {
+    const dc = S.gm * rho[i] / S.lambda;
+    Psi[i] = Math.sqrt(Math.max(0.001, Psi0sq + dc));
+  }
+}
+
+// ============================================================
+// GRADIENT COMPUTATION (for particle dynamics)
+// Compute grad(deltaC) where deltaC = Psi^2 - Psi0^2
+// Returns gradient in units of deltaC per grid cell
+// ============================================================
+function computeGradient() {
+  const Psi0sq = S.Psi0 * S.Psi0;
+  for (let iy = 0; iy < N; iy++) {
+    const iyp = (iy + 1) % N;
+    const iym = (iy - 1 + N) % N;
+    for (let ix = 0; ix < N; ix++) {
+      const ixp = (ix + 1) % N;
+      const ixm = (ix - 1 + N) % N;
+      const idx = iy * N + ix;
+      const dcR = Psi[iy * N + ixp] * Psi[iy * N + ixp] - Psi0sq;
+      const dcL = Psi[iy * N + ixm] * Psi[iy * N + ixm] - Psi0sq;
+      const dcU = Psi[iyp * N + ix] * Psi[iyp * N + ix] - Psi0sq;
+      const dcD = Psi[iym * N + ix] * Psi[iym * N + ix] - Psi0sq;
+      gradX[idx] = (dcR - dcL) * 0.5;
+      gradY[idx] = (dcU - dcD) * 0.5;
+    }
+  }
+}
+
+// ============================================================
+// PARTICLE DYNAMICS
+// From V22: Phi = -c^2 * deltaC, a = -grad(Phi) = +c^2 * grad(deltaC)
+//
+// The numerical gradient is in units of deltaC / grid_cell.
+// To convert to deltaC / viewport_pixel: multiply by (N / viewport_size).
+// Then: a_viewport = c_s^2 * grad_viewport(deltaC) * accelScale
+//
+// accelScale maps sim-unit acceleration to visible px/s^2.
+// ============================================================
+function updateParticles(frameDt) {
+  if (sources.length === 0) return;
+  const c2 = S.cs * S.cs;
+  const gToVx = N / vW;  // grid cells per viewport pixel (x)
+  const gToVy = N / vH;  // grid cells per viewport pixel (y)
+
+  for (const p of particles) {
+    // Map particle position to grid coords
+    const gx = ((p.x / vW * N) % N + N) % N;
+    const gy = ((p.y / vH * N) % N + N) % N;
+
+    // Bilinear interpolation of gradient
+    const ix0 = Math.floor(gx) % N;
+    const iy0 = Math.floor(gy) % N;
+    const ix1 = (ix0 + 1) % N;
+    const iy1 = (iy0 + 1) % N;
+    const fx = gx - Math.floor(gx);
+    const fy = gy - Math.floor(gy);
+
+    const gx00 = gradX[iy0 * N + ix0], gx10 = gradX[iy0 * N + ix1];
+    const gx01 = gradX[iy1 * N + ix0], gx11 = gradX[iy1 * N + ix1];
+    const gy00 = gradY[iy0 * N + ix0], gy10 = gradY[iy0 * N + ix1];
+    const gy01 = gradY[iy1 * N + ix0], gy11 = gradY[iy1 * N + ix1];
+
+    // Gradient in grid units (deltaC per grid cell)
+    const dgx_grid = (1 - fy) * ((1 - fx) * gx00 + fx * gx10) + fy * ((1 - fx) * gx01 + fx * gx11);
+    const dgy_grid = (1 - fy) * ((1 - fx) * gy00 + fx * gy10) + fy * ((1 - fx) * gy01 + fx * gy11);
+
+    // Convert to viewport units: grad_vp = grad_grid * (N / viewport_size)
+    const dgx_vp = dgx_grid * gToVx;
+    const dgy_vp = dgy_grid * gToVy;
+
+    // SIGN CHAIN (verified against V22 derivation):
+    //   Phi = -c^2 * deltaC
+    //   a = -grad(Phi) = +c^2 * grad(deltaC)
+    //   Numerical grad(deltaC) points TOWARD higher deltaC = toward mass
+    //   Therefore +c^2 * grad = attraction. Correct.
+    const accelBoost = 3000; // visual scaling factor
+    let ax = c2 * dgx_vp * accelBoost;
+    let ay = c2 * dgy_vp * accelBoost;
+
+    // Clamp to prevent numerical blowup near sources
+    const aMag = Math.sqrt(ax * ax + ay * ay);
+    const aMax = 3000;
+    if (aMag > aMax) {
+      ax = ax / aMag * aMax;
+      ay = ay / aMag * aMax;
+    }
+
+    p.vx += ax * frameDt;
+    p.vy += ay * frameDt;
+    p.x += p.vx * frameDt;
+    p.y += p.vy * frameDt;
+
+    // Periodic wrap
+    p.x = ((p.x % vW) + vW) % vW;
+    p.y = ((p.y % vH) + vH) % vH;
+
+    p.trail.push({ x: p.x, y: p.y });
+    if (p.trail.length > S.trailLen) p.trail.shift();
+  }
+}
+
+// ============================================================
+// RENDERING
+// ============================================================
+function render() {
+  const Psi0sq = S.Psi0 * S.Psi0;
+
+  // --- Field heatmap ---
+  const off = document.createElement('canvas');
+  off.width = N; off.height = N;
+  const octx = off.getContext('2d');
+  const img = octx.createImageData(N, N);
+  const d = img.data;
+
+  let vMin = Infinity, vMax = -Infinity;
+  let dcMax = -Infinity, cMax = -Infinity, pMax = -Infinity;
+
+  // First pass: find range
+  for (let i = 0; i < N * N; i++) {
+    const psi = Psi[i];
+    const psi2 = psi * psi;
+    const dc = psi2 - Psi0sq;
+    if (dc > dcMax) dcMax = dc;
+    if (psi2 > cMax) cMax = psi2;
+    if (psi > pMax) pMax = psi;
+
+    let v;
+    switch (S.viewMode) {
+      case 'coherence': v = psi2; break;
+      case 'deltaC': v = dc; break;
+      case 'metric': v = -2 * dc; break; // h_00 = -2*deltaC
+      case 'gradient': v = Math.sqrt(gradX[i] * gradX[i] + gradY[i] * gradY[i]); break;
+    }
+    if (v < vMin) vMin = v;
+    if (v > vMax) vMax = v;
+  }
+
+  const range = vMax - vMin || 1;
+  const br = S.brightness;
+
+  for (let i = 0; i < N * N; i++) {
+    const psi = Psi[i];
+    const psi2 = psi * psi;
+    const dc = psi2 - Psi0sq;
+    let v;
+    switch (S.viewMode) {
+      case 'coherence': v = psi2; break;
+      case 'deltaC': v = dc; break;
+      case 'metric': v = -2 * dc; break; // h_00 = -2*deltaC
+      case 'gradient': v = Math.sqrt(gradX[i] * gradX[i] + gradY[i] * gradY[i]); break;
+    }
+    let t = (v - vMin) / range;
+    t = Math.pow(Math.max(0, Math.min(1, t)), 1 / br);
+
+    let r, g, b;
+    switch (S.viewMode) {
+      case 'coherence':
+        r = lerp3(6, 40, 230, t);
+        g = lerp3(12, 180, 245, t);
+        b = lerp3(28, 200, 255, t);
+        break;
+      case 'deltaC':
+        r = lerp3(4, 60, 247, t);
+        g = lerp3(6, 190, 215, t);
+        b = lerp3(10, 200, 148, t);
+        break;
+      case 'metric':
+        // h_00 = +2*deltaC: positive near mass (deeper gravitational well)
+        // Blue (flat) -> teal -> gold (deep well)
+        r = lerp3(20, 60, 247, t);
+        g = lerp3(30, 180, 215, t);
+        b = lerp3(100, 200, 148, t);
+        break;
+      case 'gradient':
+        r = lerp3(4, 220, 255, t);
+        g = lerp3(4, 120, 240, t);
+        b = lerp3(8, 30, 200, t);
+        break;
+    }
+    const pi = i * 4;
+    d[pi] = r; d[pi + 1] = g; d[pi + 2] = b; d[pi + 3] = 255;
+  }
+
+  octx.putImageData(img, 0, 0);
+  fCtx.imageSmoothingEnabled = true;
+  fCtx.imageSmoothingQuality = 'high';
+  fCtx.drawImage(off, 0, 0, vW, vH);
+
+  // Colorbar labels
+  document.getElementById('cbl-max').textContent = vMax.toFixed(3);
+  document.getElementById('cbl-min').textContent = vMin.toFixed(3);
+
+  // --- Readouts ---
+  document.getElementById('ro-src').textContent = sources.length;
+  document.getElementById('ro-pts').textContent = particles.length;
+  document.getElementById('ro-t').textContent = S.simTime.toFixed(2);
+  document.getElementById('ro-steps').textContent = S.simSteps;
+  document.getElementById('ro-dcmx').textContent = dcMax.toFixed(4);
+  document.getElementById('ro-cmx').textContent = cMax.toFixed(4);
+  document.getElementById('ro-pmx').textContent = pMax.toFixed(4);
+
+  // Predicted equilibrium at source center
+  if (sources.length > 0) {
+    const maxRho = Math.max(...Array.from(rho));
+    const pred = Psi0sq + S.gm * maxRho / S.lambda;
+    document.getElementById('ro-pred').textContent = pred.toFixed(4);
+  } else {
+    document.getElementById('ro-pred').textContent = Psi0sq.toFixed(4);
+  }
+
+  const cflDt = 0.4 / (S.cs * Math.SQRT2);
+  document.getElementById('ro-dt').textContent = cflDt.toFixed(5);
+  document.getElementById('ro-con').textContent = (S.gm * Psi0sq).toFixed(3);
+
+  // Field energy: sum of (kinetic + gradient + potential)
+  let E = 0;
+  for (let i = 0; i < N * N; i++) {
+    const psi = Psi[i];
+    const kin = 0.5 * dPsi[i] * dPsi[i];
+    const pot = 0.25 * S.lambda * Math.pow(psi * psi - Psi0sq, 2);
+    E += kin + pot;
+  }
+  document.getElementById('ro-E').textContent = E.toFixed(2);
+
+  // Gradient magnitude max
+  let gMax = 0;
+  for (let i = 0; i < N * N; i++) {
+    const gm = gradX[i] * gradX[i] + gradY[i] * gradY[i];
+    if (gm > gMax) gMax = gm;
+  }
+  document.getElementById('ro-gmax').textContent = Math.sqrt(gMax).toExponential(3);
+
+  // --- Overlay ---
+  oCtx.clearRect(0, 0, vW, vH);
+
+  // Grid lines
+  oCtx.strokeStyle = 'rgba(78, 205, 196, 0.03)';
+  oCtx.lineWidth = 0.5;
+  const gs = vW / 8;
+  for (let x = gs; x < vW; x += gs) {
+    oCtx.beginPath(); oCtx.moveTo(x, 0); oCtx.lineTo(x, vH); oCtx.stroke();
+  }
+  for (let y = gs; y < vH; y += gs) {
+    oCtx.beginPath(); oCtx.moveTo(0, y); oCtx.lineTo(vW, y); oCtx.stroke();
+  }
+
+  // Gradient vectors
+  if (S.showGrad && sources.length > 0) {
+    const step = Math.max(24, vW / 16);
+    oCtx.strokeStyle = 'rgba(255, 200, 100, 0.35)';
+    oCtx.lineWidth = 1;
+    for (let y = step / 2; y < vH; y += step) {
+      for (let x = step / 2; x < vW; x += step) {
+        const gi = Math.floor(x / vW * N);
+        const gj = Math.floor(y / vH * N);
+        const idx = gj * N + gi;
+        const gxv = gradX[idx], gyv = gradY[idx];
+        const mag = Math.sqrt(gxv * gxv + gyv * gyv);
+        if (mag < 1e-8) continue;
+        const scale = Math.min(step * 0.7, mag * step * 30);
+        // a = +c^2 * grad(deltaC): acceleration is IN the direction of gradient
+        // gradient points toward higher deltaC = toward mass = attractive
+        const nx = gxv / mag * scale;
+        const ny = gyv / mag * scale;
+        oCtx.beginPath(); oCtx.moveTo(x, y); oCtx.lineTo(x + nx, y + ny); oCtx.stroke();
+        const a = Math.atan2(ny, nx);
+        oCtx.beginPath();
+        oCtx.moveTo(x + nx, y + ny);
+        oCtx.lineTo(x + nx - 4 * Math.cos(a - 0.4), y + ny - 4 * Math.sin(a - 0.4));
+        oCtx.moveTo(x + nx, y + ny);
+        oCtx.lineTo(x + nx - 4 * Math.cos(a + 0.4), y + ny - 4 * Math.sin(a + 0.4));
+        oCtx.stroke();
+      }
+    }
+  }
+
+  // Source markers
+  for (const src of sources) {
+    const px = src.gx / N * vW;
+    const py = src.gy / N * vH;
+    const r = Math.max(4, Math.sqrt(src.mass) * 2.5);
+    const grad = oCtx.createRadialGradient(px, py, 0, px, py, r * 3);
+    grad.addColorStop(0, 'rgba(255,255,255,0.3)');
+    grad.addColorStop(0.5, 'rgba(78,205,196,0.1)');
+    grad.addColorStop(1, 'rgba(78,205,196,0)');
+    oCtx.fillStyle = grad;
+    oCtx.beginPath(); oCtx.arc(px, py, r * 3, 0, Math.PI * 2); oCtx.fill();
+    oCtx.fillStyle = '#fff';
+    oCtx.beginPath(); oCtx.arc(px, py, r, 0, Math.PI * 2); oCtx.fill();
+    oCtx.fillStyle = 'rgba(255,255,255,0.6)';
+    oCtx.font = '10px JetBrains Mono';
+    oCtx.fillText('M=' + src.mass.toFixed(1), px + r + 4, py + 3);
+  }
+
+  // Test particles
+  for (const p of particles) {
+    if (p.trail.length > 1) {
+      oCtx.beginPath();
+      oCtx.moveTo(p.trail[0].x, p.trail[0].y);
+      for (let i = 1; i < p.trail.length; i++) {
+        const dx = Math.abs(p.trail[i].x - p.trail[i - 1].x);
+        const dy = Math.abs(p.trail[i].y - p.trail[i - 1].y);
+        if (dx > vW / 2 || dy > vH / 2) {
+          oCtx.moveTo(p.trail[i].x, p.trail[i].y);
+        } else {
+          oCtx.lineTo(p.trail[i].x, p.trail[i].y);
+        }
+      }
+      oCtx.strokeStyle = 'rgba(255, 107, 107, 0.5)';
+      oCtx.lineWidth = 1.2;
+      oCtx.stroke();
+    }
+    oCtx.fillStyle = '#ff6b6b';
+    oCtx.beginPath(); oCtx.arc(p.x, p.y, 3, 0, Math.PI * 2); oCtx.fill();
+    oCtx.fillStyle = '#fff';
+    oCtx.beginPath(); oCtx.arc(p.x, p.y, 1.2, 0, Math.PI * 2); oCtx.fill();
+  }
+}
+
+function lerp3(a, b, c, t) {
+  t = Math.max(0, Math.min(1, t));
+  if (t < 0.5) { const s = t * 2; return Math.round(a + (b - a) * s); }
+  const s = (t - 0.5) * 2; return Math.round(b + (c - b) * s);
+}
+
+// Colorbar
+let cbarCan;
+function buildColorbar() {
+  const el = document.getElementById('cbar');
+  cbarCan = document.createElement('canvas');
+  cbarCan.width = 18; cbarCan.height = 160;
+  cbarCan.style.width = '18px'; cbarCan.style.height = '160px';
+  el.appendChild(cbarCan);
+  updateColorbar();
+}
+function updateColorbar() {
+  if (!cbarCan) return;
+  const ctx = cbarCan.getContext('2d');
+  const h = 160;
+  const img = ctx.createImageData(18, h);
+  for (let y = 0; y < h; y++) {
+    const t = 1 - y / h;
+    let r, g, b;
+    switch (S.viewMode) {
+      case 'coherence': r = lerp3(6,40,230,t); g = lerp3(12,180,245,t); b = lerp3(28,200,255,t); break;
+      case 'deltaC': r = lerp3(4,60,247,t); g = lerp3(6,190,215,t); b = lerp3(10,200,148,t); break;
+      case 'metric': r = lerp3(20,60,247,t); g = lerp3(30,180,215,t); b = lerp3(100,200,148,t); break;
+      case 'gradient': r = lerp3(4,220,255,t); g = lerp3(4,120,240,t); b = lerp3(8,30,200,t); break;
+    }
+    for (let x = 0; x < 18; x++) {
+      const i = (y * 18 + x) * 4;
+      img.data[i] = r; img.data[i+1] = g; img.data[i+2] = b; img.data[i+3] = 255;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+  const titles = { coherence:'C(x)', deltaC:'dC', gradient:'|nablaC|', metric:'h00' };
+  document.getElementById('cbl-title').textContent = titles[S.viewMode] || 'C(x)';
+}
+
+// ============================================================
+// MAIN LOOP
+// ============================================================
+function loop(now) {
+  const wallDt = Math.min((now - clk.last) / 1000, 0.05);
+  clk.last = now;
+
+  // FPS
+  clk.frames++;
+  if (now - clk.fpsT > 500) {
+    clk.fps = Math.round(clk.frames / ((now - clk.fpsT) / 1000));
+    clk.fpsT = now; clk.frames = 0;
+    document.getElementById('fps-display').textContent = clk.fps + ' FPS';
+  }
+
+  if (!S.paused) {
+    if (S.engine === 'dynamic') {
+      // CFL condition: dt < dx/(cs * sqrt(2)) for 2D wave equation
+      // dx = 1 (grid unit), so dt < 1/(cs*sqrt(2))
+      const cflDt = 0.4 / (S.cs * Math.SQRT2);
+      // Compute initial acceleration if needed
+      if (S.simSteps === 0) computeAcceleration();
+      for (let i = 0; i < S.subSteps; i++) {
+        stepPDE(cflDt);
+      }
+    } else {
+      computeAnalytic();
+    }
+
+    computeGradient();
+    updateParticles(wallDt * 2.0);
+  }
+
+  render();
+  requestAnimationFrame(loop);
+}
+
+// ============================================================
+// CONTROLS
+// ============================================================
+function setupControls() {
+  const bind = (id, lbl, key, fmt, cb) => {
+    const el = document.getElementById(id);
+    el.addEventListener('input', () => {
+      S[key] = parseFloat(el.value);
+      document.getElementById(lbl).textContent = fmt(S[key]);
+      if (cb) cb();
+    });
+  };
+
+  bind('sl-psi0', 'lbl-psi0', 'Psi0', v => v.toFixed(2), () => {
+    // When Psi0 changes, re-initialize vacuum regions
+    // (only areas far from sources should change)
+  });
+  bind('sl-lam', 'lbl-lam', 'lambda', v => v.toFixed(2));
+  bind('sl-cs', 'lbl-cs', 'cs', v => v.toFixed(1));
+  bind('sl-gm', 'lbl-gm', 'gm', v => v.toFixed(2));
+  bind('sl-mass', 'lbl-mass', 'nextMass', v => v.toFixed(1));
+  bind('sl-sig', 'lbl-sig', 'sigma', v => v.toFixed(1));
+  bind('sl-sub', 'lbl-sub', 'subSteps', v => v.toFixed(0));
+  bind('sl-eta', 'lbl-eta', 'eta', v => v.toFixed(2));
+  bind('sl-trail', 'lbl-trail', 'trailLen', v => v.toFixed(0));
+  bind('sl-br', 'lbl-br', 'brightness', v => v.toFixed(1));
+
+  document.getElementById('sl-grd').addEventListener('input', function() {
+    S.showGrad = parseInt(this.value) === 1;
+    document.getElementById('lbl-grd').textContent = S.showGrad ? 'On' : 'Off';
+  });
+
+  // Grid size
+  document.getElementById('sl-N').addEventListener('input', function() {
+    S.N = parseInt(this.value);
+    document.getElementById('lbl-N').textContent = S.N;
+    // Re-map sources to new grid
+    const oldN = N;
+    const scale = S.N / oldN;
+    for (const s of sources) {
+      s.gx *= scale;
+      s.gy *= scale;
+    }
+    allocField();
+    stampDensity();
+  });
+
+  // View tabs
+  document.querySelectorAll('.vt').forEach(t => {
+    t.addEventListener('click', () => {
+      document.querySelectorAll('.vt').forEach(x => x.classList.remove('act'));
+      t.classList.add('act');
+      S.viewMode = t.dataset.mode;
+      updateColorbar();
+      const labels = { coherence:'Mode: Coherence C(x)', deltaC:'Mode: Perturbation dC',
+        gradient:'Mode: Gradient |nabla dC|', metric:'Mode: Metric h00 = -2dC' };
+      document.getElementById('info-mode').textContent = labels[S.viewMode];
+    });
+  });
+
+  // Engine toggle
+  document.querySelectorAll('.eng-btn').forEach(b => {
+    b.addEventListener('click', () => {
+      document.querySelectorAll('.eng-btn').forEach(x => x.classList.remove('act'));
+      b.classList.add('act');
+      S.engine = b.dataset.engine;
+      document.getElementById('ro-eng').textContent = S.engine === 'dynamic' ? 'PDE Solver' : 'Analytic';
+      if (S.engine === 'dynamic') {
+        resetField();
+      }
+    });
+  });
+
+  // Keyboard
+  document.addEventListener('keydown', e => {
+    if (e.code === 'Space') { e.preventDefault(); togglePause(); }
+  });
+}
+
+function setupInteraction() {
+  const vp = document.getElementById('viewport');
+  vp.addEventListener('contextmenu', e => e.preventDefault());
+
+  vp.addEventListener('mousedown', e => {
+    const rect = vp.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const gx = x / vW * N;
+    const gy = y / vH * N;
+
+    if (e.button === 0) {
+      sources.push({ gx, gy, mass: S.nextMass, sigma: S.sigma });
+      stampDensity();
+      // In analytic mode, immediately compute the field so gradient is ready
+      if (S.engine === 'analytic') computeAnalytic();
+    } else if (e.button === 2) {
+      // Test particle with tangential velocity for orbit
+      // Compute gradient at this point to estimate orbital velocity
+      computeGradient();
+      const gxp = ((x / vW * N) % N + N) % N;
+      const gyp = ((y / vH * N) % N + N) % N;
+      const ix = Math.floor(gxp) % N;
+      const iy = Math.floor(gyp) % N;
+      const idx = iy * N + ix;
+      const gmag = Math.sqrt(gradX[idx] * gradX[idx] + gradY[idx] * gradY[idx]);
+      // a = c2 * gmag * (N/vW) * accelBoost; v_circ = sqrt(a * r)
+      // Estimate r as distance to nearest source
+      let minR = vW;
+      let nearSrc = null;
+      for (const s of sources) {
+        const d = Math.sqrt((x - s.gx / N * vW) ** 2 + (y - s.gy / N * vH) ** 2);
+        if (d < minR) { minR = d; nearSrc = s; }
+      }
+      const aEst = S.cs * S.cs * gmag * (N / vW) * 3000;
+      const vorb = Math.sqrt(Math.max(1, aEst * Math.max(minR, 20)));
+      // Cap orbital velocity to prevent flyaway
+      const vCapped = Math.min(vorb, 200);
+      let vx = 0, vy = 0;
+      if (nearSrc) {
+        const angle = Math.atan2(y - nearSrc.gy / N * vH, x - nearSrc.gx / N * vW);
+        vx = -vCapped * Math.sin(angle);
+        vy = vCapped * Math.cos(angle);
+      }
+      particles.push({ x, y, vx, vy, trail: [] });
+    }
+  });
+
+  vp.addEventListener('wheel', e => {
+    e.preventDefault();
+    let v = S.nextMass + (e.deltaY > 0 ? -0.5 : 0.5);
+    v = Math.max(0.5, Math.min(20, v));
+    S.nextMass = v;
+    document.getElementById('sl-mass').value = v;
+    document.getElementById('lbl-mass').textContent = v.toFixed(1);
+  }, { passive: false });
+}
+
+// ============================================================
+// ACTIONS
+// ============================================================
+function togglePause() {
+  S.paused = !S.paused;
+  document.getElementById('btn-pause').textContent = S.paused ? 'Resume' : 'Pause';
+  document.getElementById('btn-pause').classList.toggle('act', S.paused);
+  document.getElementById('status-dot').classList.toggle('paused', S.paused);
+}
+
+function resetField() {
+  Psi.fill(S.Psi0);
+  dPsi.fill(0);
+  ddPsi.fill(0);
+  S.simTime = 0;
+  S.simSteps = 0;
+  stampDensity();
+  computeAcceleration();
+}
+
+function clearAll() {
+  sources = [];
+  particles = [];
+  rho.fill(0);
+  resetField();
+}
+
+function clearParticles() {
+  particles = [];
+}
+
+// ============================================================
+// PRESETS
+// ============================================================
+
+// Helper: add test particle at viewport (px, py) with tangential orbit velocity
+function addOrbiter(px, py) {
+  // Ensure field and gradient are computed
+  if (S.engine === 'analytic') computeAnalytic();
+  computeGradient();
+
+  const gxp = ((px / vW * N) % N + N) % N;
+  const gyp = ((py / vH * N) % N + N) % N;
+  const ix = Math.floor(gxp) % N;
+  const iy = Math.floor(gyp) % N;
+  const idx = iy * N + ix;
+  const gmag = Math.sqrt(gradX[idx] * gradX[idx] + gradY[idx] * gradY[idx]);
+
+  // Find nearest source for tangent direction
+  let minR = vW, nearSrc = null;
+  for (const s of sources) {
+    const d = Math.sqrt((px - s.gx / N * vW) ** 2 + (py - s.gy / N * vH) ** 2);
+    if (d < minR) { minR = d; nearSrc = s; }
+  }
+
+  // Estimate acceleration and circular orbit velocity
+  // a = c2 * gmag * (N/vW) * accelBoost; v_circ = sqrt(a * r)
+  const aEst = S.cs * S.cs * gmag * (N / vW) * 3000;
+  const vorb = Math.min(Math.sqrt(Math.max(1, aEst * Math.max(minR, 15))), 250);
+
+  let vx = 0, vy = 0;
+  if (nearSrc) {
+    const angle = Math.atan2(py - nearSrc.gy / N * vH, px - nearSrc.gx / N * vW);
+    vx = -vorb * Math.sin(angle);
+    vy = vorb * Math.cos(angle);
+  }
+  particles.push({ x: px, y: py, vx, vy, trail: [] });
+}
+
+function loadPreset(name) {
+  clearAll();
+  const cx = N / 2, cy = N / 2;
+  const vcx = vW / 2, vcy = vH / 2;
+
+  if (name === 'single') {
+    sources.push({ gx: cx, gy: cy, mass: 5, sigma: S.sigma });
+    stampDensity();
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2;
+      const r = vW * 0.2;
+      addOrbiter(vcx + r * Math.cos(a), vcy + r * Math.sin(a));
+    }
+
+  } else if (name === 'binary') {
+    const sep = N * 0.15;
+    sources.push({ gx: cx - sep, gy: cy, mass: 4, sigma: S.sigma });
+    sources.push({ gx: cx + sep, gy: cy, mass: 4, sigma: S.sigma });
+    stampDensity();
+    for (let i = 0; i < 10; i++) {
+      const a = (i / 10) * Math.PI * 2;
+      const r = vW * 0.28;
+      addOrbiter(vcx + r * Math.cos(a), vcy + r * Math.sin(a));
+    }
+
+  } else if (name === 'triple') {
+    const r = N * 0.12;
+    for (let i = 0; i < 3; i++) {
+      const a = (i / 3) * Math.PI * 2 - Math.PI / 2;
+      sources.push({ gx: cx + r * Math.cos(a), gy: cy + r * Math.sin(a), mass: 3, sigma: S.sigma });
+    }
+    stampDensity();
+    for (let i = 0; i < 12; i++) {
+      const a = (i / 12) * Math.PI * 2;
+      const pr = vW * 0.3;
+      addOrbiter(vcx + pr * Math.cos(a), vcy + pr * Math.sin(a));
+    }
+
+  } else if (name === 'ring') {
+    sources.push({ gx: cx, gy: cy, mass: 8, sigma: S.sigma });
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2;
+      sources.push({ gx: cx + N * 0.15 * Math.cos(a), gy: cy + N * 0.15 * Math.sin(a), mass: 1.5, sigma: S.sigma });
+    }
+    stampDensity();
+    for (let i = 0; i < 16; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const pr = vW * (0.1 + Math.random() * 0.3);
+      addOrbiter(vcx + pr * Math.cos(a), vcy + pr * Math.sin(a));
+    }
+  }
+
+  if (S.engine === 'dynamic') {
+    resetField();
+    stampDensity();
+  }
+}
+
+// ============================================================
+window.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

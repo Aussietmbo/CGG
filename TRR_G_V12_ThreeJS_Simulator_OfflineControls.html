@@ -1,0 +1,731 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>TRR-G V12 Visual Simulator (Three.js, No External Controls)</title>
+  <style>
+    html, body { height: 100%; margin: 0; overflow: hidden; background: #0b0e14; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
+    #app { position: fixed; inset: 0; }
+    #overlayTopLeft {
+      position: fixed; top: 12px; left: 12px;
+      pointer-events: none;
+      color: rgba(255,255,255,0.75);
+      font-size: 12px;
+      padding: 8px 10px;
+      border-radius: 10px;
+      background: rgba(10,14,20,0.55);
+      border: 1px solid rgba(255,255,255,0.08);
+      backdrop-filter: blur(10px);
+    }
+    .hud {
+      position: fixed; left: 12px; bottom: 12px; right: 12px;
+      display: flex; gap: 12px; align-items: flex-end; pointer-events: none;
+    }
+    .panel {
+      pointer-events: auto;
+      background: rgba(10, 14, 20, 0.78);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px;
+      padding: 10px 12px;
+      color: rgba(255,255,255,0.88);
+      backdrop-filter: blur(10px);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+    }
+    .panel h1 { font-size: 14px; margin: 0 0 8px 0; letter-spacing: 0.2px; }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    .badge {
+      display:inline-flex; align-items:center; gap:8px;
+      font-size: 12px; padding: 6px 8px; border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.10);
+      background: rgba(255,255,255,0.04);
+      white-space: nowrap;
+    }
+    .dot { width: 8px; height: 8px; border-radius: 999px; background: #7dd3fc; box-shadow: 0 0 14px rgba(125,211,252,0.35); }
+    .muted { color: rgba(255,255,255,0.62); }
+    #controls {
+      position: fixed;
+      top: 12px; right: 12px;
+      width: 320px;
+      max-height: calc(100vh - 24px);
+      overflow: auto;
+      pointer-events: auto;
+    }
+    .ctrlGroup { margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.08); }
+    .ctrlRow { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; margin: 8px 0; }
+    .ctrlRow label { font-size: 12px; color: rgba(255,255,255,0.78); }
+    .ctrlRow output { font-size: 12px; color: rgba(255,255,255,0.62); min-width: 64px; text-align: right; }
+    input[type="range"] { width: 100%; }
+    select, button {
+      width: 100%;
+      padding: 8px 10px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.10);
+      background: rgba(255,255,255,0.04);
+      color: rgba(255,255,255,0.86);
+      outline: none;
+    }
+    button { cursor: pointer; }
+    button:hover { background: rgba(255,255,255,0.06); }
+    #errorBox {
+      position: fixed; inset: 0;
+      display: none;
+      align-items: center; justify-content: center;
+      padding: 24px;
+      background: radial-gradient(circle at 30% 20%, rgba(125,211,252,0.08), transparent 40%),
+                  radial-gradient(circle at 70% 70%, rgba(255,255,255,0.05), transparent 45%),
+                  #0b0e14;
+      color: rgba(255,255,255,0.92);
+    }
+    #errorBox .card {
+      max-width: 760px;
+      border-radius: 16px;
+      border: 1px solid rgba(255,255,255,0.10);
+      background: rgba(10, 14, 20, 0.78);
+      padding: 16px 18px;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+    }
+    #errorBox h2 { margin: 0 0 8px 0; font-size: 16px; }
+    #errorBox p { margin: 8px 0; color: rgba(255,255,255,0.78); line-height: 1.35; }
+    #errorBox code { background: rgba(255,255,255,0.06); padding: 2px 6px; border-radius: 8px; }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+
+  <div id="overlayTopLeft">
+    Drag: rotate · Wheel: zoom · Right-drag: pan
+  </div>
+
+  <div id="controls" class="panel">
+    <h1>Controls</h1>
+    <div class="ctrlRow">
+      <label for="preset">Preset</label>
+      <output></output>
+    </div>
+    <select id="preset">
+      <option>Pretty (Default)</option>
+      <option>Minimal (Clean)</option>
+      <option>Sharper Gradient</option>
+      <option>More Honest (1/r)</option>
+    </select>
+
+    <div class="ctrlGroup">
+      <div class="row">
+        <span class="badge"><span class="dot"></span><span><b>C</b> = C<sub>0</sub> + δC, with ∇²C<sub>0</sub> = 0</span></span>
+      </div>
+      <div class="row" style="margin-top:8px;">
+        <span class="badge"><span class="muted">Derived sourcing:</span> ∇²(δC) = −κρ</span>
+        <span class="badge"><span class="muted">Clock bound:</span> ε &lt; 1.49×10⁻⁶ (3σ)</span>
+      </div>
+    </div>
+
+    <div class="ctrlGroup">
+      <div class="ctrlRow">
+        <label><input id="showField" type="checkbox" checked /> Show shells (δC)</label>
+        <output></output>
+      </div>
+      <div class="ctrlRow">
+        <label for="shellCount">Shell count</label>
+        <output id="shellCountOut"></output>
+        <input id="shellCount" type="range" min="6" max="36" step="1" value="18" />
+      </div>
+      <div class="ctrlRow">
+        <label for="fieldRadius">Field radius</label>
+        <output id="fieldRadiusOut"></output>
+        <input id="fieldRadius" type="range" min="2.5" max="9" step="0.1" value="5" />
+      </div>
+      <div class="ctrlRow">
+        <label for="fieldOpacity">Opacity</label>
+        <output id="fieldOpacityOut"></output>
+        <input id="fieldOpacity" type="range" min="0.05" max="0.45" step="0.01" value="0.22" />
+      </div>
+      <div class="ctrlRow">
+        <label for="edgeGlow">Edge glow</label>
+        <output id="edgeGlowOut"></output>
+        <input id="edgeGlow" type="range" min="0.6" max="1.8" step="0.01" value="1.10" />
+      </div>
+      <div class="ctrlRow">
+        <label for="glowSharp">Glow sharpness</label>
+        <output id="glowSharpOut"></output>
+        <input id="glowSharp" type="range" min="1.2" max="4.0" step="0.05" value="2.2" />
+      </div>
+    </div>
+
+    <div class="ctrlGroup">
+      <div class="ctrlRow">
+        <label for="deltaStrength">δC strength</label>
+        <output id="deltaStrengthOut"></output>
+        <input id="deltaStrength" type="range" min="0.2" max="2.5" step="0.01" value="1.0" />
+      </div>
+      <div class="ctrlRow">
+        <label for="falloffPower">Falloff power</label>
+        <output id="falloffPowerOut"></output>
+        <input id="falloffPower" type="range" min="0.6" max="2.2" step="0.05" value="1.0" />
+      </div>
+      <div class="ctrlRow">
+        <label for="softening">Softening</label>
+        <output id="softeningOut"></output>
+        <input id="softening" type="range" min="0" max="1" step="0.01" value="0.35" />
+      </div>
+      <div class="ctrlRow">
+        <label for="surfaceWidth">Surface width</label>
+        <output id="surfaceWidthOut"></output>
+        <input id="surfaceWidth" type="range" min="0.05" max="0.6" step="0.01" value="0.20" />
+      </div>
+    </div>
+
+    <div class="ctrlGroup">
+      <div class="ctrlRow">
+        <label><input id="showArrows" type="checkbox" checked /> Show inward ∇C arrows</label>
+        <output></output>
+      </div>
+      <div class="ctrlRow">
+        <label for="arrowCount">Arrow count</label>
+        <output id="arrowCountOut"></output>
+        <input id="arrowCount" type="range" min="6" max="60" step="1" value="22" />
+      </div>
+      <div class="ctrlRow">
+        <label for="arrowRadius">Arrow radius</label>
+        <output id="arrowRadiusOut"></output>
+        <input id="arrowRadius" type="range" min="1.6" max="4.2" step="0.05" value="2.45" />
+      </div>
+    </div>
+
+    <div class="ctrlGroup">
+      <button id="resetBtn">Reset</button>
+    </div>
+  </div>
+
+  <div class="hud">
+    <div class="panel" style="max-width: 760px;">
+      <h1>TRR-G V12 Visual Simulator</h1>
+      <div class="row">
+        <span class="badge"><span class="dot"></span><span><b>C</b> = C<sub>0</sub> + δC, with ∇²C<sub>0</sub> = 0</span></span>
+        <span class="badge"><span class="muted">Derived sourcing:</span> ∇²(δC) = −κρ</span>
+        <span class="badge"><span class="muted">Clock bound:</span> ε &lt; 1.49×10⁻⁶ (3σ)</span>
+      </div>
+      <div class="row" style="margin-top:8px;">
+        <span class="muted">This is a visual intuition tool. It’s not doing a full Poisson PDE solve yet.</span>
+      </div>
+    </div>
+  </div>
+
+  <div id="errorBox">
+    <div class="card">
+      <h2>Nothing rendered because Three.js didn’t load</h2>
+      <p>This file uses <code>three.min.js</code>. If your network blocks CDNs or you’re offline, the scene will be blank.</p>
+      <p><b>Fix options:</b></p>
+      <p>1) Open this file while connected to the internet, or allow access to <code>unpkg.com</code>.</p>
+      <p>2) For offline use, put a local copy of <code>three.min.js</code> next to this HTML file and change the script tag to point to it.</p>
+      <p style="margin-top:10px;"><span class="muted">Details:</span> <span id="errorDetails"></span></p>
+    </div>
+  </div>
+
+  <!-- Three.js (CDN). If your environment blocks CDNs, the page will show an error overlay. -->
+  <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
+
+  <script>
+  (function() {
+    const errorBox = document.getElementById('errorBox');
+    const errorDetails = document.getElementById('errorDetails');
+    function fail(msg) {
+      errorDetails.textContent = msg || "Unknown load failure";
+      errorBox.style.display = "flex";
+    }
+
+    // If CDN blocked/offline, THREE won't exist, but our code still runs and shows this overlay.
+    if (!window.THREE) {
+      return fail("window.THREE is undefined (three.min.js failed to load).");
+    }
+
+    // ---------- Small custom orbit controls (no OrbitControls dependency) ----------
+    function makeOrbitControls(camera, domElement) {
+      const state = {
+        target: new THREE.Vector3(0,0,0),
+        radius: 10.2,
+        theta: Math.PI * 0.75,  // around Y
+        phi: Math.PI * 0.33,    // down from +Y
+        isDragging: false,
+        isPanning: false,
+        lastX: 0,
+        lastY: 0,
+        panSpeed: 0.002,
+        rotateSpeed: 0.005,
+        zoomSpeed: 0.0016
+      };
+
+      function clampPhi() {
+        const eps = 0.02;
+        state.phi = Math.max(eps, Math.min(Math.PI - eps, state.phi));
+      }
+
+      function updateCamera() {
+        clampPhi();
+        const x = state.radius * Math.sin(state.phi) * Math.cos(state.theta);
+        const y = state.radius * Math.cos(state.phi);
+        const z = state.radius * Math.sin(state.phi) * Math.sin(state.theta);
+        camera.position.set(state.target.x + x, state.target.y + y, state.target.z + z);
+        camera.lookAt(state.target);
+      }
+
+      function pan(dx, dy) {
+        // Pan in camera plane
+        const dir = new THREE.Vector3();
+        camera.getWorldDirection(dir);
+        const right = new THREE.Vector3().crossVectors(dir, camera.up).normalize();
+        const up = camera.up.clone().normalize();
+
+        const scale = state.radius * 0.35;
+        state.target.add(right.multiplyScalar(-dx * state.panSpeed * scale));
+        state.target.add(up.multiplyScalar(dy * state.panSpeed * scale));
+      }
+
+      domElement.addEventListener('contextmenu', (e) => e.preventDefault());
+
+      domElement.addEventListener('pointerdown', (e) => {
+        state.lastX = e.clientX;
+        state.lastY = e.clientY;
+        state.isDragging = (e.button === 0);
+        state.isPanning = (e.button === 2);
+        domElement.setPointerCapture(e.pointerId);
+      });
+
+      domElement.addEventListener('pointermove', (e) => {
+        const dx = e.clientX - state.lastX;
+        const dy = e.clientY - state.lastY;
+        state.lastX = e.clientX;
+        state.lastY = e.clientY;
+
+        if (state.isDragging) {
+          state.theta -= dx * state.rotateSpeed;
+          state.phi   -= dy * state.rotateSpeed;
+        } else if (state.isPanning) {
+          pan(dx, dy);
+        }
+      });
+
+      domElement.addEventListener('pointerup', (e) => {
+        state.isDragging = false;
+        state.isPanning = false;
+        domElement.releasePointerCapture(e.pointerId);
+      });
+
+      domElement.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const d = Math.sign(e.deltaY);
+        state.radius *= (1 + d * state.zoomSpeed * 40);
+        state.radius = Math.max(2.2, Math.min(40, state.radius));
+      }, { passive: false });
+
+      updateCamera();
+      return { state, updateCamera };
+    }
+
+    try {
+      const container = document.getElementById('app');
+
+      // ---------- Scene ----------
+      const scene = new THREE.Scene();
+      scene.fog = new THREE.Fog(0x0b0e14, 6, 30);
+
+      const camera = new THREE.PerspectiveCamera(55, window.innerWidth/window.innerHeight, 0.05, 120);
+      camera.position.set(6.2, 3.8, 7.2);
+
+      const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setClearColor(0x0b0e14, 1);
+      container.appendChild(renderer.domElement);
+
+      const controls = makeOrbitControls(camera, renderer.domElement);
+
+      // ---------- Lights ----------
+      const key = new THREE.DirectionalLight(0xffffff, 1.1);
+      key.position.set(8, 10, 6);
+      scene.add(key);
+
+      const fill = new THREE.DirectionalLight(0xbfd7ff, 0.55);
+      fill.position.set(-8, 2, -6);
+      scene.add(fill);
+
+      const rim = new THREE.DirectionalLight(0xffffff, 0.35);
+      rim.position.set(-2, 8, 10);
+      scene.add(rim);
+
+      scene.add(new THREE.AmbientLight(0x3a4660, 0.35));
+
+      // ---------- Background stars ----------
+      const starsGeo = new THREE.BufferGeometry();
+      const N = 1200;
+      const pos = new Float32Array(N * 3);
+      for (let i = 0; i < N; i++) {
+        const r = 40 * Math.cbrt(Math.random());
+        const theta = Math.random() * Math.PI * 2;
+        const u = Math.random() * 2 - 1;
+        const phi = Math.acos(u);
+        pos[i*3+0] = r * Math.sin(phi) * Math.cos(theta);
+        pos[i*3+1] = r * Math.cos(phi);
+        pos[i*3+2] = r * Math.sin(phi) * Math.sin(theta);
+      }
+      starsGeo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+      const starsMat = new THREE.PointsMaterial({ color: 0x9fb0d0, size: 0.012, transparent: true, opacity: 0.7 });
+      const stars = new THREE.Points(starsGeo, starsMat);
+      scene.add(stars);
+
+      // ---------- Earth-ish sphere ----------
+      const earthGroup = new THREE.Group();
+      scene.add(earthGroup);
+
+      const earthGeo = new THREE.SphereGeometry(1.25, 96, 64);
+      const earthMat = new THREE.MeshStandardMaterial({
+        color: 0x334a66,
+        roughness: 0.55,
+        metalness: 0.05,
+        emissive: 0x0a1220,
+        emissiveIntensity: 0.65
+      });
+      const earth = new THREE.Mesh(earthGeo, earthMat);
+      earthGroup.add(earth);
+
+      const atmo = new THREE.Mesh(
+        new THREE.SphereGeometry(1.29, 96, 64),
+        new THREE.MeshStandardMaterial({
+          color: 0x7dd3fc,
+          transparent: true,
+          opacity: 0.08,
+          roughness: 0.2,
+          metalness: 0.0,
+          emissive: 0x7dd3fc,
+          emissiveIntensity: 0.20
+        })
+      );
+      earthGroup.add(atmo);
+
+      // ---------- Groups ----------
+      const fieldGroup = new THREE.Group();
+      scene.add(fieldGroup);
+
+      const arrowsGroup = new THREE.Group();
+      scene.add(arrowsGroup);
+
+      // ---------- Shader material for shells ----------
+      const baseFieldMat = new THREE.ShaderMaterial({
+        transparent: true,
+        depthWrite: false,
+        uniforms: {
+          uColor: { value: new THREE.Color(0x7dd3fc) },
+          uOpacity: { value: 0.18 },
+          uFresnel: { value: 1.15 },
+          uPower: { value: 2.0 }
+        },
+        vertexShader: `
+          varying vec3 vNormal;
+          varying vec3 vPos;
+          void main() {
+            vNormal = normalize(normalMatrix * normal);
+            vec4 wp = modelMatrix * vec4(position, 1.0);
+            vPos = wp.xyz;
+            gl_Position = projectionMatrix * viewMatrix * wp;
+          }
+        `,
+        fragmentShader: `
+          uniform vec3 uColor;
+          uniform float uOpacity;
+          uniform float uFresnel;
+          uniform float uPower;
+          varying vec3 vNormal;
+          varying vec3 vPos;
+          void main() {
+            vec3 V = normalize(cameraPosition - vPos);
+            float fres = pow(1.0 - max(dot(V, vNormal), 0.0), uPower) * uFresnel;
+            float a = clamp(uOpacity * (0.35 + fres), 0.0, 1.0);
+            gl_FragColor = vec4(uColor, a);
+          }
+        `
+      });
+
+      function clearGroup(g) {
+        while (g.children.length) {
+          const c = g.children.pop();
+          if (c.geometry) c.geometry.dispose();
+          if (c.material) c.material.dispose();
+        }
+      }
+
+      // δC toy model
+      function deltaC(r, p) {
+        const R = p.bodyRadius;
+        const A = p.deltaStrength;
+        const pow = p.falloffPower;
+        const s = p.softening;
+        const rr = Math.max(r, R);
+        const surf = 1.0 / (1.0 + Math.exp((r - R) / p.surfaceWidth));
+        const outer = -A / Math.pow(rr + s, pow);
+        return outer * (0.35 + 0.65 * surf);
+      }
+
+      function updateField(p) {
+        clearGroup(fieldGroup);
+        if (!p.showField) return;
+
+        const shells = p.shellCount;
+        const rMin = p.bodyRadius * 1.05;
+        const rMax = p.fieldRadius;
+
+        for (let i = 0; i < shells; i++) {
+          const t = i / Math.max(shells - 1, 1);
+          const r = rMin + t * (rMax - rMin);
+          const d = deltaC(r, p);
+          const mag = Math.min(Math.abs(d) / Math.max(p.deltaStrength, 1e-6), 1.0);
+
+          const geo = new THREE.SphereGeometry(r, 96, 64);
+          const mat = baseFieldMat.clone();
+
+          const cNear = new THREE.Color(0x7dd3fc);
+          const cFar  = new THREE.Color(0x9fb0d0);
+          const c = cFar.clone().lerp(cNear, Math.pow(1.0 - t, 0.8));
+          mat.uniforms.uColor.value = c;
+          mat.uniforms.uOpacity.value = p.fieldOpacity * (0.10 + 0.90 * (1.0 - t)) * (0.55 + 0.45 * mag);
+          mat.uniforms.uFresnel.value = p.edgeGlow;
+          mat.uniforms.uPower.value = p.glowSharp;
+
+          const mesh = new THREE.Mesh(geo, mat);
+          fieldGroup.add(mesh);
+        }
+      }
+
+      function buildArrows(count, radius) {
+        clearGroup(arrowsGroup);
+        const shaftMat = new THREE.MeshStandardMaterial({
+          color: 0x9fb0d0, roughness: 0.35, metalness: 0.0,
+          transparent: true, opacity: 0.45
+        });
+        const tipMat = new THREE.MeshStandardMaterial({
+          color: 0x7dd3fc, roughness: 0.25, metalness: 0.0,
+          transparent: true, opacity: 0.65, emissive: 0x7dd3fc, emissiveIntensity: 0.12
+        });
+        const shaftGeo = new THREE.CylinderGeometry(0.015, 0.015, 0.35, 12);
+        const tipGeo = new THREE.ConeGeometry(0.035, 0.12, 16);
+
+        for (let i = 0; i < count; i++) {
+          const theta = Math.random() * Math.PI * 2;
+          const u = Math.random() * 2 - 1;
+          const phi = Math.acos(u);
+
+          const x = radius * Math.sin(phi) * Math.cos(theta);
+          const y = radius * Math.cos(phi);
+          const z = radius * Math.sin(phi) * Math.sin(theta);
+
+          const origin = new THREE.Vector3(x, y, z);
+          const inward = origin.clone().multiplyScalar(-1).normalize();
+
+          const arrow = new THREE.Group();
+          const shaft = new THREE.Mesh(shaftGeo, shaftMat);
+          const tip = new THREE.Mesh(tipGeo, tipMat);
+          shaft.position.set(0, -0.18, 0);
+          tip.position.set(0, -0.41, 0);
+          arrow.add(shaft);
+          arrow.add(tip);
+          arrow.position.copy(origin);
+
+          const from = new THREE.Vector3(0, -1, 0);
+          arrow.quaternion.copy(new THREE.Quaternion().setFromUnitVectors(from, inward));
+          arrowsGroup.add(arrow);
+        }
+      }
+
+      // ---------- UI bindings ----------
+      const p = {
+        showField: true,
+        shellCount: 18,
+        fieldRadius: 5.0,
+        fieldOpacity: 0.22,
+        edgeGlow: 1.10,
+        glowSharp: 2.2,
+
+        bodyRadius: 1.25,
+        deltaStrength: 1.0,
+        falloffPower: 1.0,
+        softening: 0.35,
+        surfaceWidth: 0.20,
+
+        showArrows: true,
+        arrowCount: 22,
+        arrowRadius: 2.45,
+      };
+
+      function syncOutputs() {
+        const fmt = (v, n=2) => Number(v).toFixed(n);
+        shellCountOut.textContent = p.shellCount;
+        fieldRadiusOut.textContent = fmt(p.fieldRadius, 1);
+        fieldOpacityOut.textContent = fmt(p.fieldOpacity, 2);
+        edgeGlowOut.textContent = fmt(p.edgeGlow, 2);
+        glowSharpOut.textContent = fmt(p.glowSharp, 2);
+        deltaStrengthOut.textContent = fmt(p.deltaStrength, 2);
+        falloffPowerOut.textContent = fmt(p.falloffPower, 2);
+        softeningOut.textContent = fmt(p.softening, 2);
+        surfaceWidthOut.textContent = fmt(p.surfaceWidth, 2);
+        arrowCountOut.textContent = p.arrowCount;
+        arrowRadiusOut.textContent = fmt(p.arrowRadius, 2);
+      }
+
+      function applyPreset(name) {
+        if (name === "Pretty (Default)") {
+          Object.assign(p, {
+            showField: true, shellCount: 18, fieldRadius: 5.0, fieldOpacity: 0.22,
+            edgeGlow: 1.10, glowSharp: 2.2,
+            deltaStrength: 1.0, falloffPower: 1.0, softening: 0.35, surfaceWidth: 0.20,
+            showArrows: true, arrowCount: 22, arrowRadius: 2.45
+          });
+        } else if (name === "Minimal (Clean)") {
+          Object.assign(p, {
+            showField: true, shellCount: 10, fieldRadius: 4.0, fieldOpacity: 0.14,
+            edgeGlow: 0.95, glowSharp: 2.6,
+            deltaStrength: 0.85, falloffPower: 1.0, softening: 0.45, surfaceWidth: 0.28,
+            showArrows: false
+          });
+        } else if (name === "Sharper Gradient") {
+          Object.assign(p, {
+            showField: true, shellCount: 22, fieldRadius: 5.2, fieldOpacity: 0.24,
+            edgeGlow: 1.25, glowSharp: 1.9,
+            deltaStrength: 1.35, falloffPower: 1.0, softening: 0.25, surfaceWidth: 0.12,
+            showArrows: true, arrowCount: 28, arrowRadius: 2.35
+          });
+        } else if (name === "More Honest (1/r)") {
+          Object.assign(p, {
+            showField: true, shellCount: 16, fieldRadius: 6.0, fieldOpacity: 0.18,
+            edgeGlow: 1.05, glowSharp: 2.3,
+            deltaStrength: 1.0, falloffPower: 1.0, softening: 0.05, surfaceWidth: 0.35,
+            showArrows: true, arrowCount: 20, arrowRadius: 2.65
+          });
+        }
+
+        // reflect into inputs
+        showField.checked = p.showField;
+        shellCount.value = p.shellCount;
+        fieldRadius.value = p.fieldRadius;
+        fieldOpacity.value = p.fieldOpacity;
+        edgeGlow.value = p.edgeGlow;
+        glowSharp.value = p.glowSharp;
+        deltaStrength.value = p.deltaStrength;
+        falloffPower.value = p.falloffPower;
+        softening.value = p.softening;
+        surfaceWidth.value = p.surfaceWidth;
+
+        showArrows.checked = p.showArrows;
+        arrowCount.value = p.arrowCount;
+        arrowRadius.value = p.arrowRadius;
+
+        earthGroup.scale.setScalar(p.bodyRadius / 1.25);
+
+        updateField(p);
+        arrowsGroup.visible = p.showArrows;
+        if (p.showArrows) buildArrows(p.arrowCount, p.arrowRadius);
+
+        syncOutputs();
+      }
+
+      // Inputs
+      const presetSel = document.getElementById('preset');
+      const showField = document.getElementById('showField');
+      const shellCount = document.getElementById('shellCount');
+      const fieldRadius = document.getElementById('fieldRadius');
+      const fieldOpacity = document.getElementById('fieldOpacity');
+      const edgeGlow = document.getElementById('edgeGlow');
+      const glowSharp = document.getElementById('glowSharp');
+
+      const deltaStrength = document.getElementById('deltaStrength');
+      const falloffPower = document.getElementById('falloffPower');
+      const softening = document.getElementById('softening');
+      const surfaceWidth = document.getElementById('surfaceWidth');
+
+      const showArrows = document.getElementById('showArrows');
+      const arrowCount = document.getElementById('arrowCount');
+      const arrowRadius = document.getElementById('arrowRadius');
+      const resetBtn = document.getElementById('resetBtn');
+
+      // Outputs
+      const shellCountOut = document.getElementById('shellCountOut');
+      const fieldRadiusOut = document.getElementById('fieldRadiusOut');
+      const fieldOpacityOut = document.getElementById('fieldOpacityOut');
+      const edgeGlowOut = document.getElementById('edgeGlowOut');
+      const glowSharpOut = document.getElementById('glowSharpOut');
+      const deltaStrengthOut = document.getElementById('deltaStrengthOut');
+      const falloffPowerOut = document.getElementById('falloffPowerOut');
+      const softeningOut = document.getElementById('softeningOut');
+      const surfaceWidthOut = document.getElementById('surfaceWidthOut');
+      const arrowCountOut = document.getElementById('arrowCountOut');
+      const arrowRadiusOut = document.getElementById('arrowRadiusOut');
+
+      presetSel.addEventListener('change', () => applyPreset(presetSel.value));
+
+      function bindRange(el, key, parseFn = Number) {
+        el.addEventListener('input', () => {
+          p[key] = parseFn(el.value);
+          updateField(p);
+          syncOutputs();
+          if (key === 'arrowCount' || key === 'arrowRadius') {
+            if (p.showArrows) buildArrows(p.arrowCount, p.arrowRadius);
+          }
+        });
+      }
+
+      showField.addEventListener('change', () => { p.showField = showField.checked; updateField(p); });
+      bindRange(shellCount, 'shellCount', v => parseInt(v, 10));
+      bindRange(fieldRadius, 'fieldRadius', Number);
+      bindRange(fieldOpacity, 'fieldOpacity', Number);
+      bindRange(edgeGlow, 'edgeGlow', Number);
+      bindRange(glowSharp, 'glowSharp', Number);
+
+      bindRange(deltaStrength, 'deltaStrength', Number);
+      bindRange(falloffPower, 'falloffPower', Number);
+      bindRange(softening, 'softening', Number);
+      bindRange(surfaceWidth, 'surfaceWidth', Number);
+
+      showArrows.addEventListener('change', () => {
+        p.showArrows = showArrows.checked;
+        arrowsGroup.visible = p.showArrows;
+        if (p.showArrows && arrowsGroup.children.length === 0) buildArrows(p.arrowCount, p.arrowRadius);
+      });
+      bindRange(arrowCount, 'arrowCount', v => parseInt(v, 10));
+      bindRange(arrowRadius, 'arrowRadius', Number);
+
+      resetBtn.addEventListener('click', () => applyPreset("Pretty (Default)"));
+
+      // initial
+      applyPreset("Pretty (Default)");
+
+      // ---------- Render loop ----------
+      let t0 = performance.now();
+      function animate() {
+        requestAnimationFrame(animate);
+        controls.updateCamera();
+
+        const t = (performance.now() - t0) * 0.0006;
+        fieldGroup.children.forEach((m, i) => {
+          const s = 1.0 + 0.0025 * Math.sin(t + i * 0.25);
+          m.scale.setScalar(s);
+        });
+        earth.rotation.y += 0.0015;
+
+        renderer.render(scene, camera);
+      }
+      animate();
+
+      // Resize
+      window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+
+    } catch (e) {
+      console.error(e);
+      fail("Runtime error: " + (e && e.message ? e.message : String(e)));
+    }
+  })();
+  </script>
+</body>
+</html>

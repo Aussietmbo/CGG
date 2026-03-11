@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>TRR-G 3D κ Field Simulator</title>
+<style>
+:root{
+  --bg:#07080f;--panel:rgba(10,13,22,0.97);--text:#dde8f4;--muted:#4a6278;
+  --accent:#4ecdc4;--a2:#ff6b6b;--a3:#f7c948;--a4:#a8e6cf;--a5:#c77dff;
+  --border:rgba(255,255,255,0.06);--track:#111820;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);
+  font-family:'Courier New',monospace;font-size:11px;}
+
+/* ── titlebar ── */
+#titlebar{height:34px;background:var(--panel);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;padding:0 12px;gap:10px;flex-shrink:0;}
+#titlebar h1{font-size:12px;color:var(--accent);letter-spacing:.05em;}
+#titlebar .sub{font-size:9px;color:var(--muted);}
+#statusPill{margin-left:auto;padding:2px 9px;border-radius:9px;font-size:9px;
+  border:1px solid var(--muted);color:var(--muted);}
+#statusPill.run{border-color:var(--a3);color:var(--a3);}
+#statusPill.done{border-color:var(--accent);color:var(--accent);}
+
+/* ── body layout ── */
+#body{display:flex;height:calc(100% - 34px);}
+
+/* ── sidebar ── */
+#sidebar{width:210px;flex-shrink:0;background:var(--panel);border-right:1px solid var(--border);
+  overflow-y:auto;padding:8px 10px;display:flex;flex-direction:column;gap:6px;}
+.sec{font-size:8px;color:var(--accent);letter-spacing:.14em;text-transform:uppercase;
+  border-bottom:1px solid var(--border);padding-bottom:2px;margin-top:4px;}
+.row{display:flex;flex-direction:column;gap:2px;}
+.row label{display:flex;justify-content:space-between;color:var(--muted);font-size:9px;}
+.row label span{color:var(--text);}
+input[type=range]{-webkit-appearance:none;height:4px;width:100%;border-radius:2px;
+  background:var(--track);outline:none;}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;
+  border-radius:50%;background:var(--accent);cursor:pointer;}
+.seg{display:flex;gap:2px;}
+.seg button,.btn{background:transparent;border:1px solid var(--border);color:var(--muted);
+  padding:4px 6px;font-family:inherit;font-size:10px;cursor:pointer;border-radius:2px;
+  transition:all .12s;}
+.seg button.on,.btn.on{border-color:var(--accent);color:var(--accent);
+  background:rgba(78,205,196,.08);}
+.seg button:hover,.btn:hover{border-color:var(--accent);color:var(--accent);}
+.btn{width:100%;margin-top:2px;}
+.btn.run-btn{border-color:var(--accent);color:var(--accent);background:rgba(78,205,196,.08);}
+.btn.run-btn:hover{background:rgba(78,205,196,.2);}
+.btn.rst{border-color:var(--a2);color:var(--a2);}
+.btn.rst:hover{background:rgba(255,107,107,.12);}
+.diag{background:rgba(0,0,0,.4);border:1px solid var(--border);border-radius:2px;
+  padding:6px;font-size:9px;line-height:1.9;}
+.diag .dl{color:var(--muted);}
+.diag .dv{float:right;}
+.diag .dv.g{color:var(--accent);}
+.diag .dv.w{color:var(--a3);}
+.diag .dv.b{color:var(--a2);}
+#prog{height:3px;background:var(--track);border-radius:2px;margin-top:4px;}
+#progFill{height:100%;width:0;background:var(--a3);border-radius:2px;transition:width .08s;}
+small{color:var(--muted);font-size:8px;}
+
+/* ── right area ── */
+#right{flex:1;display:grid;grid-template-rows:1fr 190px;overflow:hidden;}
+
+/* ── 3d viewport ── */
+#v3d{position:relative;overflow:hidden;}
+#c3d{width:100%;height:100%;display:block;}
+#v3d-label{position:absolute;top:8px;left:8px;font-size:9px;color:var(--muted);
+  pointer-events:none;}
+
+/* colorbar */
+#cbWrap{position:absolute;bottom:12px;right:12px;display:flex;align-items:stretch;gap:4px;}
+#cbCanvas{width:12px;height:110px;border-radius:2px;border:1px solid var(--border);}
+#cbLabels{display:flex;flex-direction:column;justify-content:space-between;
+  font-size:8px;color:var(--muted);text-align:right;}
+
+/* ── radial panel ── */
+#radPanel{display:grid;grid-template-columns:1fr 210px;border-top:1px solid var(--border);}
+#cRad{display:block;}
+#radStats{padding:8px 10px;border-left:1px solid var(--border);
+  display:flex;flex-direction:column;gap:3px;overflow:hidden;}
+.rs{font-size:9px;display:flex;justify-content:space-between;gap:6px;}
+.rs .rl{color:var(--muted);}
+.rs .rv{color:var(--text);}
+.rs .rv.g{color:var(--accent);}
+.rs .rv.b{color:var(--a2);}
+.rs .rv.w{color:var(--a3);}
+#verdict{margin-top:auto;font-size:8px;color:var(--muted);line-height:1.4;}
+.lgnd{display:flex;align-items:center;gap:4px;font-size:9px;color:var(--muted);}
+.ldot{width:14px;height:2px;border-radius:1px;}
+
+/* ── equation bar ── */
+#eqbar{position:absolute;bottom:0;left:0;right:0;height:22px;
+  background:rgba(7,8,15,.85);border-top:1px solid var(--border);
+  display:flex;align-items:center;justify-content:center;gap:24px;
+  font-size:9px;color:var(--muted);pointer-events:none;}
+#eqbar span{color:var(--accent);}
+</style>
+</head>
+<body>
+
+<div id="titlebar">
+  <h1>TRR-G 3D κ FIELD SIMULATOR</h1>
+  <span class="sub">∇²κ = 4πGρ/c² · γ(r,L₀) &nbsp;|&nbsp; 3D Cartesian grid &nbsp;|&nbsp; Green's function validation</span>
+  <div id="statusPill">IDLE</div>
+</div>
+
+<div id="body">
+
+<!-- sidebar -->
+<div id="sidebar">
+
+  <div class="sec">Source</div>
+  <div class="seg" id="srcSeg">
+    <button class="on" onclick="setSrc('point')">Point</button>
+    <button onclick="setSrc('binary')">Binary</button>
+    <button onclick="setSrc('ns')">NS</button>
+  </div>
+  <div class="row">
+    <label>Mass M <span id="lM">1.0</span></label>
+    <input type="range" id="sM" min="0.2" max="5" step="0.1" value="1.0">
+  </div>
+  <div class="row">
+    <label>Width σ <span id="lSig">2.5</span></label>
+    <input type="range" id="sSig" min="1" max="8" step="0.25" value="2.5">
+  </div>
+  <div class="row" id="rSep" style="display:none">
+    <label>Separation <span id="lSep">16</span></label>
+    <input type="range" id="sSep" min="4" max="28" step="2" value="16">
+  </div>
+  <div class="row" id="rRns" style="display:none">
+    <label>R_NS <span id="lRns">8</span></label>
+    <input type="range" id="sRns" min="3" max="16" step="1" value="8">
+  </div>
+
+  <div class="sec">Coherence</div>
+  <div class="row">
+    <label>L₀⁻¹ (1/L₀) <span id="lL0">0 (GR)</span></label>
+    <input type="range" id="sL0" min="0" max="0.25" step="0.005" value="0">
+    <small>0 = GR limit</small>
+  </div>
+  <div class="row">
+    <label>κ_max cap <span id="lKmax">OFF</span></label>
+    <input type="range" id="sKmax" min="0" max="2" step="0.05" value="0">
+    <small>0 = off (smooth branch)</small>
+  </div>
+
+  <div class="sec">Grid</div>
+  <div class="seg" id="gridSeg">
+    <button class="on" onclick="setN(64)">64³</button>
+    <button onclick="setN(96)">96³</button>
+    <button onclick="setN(128)">128³</button>
+  </div>
+
+  <div class="sec">View</div>
+  <div class="seg" id="axisSeg">
+    <button class="on" onclick="setAxis('xy')">XY</button>
+    <button onclick="setAxis('xz')">XZ</button>
+    <button onclick="setAxis('yz')">YZ</button>
+  </div>
+  <div class="row">
+    <label>Depth <span id="lDepth">0.50</span></label>
+    <input type="range" id="sDepth" min="0" max="1" step="0.01" value="0.5"
+      oninput="onDepth(this.value)">
+  </div>
+  <div class="row">
+    <label>Opacity <span id="lOpac">0.9</span></label>
+    <input type="range" id="sOpac" min="0.1" max="1" step="0.05" value="0.9"
+      oninput="onOpac(this.value)">
+  </div>
+  <button class="btn" id="btnIso" onclick="toggleIso()">Isosurfaces: OFF</button>
+
+  <div class="sec">Probes</div>
+  <small style="color:var(--a2)">keep r₂ &lt; N/4 to avoid BC contamination</small>
+  <div class="row">
+    <label>r₁ <span id="lR1">8</span></label>
+    <input type="range" id="sR1" min="3" max="26" step="1" value="8">
+  </div>
+  <div class="row">
+    <label>r₂ <span id="lR2">14</span></label>
+    <input type="range" id="sR2" min="6" max="40" step="1" value="14">
+  </div>
+
+  <div class="sec">Presets</div>
+  <div class="seg" style="flex-wrap:wrap;gap:2px;">
+    <button onclick="loadPreset('gr')" style="font-size:9px">GR limit</button>
+    <button onclick="loadPreset('l0_10')" style="font-size:9px">L₀=10</button>
+    <button onclick="loadPreset('ns')" style="font-size:9px">NS</button>
+    <button onclick="loadPreset('binary')" style="font-size:9px">Binary</button>
+  </div>
+
+  <button class="btn run-btn" id="btnRun" onclick="runSolver()">▶ RUN SOLVER</button>
+  <button class="btn rst" onclick="doReset()">↺ RESET</button>
+
+  <div class="sec">Diagnostics</div>
+  <div class="diag">
+    <div><span class="dl">Status</span><span class="dv" id="dStat">—</span></div>
+    <div><span class="dl">Iterations</span><span class="dv" id="dIter">—</span></div>
+    <div><span class="dl">Residual</span><span class="dv" id="dRes">—</span></div>
+    <div><span class="dl">κ_max</span><span class="dv" id="dKmax">—</span></div>
+    <div><span class="dl">Green's match</span><span class="dv" id="dGreen">—</span></div>
+    <div><span class="dl">Ratio err</span><span class="dv" id="dRatio">—</span></div>
+  </div>
+  <div id="prog"><div id="progFill"></div></div>
+
+</div><!-- /sidebar -->
+
+<!-- right -->
+<div id="right">
+
+  <!-- 3d viewport -->
+  <div id="v3d">
+    <canvas id="c3d"></canvas>
+    <div id="v3d-label">XY SLICE — drag to orbit · scroll to zoom</div>
+    <div id="cbWrap">
+      <div id="cbLabels">
+        <span id="cbMax">1.000</span>
+        <span></span>
+        <span id="cbMin">0.000</span>
+      </div>
+      <canvas id="cbCanvas" width="12" height="110"></canvas>
+    </div>
+    <div id="eqbar">
+      <span>∇²κ = 4πGρ/c²</span>
+      <span style="color:var(--muted)">→</span>
+      <span>κ(r) = M/4πr</span>
+      <span style="color:var(--muted)">·</span>
+      <span>γ(r) = e^(−r/L₀)</span>
+      <span style="color:var(--muted)">|</span>
+      <span>L₀(x) = 1/√(μ₀² − aρ_m)</span>
+    </div>
+  </div>
+
+  <!-- radial panel -->
+  <div id="radPanel">
+    <canvas id="cRad"></canvas>
+    <div id="radStats">
+      <div class="sec" style="margin-top:0">Radial Validation</div>
+      <div class="rs"><span class="rl">κ(r₁)/κ(r₂) measured</span><span class="rv" id="rvMeas">—</span></div>
+      <div class="rs"><span class="rl">Predicted r₂/r₁</span><span class="rv" id="rvPred">—</span></div>
+      <div class="rs"><span class="rl">Geometry error</span><span class="rv" id="rvErr">—</span></div>
+      <div class="rs"><span class="rl">Green's fn match</span><span class="rv" id="rvGfn">—</span></div>
+      <div style="margin-top:6px;border-top:1px solid var(--border);padding-top:5px;">
+        <div class="lgnd"><div class="ldot" style="background:#ff6b6b"></div>3D numerical κ</div>
+        <div class="lgnd"><div class="ldot" style="background:#4ecdc4"></div>Analytic 1/r (TRR-G)</div>
+        <div class="lgnd"><div class="ldot" style="background:#f7c948"></div>1/r · γ(L₀)</div>
+        <div class="lgnd"><div class="ldot" style="background:#a8e6cf"></div>probe r₁</div>
+        <div class="lgnd"><div class="ldot" style="background:#c77dff"></div>probe r₂</div>
+      </div>
+      <div id="verdict">Run solver to validate 3D Green's function.</div>
+    </div>
+  </div>
+
+</div><!-- /right -->
+</div><!-- /body -->
+
+<!-- ── Web Worker source ── -->
+<script id="wkSrc" type="text/plain">
+self.onmessage = function(ev) {
+  const { N, sources, L0inv, kmaxCap, maxIter } = ev.data;
+  const N2 = N * N, N3 = N * N * N;
+  const kappa = new Float32Array(N3);
+  const rho   = new Float32Array(N3);
+
+  // Build density — normalise by peak (not sum) so rho_peak = mass
+  // Normalising by sum produces rho ~ mass/N³ which underflows in Float32 SOR
+  for (const s of sources) {
+    const sig2 = 2 * s.sigma * s.sigma;
+    let peak = 0;
+    const tmp = new Float32Array(N3);
+    for (let k=0;k<N;k++) for (let j=0;j<N;j++) for (let i=0;i<N;i++) {
+      const v = Math.exp(-((i-s.x)**2+(j-s.y)**2+(k-s.z)**2)/sig2);
+      tmp[k*N2+j*N+i] = v;
+      if (v > peak) peak = v;
+    }
+    if (peak > 0) for (let idx=0;idx<N3;idx++) rho[idx] += s.mass * tmp[idx] / peak;
+  }
+
+  // 3D SOR — ∇²κ = 4π·ρ  (h=1, G/c²=1)
+  const RHS = 4 * Math.PI;
+  const sor = 1.85;
+  let iter = 0, resid = 1;
+  while (iter < maxIter && resid > 5e-6) {
+    resid = 0;
+    for (let k=1;k<N-1;k++) for (let j=1;j<N-1;j++) for (let i=1;i<N-1;i++) {
+      const c = k*N2+j*N+i;
+      const nb = kappa[c+1]+kappa[c-1]+kappa[c+N]+kappa[c-N]+kappa[c+N2]+kappa[c-N2];
+      const kn = (nb - RHS*rho[c]) / 6;
+      const d  = kn - kappa[c];
+      resid += d*d;
+      kappa[c] += sor * d;
+    }
+    resid = Math.sqrt(resid / N3);
+    iter++;
+    if (iter % 100 === 0) self.postMessage({ t:'prog', iter, resid, maxIter });
+  }
+
+  // κ solves ∇²κ = 4π·ρ → solution is negative (like gravitational potential)
+  // TRR-G convention: κ = coherence density > 0, so negate
+  for (let i=0;i<N3;i++) kappa[i] = -kappa[i];
+
+  // Coherence decay
+  if (L0inv > 0) {
+    const sx=sources[0].x, sy=sources[0].y, sz=sources[0].z;
+    for (let k=0;k<N;k++) for (let j=0;j<N;j++) for (let i=0;i<N;i++) {
+      const r = Math.sqrt((i-sx)**2+(j-sy)**2+(k-sz)**2);
+      kappa[k*N2+j*N+i] *= Math.exp(-L0inv*r);
+    }
+  }
+
+  // κ_max cap (smooth branch)
+  if (kmaxCap > 0) {
+    let mx=0; for (let i=0;i<N3;i++) if(kappa[i]>mx) mx=kappa[i];
+    const cap = kmaxCap * mx;
+    for (let i=0;i<N3;i++) if(kappa[i]>cap) kappa[i]=cap;
+  }
+
+  self.postMessage({ t:'done', kappa, rho, iter, resid }, [kappa.buffer, rho.buffer]);
+};
+</script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// ═══════════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════════
+const S = {
+  N:64, M:1.0, sigma:2.5, sep:16, rns:8,
+  src:'point', axis:'xy', depth:0.5, opacity:0.9,
+  L0inv:0, kmax:0, r1:8, r2:14, iso:false
+};
+let kappa=null, solved=false, worker=null;
+
+// ═══════════════════════════════════════════════════════════════
+// THREE.JS SETUP
+// ═══════════════════════════════════════════════════════════════
+const cv = document.getElementById('c3d');
+const vp = document.getElementById('v3d');
+
+function vpSize(){ return { w: vp.clientWidth, h: vp.clientHeight }; }
+let {w:W, h:H} = vpSize();
+cv.width=W; cv.height=H;
+
+const scene    = new THREE.Scene();
+scene.background = new THREE.Color(0x07080f);
+const camera   = new THREE.PerspectiveCamera(52, W/H, 0.1, 1000);
+const renderer = new THREE.WebGLRenderer({ canvas:cv, antialias:true });
+renderer.setSize(W, H);
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+
+// Lighting
+scene.add(new THREE.AmbientLight(0x223344, 1.2));
+const dl = new THREE.DirectionalLight(0xffffff, 0.5);
+dl.position.set(2,3,2); scene.add(dl);
+
+// Grid & axes
+const gridH = new THREE.GridHelper(64, 8, 0x112233, 0x0a1520);
+gridH.position.y = -32; scene.add(gridH);
+scene.add(new THREE.AxesHelper(34));
+
+// Orbit (manual)
+let drag=false, pm={x:0,y:0};
+let sph={th:Math.PI*0.45, ph:Math.PI*0.35, r:110};
+function applyCam(){
+  camera.position.set(
+    sph.r*Math.sin(sph.ph)*Math.sin(sph.th),
+    sph.r*Math.cos(sph.ph),
+    sph.r*Math.sin(sph.ph)*Math.cos(sph.th)
+  );
+  camera.lookAt(0,0,0);
+}
+applyCam();
+cv.addEventListener('mousedown', e=>{drag=true; pm={x:e.clientX,y:e.clientY};});
+window.addEventListener('mouseup', ()=>drag=false);
+cv.addEventListener('mousemove', e=>{
+  if(!drag)return;
+  sph.th -= (e.clientX-pm.x)*0.008;
+  sph.ph  = Math.max(.1, Math.min(Math.PI-.1, sph.ph+(e.clientY-pm.y)*0.008));
+  pm={x:e.clientX,y:e.clientY}; applyCam();
+});
+cv.addEventListener('wheel', e=>{
+  sph.r = Math.max(20, Math.min(260, sph.r+e.deltaY*0.08));
+  applyCam(); e.preventDefault();
+},{passive:false});
+
+// ═══════════════════════════════════════════════════════════════
+// COLORMAP
+// ═══════════════════════════════════════════════════════════════
+function viridis(v){
+  v=Math.max(0,Math.min(1,v));
+  const stops=[
+    [7,8,15],[26,58,107],[45,110,142],[64,160,135],
+    [120,200,100],[200,210,60],[253,230,40],[253,253,150]
+  ];
+  const t=v*(stops.length-1), i=Math.floor(t), f=t-i;
+  const a=stops[Math.min(i,stops.length-1)], b=stops[Math.min(i+1,stops.length-1)];
+  return [Math.round(a[0]+(b[0]-a[0])*f), Math.round(a[1]+(b[1]-a[1])*f), Math.round(a[2]+(b[2]-a[2])*f)];
+}
+
+function buildColorbar(){
+  const cb=document.getElementById('cbCanvas');
+  const ctx=cb.getContext('2d');
+  for(let y=0;y<110;y++){
+    const [r,g,b]=viridis(1-y/109);
+    ctx.fillStyle=`rgb(${r},${g},${b})`;
+    ctx.fillRect(0,y,12,1);
+  }
+}
+buildColorbar();
+
+// ═══════════════════════════════════════════════════════════════
+// SLICE MESH
+// ═══════════════════════════════════════════════════════════════
+let sliceMesh=null, sliceTex=null;
+
+function buildSlice(){
+  if(!kappa) return;
+  const N=S.N, N2=N*N;
+  const di=Math.floor(S.depth*(N-1));
+
+  // Find max for normalisation
+  let mx=0; for(let i=0;i<kappa.length;i++) if(kappa[i]>mx) mx=kappa[i];
+  if(mx<1e-12) mx=1;
+  document.getElementById('cbMax').textContent=mx.toExponential(3);
+
+  // Build RGBA image
+  const buf=new Uint8ClampedArray(N*N*4);
+  for(let j=0;j<N;j++) for(let i=0;i<N;i++){
+    let idx;
+    if(S.axis==='xy')      idx = di*N2 + j*N + i;
+    else if(S.axis==='xz') idx =  j*N2 + di*N + i;
+    else                   idx =  j*N2 + i*N  + di;
+    const v = Math.min(kappa[idx]/mx, 1);
+    const [r,g,b]=viridis(v);
+    const p=(j*N+i)*4;
+    buf[p]=r; buf[p+1]=g; buf[p+2]=b; buf[p+3]=255;
+  }
+
+  // Texture via offscreen canvas
+  const oc=document.createElement('canvas'); oc.width=N; oc.height=N;
+  const octx=oc.getContext('2d');
+  const id=octx.createImageData(N,N); id.data.set(buf); octx.putImageData(id,0,0);
+  if(sliceTex) sliceTex.dispose();
+  sliceTex=new THREE.CanvasTexture(oc); sliceTex.needsUpdate=true;
+
+  if(sliceMesh){ scene.remove(sliceMesh); sliceMesh.geometry.dispose(); sliceMesh.material.dispose(); }
+  const geo=new THREE.PlaneGeometry(N,N);
+  const mat=new THREE.MeshBasicMaterial({map:sliceTex, side:THREE.DoubleSide,
+    transparent:true, opacity:S.opacity, depthWrite:false});
+  sliceMesh=new THREE.Mesh(geo,mat);
+
+  const offset=(S.depth-0.5)*N;
+  if(S.axis==='xy'){
+    sliceMesh.rotation.x=-Math.PI/2;
+    sliceMesh.position.set(0,offset,0);
+  } else if(S.axis==='xz'){
+    sliceMesh.position.set(0,0,offset);
+  } else {
+    sliceMesh.rotation.y=Math.PI/2;
+    sliceMesh.position.set(offset,0,0);
+  }
+  scene.add(sliceMesh);
+  document.getElementById('v3d-label').textContent =
+    `${S.axis.toUpperCase()} SLICE  depth=${Math.round(S.depth*N)}  ·  drag to orbit  ·  scroll to zoom`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ISOSURFACES (approximate spherical shells)
+// ═══════════════════════════════════════════════════════════════
+let isoMeshes=[];
+function clearIso(){ isoMeshes.forEach(m=>{scene.remove(m);m.geometry.dispose();m.material.dispose();}); isoMeshes=[]; }
+function buildIso(){
+  clearIso(); if(!S.iso||!kappa) return;
+  let mx=0; for(let i=0;i<kappa.length;i++) if(kappa[i]>mx) mx=kappa[i];
+  [[0.5,0x4ecdc4,0.12],[0.25,0xf7c948,0.08],[0.1,0xff6b6b,0.06]].forEach(([t,col,op])=>{
+    const tval=t*mx;
+    // estimate radius from analytic 1/r profile
+    const r0=Math.abs(sampleShell(1));
+    if(r0<1e-10) return;
+    const rs=Math.max(1,r0/tval); // κ~const/r → r=const/κ_thresh
+    if(rs>0&&rs<S.N/2){
+      const g=new THREE.SphereGeometry(rs,20,14);
+      const m=new THREE.MeshPhongMaterial({color:col,transparent:true,opacity:op,
+        depthWrite:false, side:THREE.FrontSide});
+      const mesh=new THREE.Mesh(g,m); scene.add(mesh); isoMeshes.push(mesh);
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SOURCE / PROBE MARKERS
+// ═══════════════════════════════════════════════════════════════
+let srcMarkers=[], probeRings=[];
+function clearMarkers(){
+  srcMarkers.forEach(m=>{scene.remove(m);m.geometry.dispose();m.material.dispose();}); srcMarkers=[];
+  probeRings.forEach(m=>{scene.remove(m);m.geometry.dispose();m.material.dispose();}); probeRings=[];
+}
+function buildMarkers(){
+  clearMarkers();
+  getSources().forEach(s=>{
+    const g=new THREE.SphereGeometry(1.8,10,8);
+    const m=new THREE.MeshPhongMaterial({color:0xffffff,emissive:0x4ecdc4,emissiveIntensity:.9});
+    const mesh=new THREE.Mesh(g,m);
+    mesh.position.set(s.x-S.N/2, s.z-S.N/2, s.y-S.N/2);
+    scene.add(mesh); srcMarkers.push(mesh);
+  });
+  if(!solved) return;
+  [[S.r1,0xa8e6cf],[S.r2,0xc77dff]].forEach(([r,col])=>{
+    const g=new THREE.TorusGeometry(r,.25,5,40);
+    const m=new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:.6});
+    const mesh=new THREE.Mesh(g,m); mesh.rotation.x=Math.PI/2;
+    scene.add(mesh); probeRings.push(mesh);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ANIMATION
+// ═══════════════════════════════════════════════════════════════
+(function animate(){ requestAnimationFrame(animate); renderer.render(scene,camera); })();
+
+// ═══════════════════════════════════════════════════════════════
+// SOURCE DEFINITIONS
+// ═══════════════════════════════════════════════════════════════
+function getSources(){
+  const c=S.N/2;
+  if(S.src==='point')  return [{x:c,y:c,z:c,mass:S.M,sigma:S.sigma}];
+  if(S.src==='binary'){
+    const d=S.sep/2;
+    return [{x:c-d,y:c,z:c,mass:S.M,sigma:S.sigma},{x:c+d,y:c,z:c,mass:S.M,sigma:S.sigma}];
+  }
+  return [{x:c,y:c,z:c,mass:S.M,sigma:S.rns}]; // NS
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SOLVER
+// ═══════════════════════════════════════════════════════════════
+function runSolver(){
+  if(worker){worker.terminate();worker=null;}
+  solved=false; kappa=null;
+  setStatus('run','SOLVING');
+  document.getElementById('btnRun').disabled=true;
+  document.getElementById('dStat').textContent='iterating…';
+  document.getElementById('progFill').style.width='0%';
+
+  const src=document.getElementById('wkSrc').textContent;
+  const blob=new Blob([src],{type:'text/javascript'});
+  worker=new Worker(URL.createObjectURL(blob));
+
+  const maxIter = S.N<80 ? 2000 : S.N<110 ? 3000 : 4000;
+
+  worker.onmessage=e=>{
+    if(e.data.t==='prog'){
+      const pct=Math.min(100,(e.data.iter/maxIter)*100);
+      document.getElementById('progFill').style.width=pct+'%';
+      document.getElementById('dIter').textContent=e.data.iter;
+      document.getElementById('dRes').textContent=e.data.resid.toExponential(2);
+    } else if(e.data.t==='done'){
+      kappa=e.data.kappa; solved=true;
+      onDone(e.data); worker=null;
+    }
+  };
+
+  worker.postMessage({
+    N:S.N, sources:getSources(),
+    L0inv:S.L0inv, kmaxCap:S.kmax, maxIter
+  });
+}
+
+function onDone(d){
+  setStatus('done','SOLVED');
+  document.getElementById('btnRun').disabled=false;
+  document.getElementById('progFill').style.width='100%';
+  document.getElementById('dIter').textContent=d.iter;
+  document.getElementById('dRes').textContent=d.resid.toExponential(2);
+  document.getElementById('dStat').textContent='done';
+  let mx=0; for(let i=0;i<kappa.length;i++) if(kappa[i]>mx) mx=kappa[i];
+  document.getElementById('dKmax').textContent=mx.toExponential(3);
+
+  buildSlice();
+  buildIso();
+  buildMarkers();
+  drawRadial();
+  validateGreen();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// RADIAL PROFILE
+// ═══════════════════════════════════════════════════════════════
+function sampleShell(r){
+  if(!kappa) return 0;
+  const N=S.N, N2=N*N, cx=N/2,cy=N/2,cz=N/2;
+  // Fibonacci sphere sampling — uniform shell
+  const nPts=80, phi=(1+Math.sqrt(5))/2;
+  let sum=0,cnt=0;
+  for(let i=0;i<nPts;i++){
+    const t=i/nPts, az=2*Math.PI*i/phi, el=Math.acos(1-2*t);
+    const xi=Math.round(cx+r*Math.sin(el)*Math.cos(az));
+    const yi=Math.round(cy+r*Math.sin(el)*Math.sin(az));
+    const zi=Math.round(cz+r*Math.cos(el));
+    if(xi>=0&&xi<N&&yi>=0&&yi<N&&zi>=0&&zi<N){sum+=kappa[zi*N2+yi*N+xi];cnt++;}
+  }
+  return cnt>0?sum/cnt:0;
+}
+
+function drawRadial(){
+  const cv=document.getElementById('cRad');
+  const par=cv.parentElement;
+  cv.width=par.clientWidth; cv.height=par.clientHeight;
+  const ctx=cv.getContext('2d');
+  const W=cv.width, H=cv.height;
+  ctx.fillStyle='#07080f'; ctx.fillRect(0,0,W,H);
+  if(!kappa) return;
+
+  const N=S.N, maxR=Math.floor(N*0.42);
+  const pad={t:22,r:14,b:28,l:46};
+  const pw=W-pad.l-pad.r, ph=H-pad.t-pad.b;
+
+  // Sample
+  const rs=Array.from({length:maxR},(_,i)=>i+1);
+  const kNum=rs.map(r=>Math.abs(sampleShell(r)));
+
+  // Normalise at r=4
+  const normAt=4;
+  const kN=kNum[normAt-1]||1e-10;
+  const k3D=rs.map(r=>kN*normAt/r);
+  const kL0=rs.map(r=>kN*normAt/r*Math.exp(-S.L0inv*r));
+
+  const norm3D=k3D.map(v=>v/kN);
+  const normL0=kL0.map(v=>v/kN);
+  const normNum=kNum.map(v=>v/kN);
+
+  const allV=[...normNum,...norm3D].filter(isFinite&&isFinite);
+  const maxV=Math.min(Math.max(...allV,1),25);
+
+  const xp=r=>pad.l+((r-1)/maxR)*pw;
+  const yp=v=>pad.t+(1-Math.min(v,maxV)/maxV)*ph;
+
+  // Grid
+  ctx.strokeStyle='rgba(255,255,255,0.04)'; ctx.lineWidth=1;
+  for(let i=0;i<=4;i++){
+    const y=pad.t+(i/4)*ph;
+    ctx.beginPath(); ctx.moveTo(pad.l,y); ctx.lineTo(pad.l+pw,y); ctx.stroke();
+    ctx.fillStyle='rgba(255,255,255,.22)'; ctx.font='8px Courier New';
+    ctx.fillText(((1-i/4)*maxV).toFixed(1),2,y+3);
+  }
+  for(let i=0;i<=6;i++){
+    const x=pad.l+(i/6)*pw;
+    ctx.beginPath(); ctx.moveTo(x,pad.t); ctx.lineTo(x,pad.t+ph); ctx.stroke();
+    ctx.fillStyle='rgba(255,255,255,.22)'; ctx.font='8px Courier New';
+    ctx.fillText(Math.round((i/6)*maxR),x-6,pad.t+ph+11);
+  }
+
+  // BC contamination zone (r > N/5 is unreliable on finite box)
+  const safeMax=Math.floor(N/5);
+  const bcX=xp(safeMax);
+  ctx.fillStyle='rgba(255,107,107,0.06)';
+  ctx.fillRect(bcX, pad.t, pad.l+pw-bcX, ph);
+  ctx.strokeStyle='rgba(255,107,107,0.25)'; ctx.lineWidth=1; ctx.setLineDash([2,3]);
+  ctx.beginPath(); ctx.moveTo(bcX,pad.t); ctx.lineTo(bcX,pad.t+ph); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle='rgba(255,107,107,0.4)'; ctx.font='8px Courier New';
+  ctx.fillText('BC zone',bcX+3,pad.t+10);
+
+  // Probe lines
+  [[S.r1,'rgba(168,230,207,.35)'],[S.r2,'rgba(199,125,255,.35)']].forEach(([r,col])=>{
+    ctx.strokeStyle=col; ctx.setLineDash([3,3]); ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(xp(r),pad.t); ctx.lineTo(xp(r),pad.t+ph); ctx.stroke();
+    ctx.setLineDash([]);
+  });
+
+  // Curves
+  const drawC=(data,col,lw=1.5)=>{
+    ctx.strokeStyle=col; ctx.lineWidth=lw; ctx.beginPath(); let s=false;
+    for(let i=0;i<data.length;i++){
+      const x=xp(rs[i]),y=yp(data[i]);
+      if(!isFinite(y))continue;
+      s?ctx.lineTo(x,y):(ctx.moveTo(x,y),s=true);
+    }
+    ctx.stroke();
+  };
+  drawC(norm3D,'#4ecdc4');
+  if(S.L0inv>0) drawC(normL0,'#f7c948');
+  drawC(normNum,'#ff6b6b',2);
+
+  // Labels
+  ctx.fillStyle='rgba(255,255,255,.25)'; ctx.font='8px Courier New';
+  ctx.fillText('r (grid units)',pad.l+pw/2-30,H-3);
+  ctx.save(); ctx.translate(9,pad.t+ph/2); ctx.rotate(-Math.PI/2);
+  ctx.fillText('κ (norm r=4)',-26,0); ctx.restore();
+  ctx.fillStyle='rgba(78,205,196,.5)'; ctx.font='9px Courier New';
+  ctx.fillText('RADIAL κ(r)',pad.l+4,pad.t-5);
+}
+
+function validateGreen(){
+  if(!kappa) return;
+  // Safe zone: r must be > 3*sigma (outside source) AND < N/5 (away from BC)
+  const safeMin = Math.ceil(3 * S.sigma) + 1;
+  const safeMax = Math.floor(S.N / 5);
+  // Pick two probes inside safe zone
+  const pr1 = Math.max(safeMin, Math.min(safeMin+2, safeMax-2));
+  const pr2 = Math.min(safeMax, pr1+4);
+  const k1=Math.abs(sampleShell(pr1));
+  const k2=Math.abs(sampleShell(pr2));
+  const meas=k1/(k2||1e-10);
+  const pred=pr2/pr1;
+  const err=Math.abs(meas-pred)/pred*100;
+
+  // User probe ratio (may be in BC zone — shown separately)
+  const uk1=Math.abs(sampleShell(S.r1));
+  const uk2=Math.abs(sampleShell(S.r2));
+  const userMeas=(uk1/(uk2||1e-10)).toFixed(3);
+  const userPred=(S.r2/S.r1).toFixed(3);
+
+  document.getElementById('rvMeas').textContent=`${meas.toFixed(3)} (r=${pr1},${pr2})`;
+  document.getElementById('rvPred').textContent=pred.toFixed(3);
+  const ec=err<5?'g':err<15?'w':'b';
+  document.getElementById('rvErr').textContent=err.toFixed(1)+'%';
+  document.getElementById('rvErr').className='rv '+ec;
+  const score=(Math.max(0,100-err)).toFixed(0)+'%';
+  document.getElementById('rvGfn').textContent=score;
+  document.getElementById('rvGfn').className='rv '+ec;
+  document.getElementById('dGreen').textContent=score;
+  document.getElementById('dGreen').className='dv '+ec;
+  document.getElementById('dRatio').textContent=err.toFixed(1)+'%';
+  document.getElementById('dRatio').className='dv '+ec;
+
+  const bcWarn = S.r2 > safeMax ? ` ⚠ probe r₂=${S.r2} in BC zone (safe<${safeMax}).` : '';
+  let v='';
+  if(err<5) v=`3D geometry confirmed. κ~1/r within ${err.toFixed(1)}% at safe-zone probes r=${pr1},${pr2}.${bcWarn}`;
+  else if(err<15) v=`Marginal match ${err.toFixed(1)}% at r=${pr1},${pr2}. Near source edge — increase σ separation.${bcWarn}`;
+  else v=`Source-zone contamination ${err.toFixed(1)}%. Safe zone r=${safeMin}–${safeMax} too narrow on 64³. Use 96³.${bcWarn}`;
+  document.getElementById('verdict').textContent=v;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// UI BINDINGS
+// ═══════════════════════════════════════════════════════════════
+function setStatus(cls,txt){
+  const el=document.getElementById('statusPill');
+  el.className=cls; el.textContent=txt;
+}
+
+function setSrc(m){
+  S.src=m;
+  document.querySelectorAll('#srcSeg button').forEach((b,i)=>b.className=['point','binary','ns'][i]===m?'on':'');
+  document.getElementById('rSep').style.display=m==='binary'?'flex':'none';
+  document.getElementById('rRns').style.display=m==='ns'?'flex':'none';
+}
+
+function setAxis(a){
+  S.axis=a;
+  document.querySelectorAll('#axisSeg button').forEach((b,i)=>b.className=['xy','xz','yz'][i]===a?'on':'');
+  if(solved) buildSlice();
+}
+
+function setN(n){
+  S.N=n;
+  document.querySelectorAll('#gridSeg button').forEach((b,i)=>b.className=[64,96,128][i]===n?'on':'');
+}
+
+function onDepth(v){
+  S.depth=+v; document.getElementById('lDepth').textContent=(+v).toFixed(2);
+  if(solved) buildSlice();
+}
+function onOpac(v){
+  S.opacity=+v; document.getElementById('lOpac').textContent=(+v).toFixed(2);
+  if(sliceMesh) sliceMesh.material.opacity=S.opacity;
+}
+function toggleIso(){
+  S.iso=!S.iso;
+  document.getElementById('btnIso').textContent='Isosurfaces: '+(S.iso?'ON':'OFF');
+  buildIso();
+}
+
+// Slider map
+const slMap=[
+  ['sM','lM','M',v=>(+v).toFixed(1)],
+  ['sSig','lSig','sigma',v=>(+v).toFixed(2)],
+  ['sSep','lSep','sep',v=>Math.round(+v)],
+  ['sRns','lRns','rns',v=>Math.round(+v)],
+  ['sL0','lL0','L0inv',v=>+v===0?'0 (GR)':(1/+v).toFixed(1)],
+  ['sKmax','lKmax','kmax',v=>+v===0?'OFF':(+v).toFixed(2)],
+  ['sR1','lR1','r1',v=>Math.round(+v)],
+  ['sR2','lR2','r2',v=>Math.round(+v)],
+];
+slMap.forEach(([sid,lid,key,fmt])=>{
+  const sl=document.getElementById(sid);
+  const lb=document.getElementById(lid);
+  if(!sl||!lb)return;
+  sl.addEventListener('input',()=>{
+    S[key]=+sl.value; lb.textContent=fmt(sl.value);
+    if(solved&&(key==='r1'||key==='r2')){ drawRadial(); validateGreen(); buildMarkers(); }
+    if(solved&&key==='L0inv') drawRadial();
+    if(solved&&(key==='axis'||key==='depth')) buildSlice();
+  });
+});
+
+// Presets
+const PRESETS={
+  gr:   {M:1,sigma:2.5,L0inv:0,kmax:0,src:'point'},
+  l0_10:{M:1,sigma:2.5,L0inv:0.1,kmax:0,src:'point'},
+  ns:   {M:3,sigma:8,L0inv:0.08,kmax:0.5,src:'ns'},
+  binary:{M:1,sigma:2.5,L0inv:0.03,kmax:0,src:'binary',sep:18},
+};
+function loadPreset(name){
+  const p=PRESETS[name]; if(!p)return;
+  Object.entries(p).forEach(([k,v])=>{
+    S[k]=v;
+    const sl=document.getElementById('s'+k.charAt(0).toUpperCase()+k.slice(1));
+    const lb=document.getElementById('l'+k.charAt(0).toUpperCase()+k.slice(1));
+    if(sl){sl.value=v; if(lb) lb.textContent=v;}
+  });
+  if(p.src) setSrc(p.src);
+}
+
+function doReset(){
+  if(worker){worker.terminate();worker=null;}
+  kappa=null; solved=false;
+  if(sliceMesh){scene.remove(sliceMesh);sliceMesh.geometry.dispose();sliceMesh.material.dispose();sliceMesh=null;}
+  clearIso(); clearMarkers();
+  setStatus('','IDLE');
+  document.getElementById('progFill').style.width='0%';
+  document.getElementById('btnRun').disabled=false;
+  ['dStat','dIter','dRes','dKmax','dGreen','dRatio','rvMeas','rvPred','rvErr','rvGfn']
+    .forEach(id=>{ const el=document.getElementById(id); el.textContent='—'; el.className=el.className.replace(/\s*[gbw]$/,''); });
+  document.getElementById('verdict').textContent='Run solver to validate 3D geometry.';
+  const rc=document.getElementById('cRad');
+  rc.getContext('2d').fillStyle='#07080f';
+  rc.getContext('2d').fillRect(0,0,rc.width,rc.height);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// RESIZE
+// ═══════════════════════════════════════════════════════════════
+window.addEventListener('resize',()=>{
+  const {w,h}=vpSize();
+  renderer.setSize(w,h);
+  camera.aspect=w/h; camera.updateProjectionMatrix();
+  if(solved) drawRadial();
+});
+
+// init markers (source indicator even before solve)
+buildMarkers();
+</script>
+</body>
+</html>

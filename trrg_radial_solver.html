@@ -1,0 +1,855 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TRR-G Radial Solver — Coherence-Modified Gravitational Potential</title>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --panel: rgba(15, 18, 25, 0.95);
+    --text: #e6eef7;
+    --muted: #7a8a9a;
+    --accent: #4ecdc4;
+    --accent2: #ff6b6b;
+    --accent3: #ffd93d;
+    --accent4: #6bcf7f;
+    --border: rgba(255,255,255,0.08);
+    --slider-track: #1a2030;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    overflow-x: hidden;
+  }
+
+  .header {
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .header h1 {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--accent);
+  }
+
+  .header .subtitle {
+    font-size: 13px;
+    color: var(--muted);
+  }
+
+  .main {
+    display: flex;
+    height: calc(100vh - 52px);
+  }
+
+  .controls {
+    width: 320px;
+    min-width: 320px;
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    padding: 16px;
+    overflow-y: auto;
+  }
+
+  .viewport {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 16px;
+    gap: 12px;
+    overflow-y: auto;
+  }
+
+  .section-title {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--accent);
+    margin: 16px 0 8px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .section-title:first-child { margin-top: 0; }
+
+  .row {
+    margin-bottom: 12px;
+  }
+
+  .row label {
+    display: block;
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+
+  .row .val-display {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    float: right;
+  }
+
+  input[type=range] {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--slider-track);
+    outline: none;
+  }
+
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+  }
+
+  .presets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .presets button {
+    padding: 6px 10px;
+    font-size: 11px;
+    border: 1px solid var(--border);
+    background: rgba(78, 205, 196, 0.1);
+    color: var(--accent);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .presets button:hover {
+    background: rgba(78, 205, 196, 0.25);
+  }
+
+  .chart-container {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    flex: 1;
+    min-height: 300px;
+    position: relative;
+  }
+
+  .chart-title {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+
+  canvas {
+    width: 100%;
+    height: 100%;
+  }
+
+  .readout-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 8px;
+  }
+
+  .readout {
+    background: rgba(78, 205, 196, 0.05);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px;
+  }
+
+  .readout .label {
+    font-size: 11px;
+    color: var(--muted);
+    display: block;
+  }
+
+  .readout .value {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--accent);
+  }
+
+  .equation-bar {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 16px;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.8;
+  }
+
+  .equation-bar .eq-label {
+    color: var(--accent);
+    font-weight: 600;
+  }
+
+  .legend {
+    display: flex;
+    gap: 16px;
+    margin-top: 8px;
+    flex-wrap: wrap;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .legend-swatch {
+    width: 20px;
+    height: 3px;
+    border-radius: 2px;
+  }
+
+  .info-note {
+    font-size: 11px;
+    color: var(--muted);
+    font-style: italic;
+    margin-top: 4px;
+  }
+
+  .charts-row {
+    display: flex;
+    gap: 12px;
+    flex: 1;
+    min-height: 0;
+  }
+
+  .charts-row .chart-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .charts-row canvas {
+    flex: 1;
+  }
+
+  @media (max-width: 768px) {
+    .main { flex-direction: column; }
+    .controls {
+      width: 100%;
+      min-width: unset;
+      max-height: 40vh;
+      border-right: none;
+      border-bottom: 1px solid var(--border);
+    }
+    .charts-row { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>TRR-G Radial Solver</h1>
+  <span class="subtitle">Coherence-modified gravitational potential vs Schwarzschild</span>
+</div>
+
+<div class="main">
+  <div class="controls">
+    <div class="section-title">Coherence Parameters</div>
+
+    <div class="row">
+      <label>L<sub>0</sub> — Coherence Length <span class="val-display" id="val-L0">10.0 km</span></label>
+      <input type="range" id="sl-L0" min="0.5" max="200" step="0.5" value="10" oninput="update()">
+      <div class="info-note">L<sub>0</sub> -> infinity recovers GR</div>
+    </div>
+
+    <div class="row">
+      <label>L<sub>shear</sub> / L<sub>coh</sub> Ratio <span class="val-display" id="val-ratio">1.00</span></label>
+      <input type="range" id="sl-ratio" min="0.1" max="3.0" step="0.05" value="1.0" oninput="update()">
+      <div class="info-note">< 1: shear decorrelates faster; > 1: shear more coherent</div>
+    </div>
+
+    <div class="section-title">Source Parameters</div>
+
+    <div class="row">
+      <label>Mass (M<sub>sun</sub>) <span class="val-display" id="val-mass">1.40</span></label>
+      <input type="range" id="sl-mass" min="0.5" max="3.0" step="0.05" value="1.4" oninput="update()">
+    </div>
+
+    <div class="row">
+      <label>Source Radius (km) <span class="val-display" id="val-R">12.0</span></label>
+      <input type="range" id="sl-R" min="5" max="30" step="0.5" value="12" oninput="update()">
+      <div class="info-note">Neutron star typical: 10-14 km</div>
+    </div>
+
+    <div class="row">
+      <label>Density Profile <span class="val-display" id="val-profile">Uniform</span></label>
+      <input type="range" id="sl-profile" min="0" max="2" step="1" value="0" oninput="update()">
+      <div class="info-note">0: Uniform | 1: Parabolic | 2: Polytrope (n=1)</div>
+    </div>
+
+    <div class="section-title">Display</div>
+
+    <div class="row">
+      <label>Radial Range (km) <span class="val-display" id="val-rmax">100</span></label>
+      <input type="range" id="sl-rmax" min="20" max="500" step="10" value="100" oninput="update()">
+    </div>
+
+    <div class="row">
+      <label>Grid Points <span class="val-display" id="val-N">500</span></label>
+      <input type="range" id="sl-N" min="100" max="2000" step="100" value="500" oninput="update()">
+    </div>
+
+    <div class="section-title">Presets</div>
+    <div class="presets">
+      <button onclick="loadPreset('ns_standard')">Neutron Star (GR)</button>
+      <button onclick="loadPreset('ns_trrg')">NS (TRR-G, L=10km)</button>
+      <button onclick="loadPreset('ns_strong')">NS (strong deviation)</button>
+      <button onclick="loadPreset('bh_10')">10 M<sub>sun</sub> BH</button>
+      <button onclick="loadPreset('weak_field')">Weak field</button>
+    </div>
+
+    <div class="section-title">Diagnostics</div>
+    <div class="readout-grid">
+      <div class="readout">
+        <span class="label">Schwarzschild Radius</span>
+        <span class="value" id="rd-rs">—</span>
+      </div>
+      <div class="readout">
+        <span class="label">Max |Delta phi/phi|</span>
+        <span class="value" id="rd-maxdev">—</span>
+      </div>
+      <div class="readout">
+        <span class="label">Eff. Mass Ratio</span>
+        <span class="value" id="rd-meff">—</span>
+      </div>
+      <div class="readout">
+        <span class="label">gamma at R<sub>star</sub></span>
+        <span class="value" id="rd-gamma-R">—</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="viewport">
+    <div class="charts-row">
+      <div class="chart-container">
+        <div class="chart-title">Gravitational Potential: phi_c(r) vs phi_GR(r)</div>
+        <canvas id="canvas-potential"></canvas>
+        <div class="legend">
+          <div class="legend-item"><div class="legend-swatch" style="background:#4ecdc4"></div> TRR-G phi_c(r)</div>
+          <div class="legend-item"><div class="legend-swatch" style="background:#ff6b6b"></div> GR phi(r)</div>
+          <div class="legend-item"><div class="legend-swatch" style="background:#ffd93d; opacity:0.5"></div> Source region</div>
+        </div>
+      </div>
+
+      <div class="chart-container">
+        <div class="chart-title">Coherence Profile: gamma(r) and U_coh/U_total</div>
+        <canvas id="canvas-coherence"></canvas>
+        <div class="legend">
+          <div class="legend-item"><div class="legend-swatch" style="background:#6bcf7f"></div> gamma(r)</div>
+          <div class="legend-item"><div class="legend-swatch" style="background:#ffd93d"></div> U_coh / U_total</div>
+          <div class="legend-item"><div class="legend-swatch" style="background:#ff6b6b; opacity:0.4"></div> gamma_shear(r)</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="chart-container" style="flex: 0 0 180px;">
+      <div class="chart-title">Fractional Deviation: (phi_c - phi_GR) / phi_GR</div>
+      <canvas id="canvas-deviation"></canvas>
+      <div class="legend">
+        <div class="legend-item"><div class="legend-swatch" style="background:#ff6b6b"></div> Fractional deviation</div>
+        <div class="legend-item"><div class="legend-swatch" style="background:rgba(255,255,255,0.15)"></div> NICER precision ~2%</div>
+      </div>
+    </div>
+
+    <div class="equation-bar">
+      <span class="eq-label">Poisson (scalar):</span> d²phi/dr² + (2/r) dphi/dr = (4 pi G / c²) rho(r) exp(-2r / L_0)<br>
+      <span class="eq-label">Coherence:</span> gamma(r) = exp(-r / L_0) &nbsp;|&nbsp; gamma_shear(r) = exp(-r / L_shear)<br>
+      <span class="eq-label">GR limit:</span> L_0 -> infinity => gamma -> 1 => standard Poisson equation
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// PHYSICS CONSTANTS (SI)
+// ============================================================
+const G = 6.674e-11;       // m^3 kg^-1 s^-2
+const c = 2.998e8;         // m/s
+const M_sun = 1.989e30;    // kg
+
+// ============================================================
+// STATE
+// ============================================================
+let state = {};
+
+function readControls() {
+  const L0_km = parseFloat(document.getElementById('sl-L0').value);
+  const ratio = parseFloat(document.getElementById('sl-ratio').value);
+  const mass_msun = parseFloat(document.getElementById('sl-mass').value);
+  const R_km = parseFloat(document.getElementById('sl-R').value);
+  const profileIdx = parseInt(document.getElementById('sl-profile').value);
+  const rmax_km = parseFloat(document.getElementById('sl-rmax').value);
+  const N = parseInt(document.getElementById('sl-N').value);
+
+  // Update displays
+  document.getElementById('val-L0').textContent = L0_km.toFixed(1) + ' km';
+  document.getElementById('val-ratio').textContent = ratio.toFixed(2);
+  document.getElementById('val-mass').textContent = mass_msun.toFixed(2);
+  document.getElementById('val-R').textContent = R_km.toFixed(1);
+  document.getElementById('val-profile').textContent = ['Uniform','Parabolic','Polytrope'][profileIdx];
+  document.getElementById('val-rmax').textContent = rmax_km.toFixed(0);
+  document.getElementById('val-N').textContent = N;
+
+  return {
+    L0: L0_km * 1e3,       // meters
+    Lshear: L0_km * 1e3 * ratio,
+    M: mass_msun * M_sun,
+    R: R_km * 1e3,
+    profileIdx,
+    rmax: rmax_km * 1e3,
+    N
+  };
+}
+
+// ============================================================
+// DENSITY PROFILES
+// ============================================================
+function densityProfile(r, R, M, profileIdx) {
+  if (r > R) return 0;
+  const x = r / R;
+  const V = (4/3) * Math.PI * R * R * R;
+
+  switch(profileIdx) {
+    case 0: // Uniform
+      return M / V;
+    case 1: // Parabolic: rho(r) = rho_c (1 - (r/R)^2)
+      // Normalize: integral = M
+      // rho_c * 4pi * integral_0^R r^2 (1 - r^2/R^2) dr = rho_c * 4pi R^3 (1/3 - 1/5) = rho_c * 4pi R^3 * 2/15
+      {
+        const rho_c = M / (4 * Math.PI * R*R*R * 2/15);
+        return rho_c * (1 - x*x);
+      }
+    case 2: // Polytrope n=1: rho(r) = rho_c sin(pi r/R) / (pi r/R)
+      // sinc profile
+      {
+        const arg = Math.PI * x;
+        const sinc = x < 1e-6 ? 1 : Math.sin(arg) / arg;
+        // Normalize: integral of r^2 sinc(pi r/R) * 4pi dr from 0 to R
+        // = 4pi R^3 / pi^2 * (integral of u sin(u) du from 0 to pi) = 4pi R^3 / pi^2 * (sin(pi) - pi cos(pi)) = 4pi R^3 / pi^2 * pi = 4 R^3 / pi
+        const rho_c = M / (4 * R*R*R / Math.PI);
+        return rho_c * Math.max(0, sinc);
+      }
+    default:
+      return M / V;
+  }
+}
+
+// ============================================================
+// ODE SOLVER: Spherically symmetric Poisson equation
+//   d²phi/dr² + (2/r) dphi/dr = (4 pi G / c²) * rho(r) * gamma²(r)
+// Rewrite as system:
+//   dphi/dr = v
+//   dv/dr = source(r) - 2v/r
+// Boundary conditions:
+//   phi(rmax) = -GM_eff/rmax  (matching condition)
+//   dphi/dr(0) = 0  (symmetry)
+//
+// We use shooting from r=0 outward.
+// ============================================================
+function solve(params) {
+  const { L0, Lshear, M, R, profileIdx, rmax, N } = params;
+  const dr = rmax / N;
+
+  // Coherence functions
+  const gamma_s = (r) => Math.exp(-r / L0);
+  const gamma_sh = (r) => Math.exp(-r / Lshear);
+
+  // Source term for TRR-G
+  const source_trrg = (r) => {
+    const rho = densityProfile(r, R, M, profileIdx);
+    const g = gamma_s(r);
+    return (4 * Math.PI * G / (c * c)) * rho * g * g;
+  };
+
+  // Source term for GR (standard Poisson)
+  const source_gr = (r) => {
+    const rho = densityProfile(r, R, M, profileIdx);
+    return (4 * Math.PI * G / (c * c)) * rho;
+  };
+
+  // Integrate outward using RK4
+  function integratePoisson(sourceFn) {
+    const phi = new Float64Array(N + 1);
+    const v = new Float64Array(N + 1);   // dphi/dr
+    const r_arr = new Float64Array(N + 1);
+
+    // Initial conditions at r = small (avoid r=0 singularity)
+    const r0 = dr * 0.01;
+    r_arr[0] = r0;
+    phi[0] = 0; // will shift later
+    v[0] = 0;   // symmetry: dphi/dr = 0 at center
+
+    for (let i = 0; i < N; i++) {
+      const r = r0 + i * dr;
+      r_arr[i] = r;
+      const r_next = r + dr;
+
+      // RK4 step
+      const f = (r_val, phi_val, v_val) => {
+        const s = sourceFn(r_val);
+        const dvdr = r_val < dr * 0.1 ? s / 3 : s - 2 * v_val / r_val;
+        return [v_val, dvdr];
+      };
+
+      const [k1_p, k1_v] = f(r, phi[i], v[i]);
+      const [k2_p, k2_v] = f(r + dr/2, phi[i] + dr/2*k1_p, v[i] + dr/2*k1_v);
+      const [k3_p, k3_v] = f(r + dr/2, phi[i] + dr/2*k2_p, v[i] + dr/2*k2_v);
+      const [k4_p, k4_v] = f(r + dr, phi[i] + dr*k3_p, v[i] + dr*k3_v);
+
+      phi[i+1] = phi[i] + dr/6 * (k1_p + 2*k2_p + 2*k3_p + k4_p);
+      v[i+1] = v[i] + dr/6 * (k1_v + 2*k2_v + 2*k3_v + k4_v);
+      r_arr[i+1] = r_next;
+    }
+
+    // Shift phi so that phi(rmax) matches the analytic exterior value
+    // For GR: phi(rmax) = -GM/(c² rmax)
+    // For TRR-G: phi(rmax) = -G M_eff/(c² rmax) where M_eff = integral of rho * gamma² * 4pi r² dr
+    const phi_boundary = phi[N];
+    const v_boundary = v[N];
+    // From the exterior solution: phi ~ -GM_eff/(c² r), so dphi/dr ~ GM_eff/(c² r²)
+    // M_eff = v_boundary * r_arr[N]² * c² / G  ... but this is already encoded in the integration
+    // Simply shift so that far-field approaches correct asymptotic:
+    // phi_physical = phi_numerical + offset
+    // At rmax: phi_numerical + offset should equal -G * M_eff / (c² * rmax)
+    // where M_eff = v[N] * rmax² * c² / G (from dphi/dr = GM_eff/(c² r²))
+    const M_eff = v[N] * r_arr[N] * r_arr[N] * c * c / G;
+    const phi_target = -G * M_eff / (c * c * r_arr[N]);
+    const offset = phi_target - phi[N];
+
+    for (let i = 0; i <= N; i++) {
+      phi[i] += offset;
+    }
+
+    return { r: r_arr, phi, v, M_eff };
+  }
+
+  const trrg = integratePoisson(source_trrg);
+  const gr = integratePoisson(source_gr);
+
+  // Compute coherence profiles for plotting
+  const gamma_arr = new Float64Array(N + 1);
+  const gamma_shear_arr = new Float64Array(N + 1);
+  const ucoh_ratio = new Float64Array(N + 1);
+  const deviation = new Float64Array(N + 1);
+
+  for (let i = 0; i <= N; i++) {
+    const r = trrg.r[i];
+    gamma_arr[i] = gamma_s(r);
+    gamma_shear_arr[i] = gamma_sh(r);
+    ucoh_ratio[i] = gamma_s(r) * gamma_s(r); // gamma² = U_coh/U_total
+
+    if (Math.abs(gr.phi[i]) > 1e-30) {
+      deviation[i] = (trrg.phi[i] - gr.phi[i]) / gr.phi[i];
+    } else {
+      deviation[i] = 0;
+    }
+  }
+
+  // Diagnostics
+  const Rs = 2 * G * M / (c * c);
+  const gamma_at_R = gamma_s(R);
+  const M_eff_ratio = trrg.M_eff / gr.M_eff;
+  let maxDev = 0;
+  for (let i = 0; i <= N; i++) {
+    const d = Math.abs(deviation[i]);
+    if (d > maxDev && isFinite(d)) maxDev = d;
+  }
+
+  return {
+    r: trrg.r,
+    phi_trrg: trrg.phi,
+    phi_gr: gr.phi,
+    gamma: gamma_arr,
+    gamma_shear: gamma_shear_arr,
+    ucoh_ratio,
+    deviation,
+    Rs,
+    gamma_at_R,
+    M_eff_ratio,
+    maxDev,
+    R,
+    N
+  };
+}
+
+// ============================================================
+// RENDERING
+// ============================================================
+function drawChart(canvasId, datasets, opts) {
+  const canvas = document.getElementById(canvasId);
+  const rect = canvas.parentElement.getBoundingClientRect();
+  const headerH = 30; // title + legend
+  const dpr = window.devicePixelRatio || 1;
+
+  // Compute available height
+  const parent = canvas.parentElement;
+  const siblings = Array.from(parent.children).filter(c => c !== canvas);
+  let siblingsH = 0;
+  siblings.forEach(s => siblingsH += s.offsetHeight);
+  const availH = Math.max(120, parent.clientHeight - siblingsH - 16);
+
+  canvas.style.width = '100%';
+  canvas.style.height = availH + 'px';
+  canvas.width = canvas.clientWidth * dpr;
+  canvas.height = availH * dpr;
+
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  const W = canvas.clientWidth;
+  const H = availH;
+
+  // Clear
+  ctx.clearRect(0, 0, W, H);
+
+  // Margins
+  const ml = 65, mr = 20, mt = 10, mb = 35;
+  const pw = W - ml - mr;
+  const ph = H - mt - mb;
+
+  // Compute axis ranges
+  let xmin = opts.xmin ?? Infinity, xmax = opts.xmax ?? -Infinity;
+  let ymin = opts.ymin ?? Infinity, ymax = opts.ymax ?? -Infinity;
+
+  for (const ds of datasets) {
+    for (let i = 0; i < ds.x.length; i++) {
+      const x = ds.x[i], y = ds.y[i];
+      if (!isFinite(x) || !isFinite(y)) continue;
+      if (opts.xmin === undefined) { if (x < xmin) xmin = x; }
+      if (opts.xmax === undefined) { if (x > xmax) xmax = x; }
+      if (opts.ymin === undefined) { if (y < ymin) ymin = y; }
+      if (opts.ymax === undefined) { if (y > ymax) ymax = y; }
+    }
+  }
+
+  // Add padding to y
+  if (opts.ymin === undefined || opts.ymax === undefined) {
+    const ypad = (ymax - ymin) * 0.08 || 1e-10;
+    if (opts.ymin === undefined) ymin -= ypad;
+    if (opts.ymax === undefined) ymax += ypad;
+  }
+
+  const xScale = (v) => ml + (v - xmin) / (xmax - xmin) * pw;
+  const yScale = (v) => mt + ph - (v - ymin) / (ymax - ymin) * ph;
+
+  // Grid
+  ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+  ctx.lineWidth = 1;
+  const nGridX = 6, nGridY = 5;
+  for (let i = 0; i <= nGridX; i++) {
+    const x = ml + (i / nGridX) * pw;
+    ctx.beginPath(); ctx.moveTo(x, mt); ctx.lineTo(x, mt + ph); ctx.stroke();
+  }
+  for (let i = 0; i <= nGridY; i++) {
+    const y = mt + (i / nGridY) * ph;
+    ctx.beginPath(); ctx.moveTo(ml, y); ctx.lineTo(ml + pw, y); ctx.stroke();
+  }
+
+  // Highlight bands
+  if (opts.highlightBands) {
+    for (const band of opts.highlightBands) {
+      ctx.fillStyle = band.color;
+      const y1 = yScale(band.ymax);
+      const y2 = yScale(band.ymin);
+      ctx.fillRect(ml, Math.min(y1,y2), pw, Math.abs(y2-y1));
+    }
+  }
+
+  // Source region highlight
+  if (opts.sourceR !== undefined) {
+    const sx = xScale(opts.sourceR / 1e3);
+    ctx.fillStyle = 'rgba(255, 217, 61, 0.06)';
+    ctx.fillRect(ml, mt, sx - ml, ph);
+    ctx.strokeStyle = 'rgba(255, 217, 61, 0.3)';
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath(); ctx.moveTo(sx, mt); ctx.lineTo(sx, mt + ph); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // Zero line
+  if (ymin < 0 && ymax > 0) {
+    ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+    ctx.beginPath();
+    const y0 = yScale(0);
+    ctx.moveTo(ml, y0); ctx.lineTo(ml + pw, y0);
+    ctx.stroke();
+  }
+
+  // Data
+  for (const ds of datasets) {
+    ctx.strokeStyle = ds.color;
+    ctx.lineWidth = ds.width || 2;
+    ctx.globalAlpha = ds.alpha || 1;
+    if (ds.dash) ctx.setLineDash(ds.dash);
+    ctx.beginPath();
+    let started = false;
+    for (let i = 0; i < ds.x.length; i++) {
+      const px = xScale(ds.x[i]);
+      const py = yScale(ds.y[i]);
+      if (!isFinite(py) || py < mt - 50 || py > mt + ph + 50) {
+        started = false;
+        continue;
+      }
+      if (!started) { ctx.moveTo(px, py); started = true; }
+      else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.globalAlpha = 1;
+  }
+
+  // Axes
+  ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(ml, mt); ctx.lineTo(ml, mt + ph); ctx.lineTo(ml + pw, mt + ph);
+  ctx.stroke();
+
+  // Labels
+  ctx.fillStyle = 'var(--muted)';
+  ctx.fillStyle = '#7a8a9a';
+  ctx.font = '11px "Segoe UI", system-ui, sans-serif';
+  ctx.textAlign = 'center';
+
+  for (let i = 0; i <= nGridX; i++) {
+    const val = xmin + (i / nGridX) * (xmax - xmin);
+    const x = ml + (i / nGridX) * pw;
+    ctx.fillText(val.toFixed(opts.xDecimals ?? 0), x, mt + ph + 18);
+  }
+
+  ctx.textAlign = 'right';
+  for (let i = 0; i <= nGridY; i++) {
+    const val = ymax - (i / nGridY) * (ymax - ymin);
+    const y = mt + (i / nGridY) * ph;
+    const txt = opts.yFormat ? opts.yFormat(val) : val.toExponential(2);
+    ctx.fillText(txt, ml - 6, y + 4);
+  }
+
+  // Axis titles
+  ctx.fillStyle = '#7a8a9a';
+  ctx.font = '11px "Segoe UI", system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(opts.xlabel || 'r (km)', ml + pw/2, mt + ph + 32);
+
+  ctx.save();
+  ctx.translate(14, mt + ph/2);
+  ctx.rotate(-Math.PI/2);
+  ctx.textAlign = 'center';
+  ctx.fillText(opts.ylabel || '', 0, 0);
+  ctx.restore();
+}
+
+// ============================================================
+// UPDATE LOOP
+// ============================================================
+function update() {
+  const params = readControls();
+  const result = solve(params);
+
+  // Convert r to km for plotting
+  const r_km = Array.from(result.r).map(r => r / 1e3);
+  const N = result.N;
+
+  // Potential plot
+  drawChart('canvas-potential', [
+    { x: r_km, y: Array.from(result.phi_trrg), color: '#4ecdc4', width: 2.5 },
+    { x: r_km, y: Array.from(result.phi_gr), color: '#ff6b6b', width: 2, dash: [6,4] },
+  ], {
+    xlabel: 'r (km)',
+    ylabel: 'phi (dimensionless)',
+    yFormat: v => v.toExponential(2),
+    sourceR: result.R,
+  });
+
+  // Coherence plot
+  drawChart('canvas-coherence', [
+    { x: r_km, y: Array.from(result.gamma), color: '#6bcf7f', width: 2.5 },
+    { x: r_km, y: Array.from(result.ucoh_ratio), color: '#ffd93d', width: 2 },
+    { x: r_km, y: Array.from(result.gamma_shear), color: '#ff6b6b', width: 1.5, alpha: 0.4, dash: [4,4] },
+  ], {
+    xlabel: 'r (km)',
+    ylabel: 'gamma / ratio',
+    ymin: 0,
+    ymax: 1.05,
+    yFormat: v => v.toFixed(2),
+    sourceR: result.R,
+  });
+
+  // Deviation plot
+  const devPercent = Array.from(result.deviation).map(d => d * 100);
+  drawChart('canvas-deviation', [
+    { x: r_km, y: devPercent, color: '#ff6b6b', width: 2 },
+  ], {
+    xlabel: 'r (km)',
+    ylabel: 'deviation (%)',
+    yFormat: v => v.toFixed(1) + '%',
+    sourceR: result.R,
+    highlightBands: [
+      { ymin: -2, ymax: 2, color: 'rgba(255,255,255,0.04)' },
+    ]
+  });
+
+  // Update diagnostics
+  document.getElementById('rd-rs').textContent = (result.Rs / 1e3).toFixed(3) + ' km';
+  document.getElementById('rd-maxdev').textContent = (result.maxDev * 100).toFixed(3) + '%';
+  document.getElementById('rd-meff').textContent = result.M_eff_ratio.toFixed(6);
+  document.getElementById('rd-gamma-R').textContent = result.gamma_at_R.toFixed(6);
+}
+
+// ============================================================
+// PRESETS
+// ============================================================
+function loadPreset(name) {
+  const presets = {
+    ns_standard: { L0: 200, ratio: 1.0, mass: 1.4, R: 12, profile: 0, rmax: 100 },
+    ns_trrg:     { L0: 10,  ratio: 1.0, mass: 1.4, R: 12, profile: 2, rmax: 100 },
+    ns_strong:   { L0: 3,   ratio: 0.5, mass: 1.4, R: 12, profile: 2, rmax: 60 },
+    bh_10:       { L0: 10,  ratio: 0.8, mass: 10,  R: 5,  profile: 0, rmax: 200 },
+    weak_field:  { L0: 100, ratio: 1.0, mass: 1.4, R: 12, profile: 0, rmax: 500 },
+  };
+
+  const p = presets[name];
+  if (!p) return;
+
+  document.getElementById('sl-L0').value = p.L0;
+  document.getElementById('sl-ratio').value = p.ratio;
+  document.getElementById('sl-mass').value = p.mass;
+  document.getElementById('sl-R').value = p.R;
+  document.getElementById('sl-profile').value = p.profile;
+  document.getElementById('sl-rmax').value = p.rmax;
+
+  update();
+}
+
+// ============================================================
+// INIT
+// ============================================================
+window.addEventListener('resize', update);
+update();
+</script>
+</body>
+</html>

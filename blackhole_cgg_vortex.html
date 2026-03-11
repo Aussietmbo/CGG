@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CGG Vortex-Core Black Hole</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600&family=Space+Grotesk:wght@300;400;600&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:#050509;overflow:hidden;font-family:'JetBrains Mono',monospace;color:#eee;width:100vw;height:100vh;cursor:crosshair}
+  canvas{display:block}
+  #ui{position:fixed;top:16px;left:16px;background:rgba(4,4,8,0.9);padding:18px 22px;border-radius:12px;backdrop-filter:blur(14px);border:1px solid rgba(255,200,100,0.12);min-width:250px;z-index:10;cursor:default}
+  #ui h1{font-family:'Space Grotesk',sans-serif;font-size:14px;font-weight:600;color:#ddb866;margin-bottom:3px;letter-spacing:.8px}
+  .sub{font-size:10px;color:#665;margin-bottom:12px}
+  .cg{margin-bottom:8px}
+  .cg label{font-size:11px;color:#887;display:flex;justify-content:space-between;margin-bottom:2px}
+  .cg label span{color:#ddb866;font-weight:600}
+  input[type=range]{width:100%;height:3px;-webkit-appearance:none;appearance:none;background:rgba(255,200,100,0.1);border-radius:2px;outline:none;cursor:pointer}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;border-radius:50%;background:#cc9944;box-shadow:0 0 8px rgba(200,160,60,0.5);cursor:pointer}
+  input[type=range]::-moz-range-thumb{width:12px;height:12px;border-radius:50%;background:#cc9944;box-shadow:0 0 8px rgba(200,160,60,0.5);border:none;cursor:pointer}
+  .h{font-size:9px;color:#554;font-style:italic;margin-top:1px}
+  .sep{height:1px;background:rgba(255,200,100,0.08);margin:10px 0}
+  .danger label span{color:#ff6644}
+  .danger input[type=range]::-webkit-slider-thumb{background:#dd4422;box-shadow:0 0 8px rgba(220,60,30,0.5)}
+  .danger input[type=range]::-moz-range-thumb{background:#dd4422;box-shadow:0 0 8px rgba(220,60,30,0.5)}
+  #info{margin-top:8px;padding-top:7px;border-top:1px solid rgba(255,200,100,0.08);font-size:10px;color:#665;line-height:1.65}
+  #info strong{color:#887}
+  #resetBtn{margin-top:10px;width:100%;padding:6px 0;background:rgba(255,200,100,0.08);border:1px solid rgba(255,200,100,0.2);border-radius:6px;color:#ddb866;font-family:'JetBrains Mono',monospace;font-size:11px;cursor:pointer;letter-spacing:0.5px;transition:all 0.2s}
+  #resetBtn:hover{background:rgba(255,200,100,0.18);border-color:rgba(255,200,100,0.4)}
+  #clickHint{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);font-size:11px;color:#554;pointer-events:none;z-index:10}
+</style>
+</head>
+<body>
+<div id="ui">
+  <h1>CGG Vortex-Core Black Hole</h1>
+  <div class="sub">Paper III — Coherence Gradient Gravity</div>
+
+  <div class="cg">
+    <label>Mass (M/M☉) <span id="mV">1.00</span></label>
+    <input type="range" id="mS" min="0.1" max="5" step="0.05" value="1"/>
+    <div class="h">Horizon radius r_H, gravitational pull strength, disk temperature</div>
+  </div>
+  <div class="cg">
+    <label>Spin (a/M) <span id="sV">0.70</span></label>
+    <input type="range" id="sS" min="0" max="0.998" step="0.002" value="0.7"/>
+    <div class="h">Frame-dragging speed, vortex tightness, streak blur length</div>
+  </div>
+  <div class="cg">
+    <label>Accretion Rate <span id="spV">1.00</span>x</label>
+    <input type="range" id="spS" min="0.1" max="3" step="0.05" value="1"/>
+    <div class="h">How fast matter spirals in — infall velocity multiplier</div>
+  </div>
+  <div class="cg">
+    <label>Phase Leakage Γ <span id="lV">0.30</span></label>
+    <input type="range" id="lS" min="0" max="1" step="0.01" value="0.3"/>
+    <div class="h">Energy escaping horizon — Hawking-like radiation glow</div>
+  </div>
+
+  <div class="sep"></div>
+  <div class="cg danger">
+    <label>Disruption <span id="dV">0.00</span></label>
+    <input type="range" id="dS" min="0" max="1" step="0.005" value="0"/>
+    <div class="h">Coherence collapse — vortex core dissolution</div>
+  </div>
+
+  <div id="info">
+    <strong>r<sub>H</sub>:</strong> <span id="eD">1.71</span> &nbsp;
+    <strong>δ(r<sub>H</sub>):</strong> <span id="cD">0.00</span> &nbsp;
+    <strong>n:</strong> <span id="wD">2</span><br/>
+    <strong>Particles:</strong> <span id="pD">0</span> &nbsp;
+    <strong>Consumed:</strong> <span id="kD">0</span>
+  </div>
+  <button id="resetBtn">⟲ Reset</button>
+</div>
+<div id="clickHint">Click anywhere to spawn matter into the vortex</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+
+<script>
+(function(){
+
+  // ==========================================
+  // CGG PAPER III PHYSICS
+  // ==========================================
+  function kerrH(M, a) {
+    const ac = Math.min(Math.abs(a), M * 0.998);
+    return M + Math.sqrt(M * M - ac * ac);
+  }
+  function coherenceField(r, rH, M) {
+    if (r >= rH) return 1.0 - Math.pow(rH / r, 3);
+    const d = (rH - r) / M;
+    return Math.exp(-d * 2.0) * Math.abs(Math.sin(d * 8.0));
+  }
+  function frameDrag(r, M, a) {
+    return a * M / (r * r + a * a * 0.1 + 0.01);
+  }
+  function keplerV(r, M) {
+    return Math.sqrt(2.0 * M / Math.max(r, 0.1));
+  }
+
+  // ==========================================
+  // RENDERER + BLOOM
+  // ==========================================
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.01, 3000);
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setSize(innerWidth, innerHeight);
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.setClearColor(0x040408);
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 0.9;
+  document.body.appendChild(renderer.domElement);
+
+  const darkMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+  const stored = {};
+  function darken(o) { if ((o.isMesh||o.isPoints||o.isLine)&&o.userData.noBloom) { stored[o.uuid]=o.material; o.material=darkMat; } }
+  function restore(o) { if (stored[o.uuid]) { o.material=stored[o.uuid]; delete stored[o.uuid]; } }
+
+  const bloomComp = new THREE.EffectComposer(renderer);
+  bloomComp.renderToScreen = false;
+  bloomComp.addPass(new THREE.RenderPass(scene, camera));
+  const bloom = new THREE.UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 3.0, 0.5, 0.08);
+  bloomComp.addPass(bloom);
+
+  const finalPass = new THREE.ShaderPass(new THREE.ShaderMaterial({
+    uniforms: { baseTexture:{value:null}, bloomTexture:{value:bloomComp.renderTarget2.texture} },
+    vertexShader: 'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
+    fragmentShader: 'uniform sampler2D baseTexture;uniform sampler2D bloomTexture;varying vec2 vUv;void main(){gl_FragColor=texture2D(baseTexture,vUv)+texture2D(bloomTexture,vUv);}'
+  }), 'baseTexture');
+  finalPass.needsSwap = true;
+  const finalComp = new THREE.EffectComposer(renderer);
+  finalComp.addPass(new THREE.RenderPass(scene, camera));
+  finalComp.addPass(finalPass);
+
+  const ctrl = new THREE.OrbitControls(camera, renderer.domElement);
+  ctrl.enableDamping = true; ctrl.dampingFactor = 0.05;
+  camera.position.set(2, 6, 22);
+  ctrl.target.set(0, 0, 0); ctrl.update();
+
+  let mass = 1, spin = 0.7, speed = 1, leak = 0.3, disrupt = 0;
+  let consumed = 0;
+  function rH() { return kerrH(mass, spin * mass); }
+
+  // ==========================================
+  // BLACK SPHERE
+  // ==========================================
+  const bh = new THREE.Mesh(
+    new THREE.SphereGeometry(1, 128, 128),
+    new THREE.MeshBasicMaterial({ color: 0x000000 })
+  );
+  bh.userData.noBloom = true;
+  bh.renderOrder = -1;
+  scene.add(bh);
+
+  // ==========================================
+  // EQUATORIAL RINGS — fade into horizon
+  // ==========================================
+  const eqRings = [];
+  const EQ_N = 14;
+  for (let i = 0; i < EQ_N; i++) {
+    const t = i / (EQ_N - 1);
+    const r = 1.08 + t * 0.5;
+    const tube = 0.02 + t * 0.02;
+    const opacity = t * t * 0.9;
+    const lum = 0.3 + t * 0.6;
+    const ring = new THREE.Mesh(
+      new THREE.TorusGeometry(r, tube, 32, 256),
+      new THREE.MeshBasicMaterial({
+        color: new THREE.Color().setHSL(0.13 - t*0.02, 0.25+t*0.1, lum),
+        transparent: true, opacity: Math.max(opacity, 0.02),
+        blending: THREE.AdditiveBlending, depthWrite: false
+      })
+    );
+    ring.rotation.x = Math.PI / 2;
+    ring.userData.baseOpacity = Math.max(opacity, 0.02);
+    scene.add(ring);
+    eqRings.push(ring);
+  }
+
+  // POLAR RING
+  const polRing = new THREE.Mesh(
+    new THREE.TorusGeometry(1.35, 0.035, 32, 256),
+    new THREE.MeshBasicMaterial({
+      color: new THREE.Color().setHSL(0.13, 0.3, 0.90),
+      transparent: true, opacity: 0.9,
+      blending: THREE.AdditiveBlending, depthWrite: false
+    })
+  );
+  polRing.userData.baseOpacity = 0.9;
+  scene.add(polRing);
+
+  // ==========================================
+  // PARTICLE POOL — dynamic, particles spiral in and get consumed
+  // ==========================================
+  const MAX_P = 30000;
+  const pPos = new Float32Array(MAX_P * 3);
+  const pCol = new Float32Array(MAX_P * 3);
+  // Per-particle state
+  const pState = new Array(MAX_P);
+  let activeP = 0; // how many particles are alive
+
+  function initParticle(i, r, th) {
+    const thick = 0.01 + (r - 1.5) * 0.006;
+    pState[i] = {
+      r: r,
+      th: th,
+      y: (Math.random() - 0.5) * thick,
+      alive: true,
+      age: 0,
+      vOut: 0
+    };
+  }
+
+  // Seed initial particles
+  function seedParticles(count, rMin, rMax) {
+    const start = activeP;
+    const end = Math.min(start + count, MAX_P);
+    for (let i = start; i < end; i++) {
+      const r = rMin + Math.pow(Math.random(), 0.6) * (rMax - rMin);
+      const th = Math.random() * Math.PI * 2;
+      initParticle(i, r, th);
+    }
+    activeP = end;
+  }
+
+  seedParticles(10000, 1.5, 16);
+
+  const pGeo = new THREE.BufferGeometry();
+  pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
+  pGeo.setAttribute('color', new THREE.BufferAttribute(pCol, 3));
+  pGeo.setDrawRange(0, activeP);
+
+  const diskPts = new THREE.Points(pGeo, new THREE.PointsMaterial({
+    size: 0.055, vertexColors: true, transparent: true, opacity: 0.9,
+    blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: true
+  }));
+  scene.add(diskPts);
+
+  // ==========================================
+  // STREAK TRAILS — spiral motion blur
+  // ==========================================
+  const MAX_S = 6000;
+  const sPos = new Float32Array(MAX_S * 6);
+  const sCol = new Float32Array(MAX_S * 6);
+  const sState = new Array(MAX_S);
+  let activeS = 0;
+
+  function initStreak(i, r, th) {
+    sState[i] = { r, th, alive: true, vOut: 0 };
+  }
+
+  function seedStreaks(count, rMin, rMax) {
+    const start = activeS;
+    const end = Math.min(start + count, MAX_S);
+    for (let i = start; i < end; i++) {
+      initStreak(i, rMin + Math.pow(Math.random(), 0.5) * (rMax - rMin), Math.random() * Math.PI * 2);
+    }
+    activeS = end;
+  }
+
+  seedStreaks(2000, 1.3, 10);
+
+  const sGeo = new THREE.BufferGeometry();
+  sGeo.setAttribute('position', new THREE.BufferAttribute(sPos, 3));
+  sGeo.setAttribute('color', new THREE.BufferAttribute(sCol, 3));
+  sGeo.setDrawRange(0, activeS * 2); // 2 verts per line segment
+
+  const streakLines = new THREE.LineSegments(sGeo, new THREE.LineBasicMaterial({
+    vertexColors: true, transparent: true, opacity: 0.6,
+    blending: THREE.AdditiveBlending, depthWrite: false
+  }));
+  scene.add(streakLines);
+
+  // ==========================================
+  // STARS
+  // ==========================================
+  const STN = 5000, stP = new Float32Array(STN * 3);
+  for (let i = 0; i < STN; i++) {
+    const d = new THREE.Vector3(Math.random()-0.5, Math.random()-0.5, Math.random()-0.5)
+      .normalize().multiplyScalar(120 + Math.random() * 900);
+    stP[i*3]=d.x; stP[i*3+1]=d.y; stP[i*3+2]=d.z;
+  }
+  const stGeo = new THREE.BufferGeometry();
+  stGeo.setAttribute('position', new THREE.BufferAttribute(stP, 3));
+  scene.add(new THREE.Points(stGeo, new THREE.PointsMaterial({ color:0xaaaaaa, size:0.25, transparent:true, opacity:0.45 })));
+
+  // ==========================================
+  // CLICK TO SPAWN MATTER
+  // ==========================================
+  const raycaster = new THREE.Raycaster();
+  const mouse = new THREE.Vector2();
+  // Invisible plane at y=0 for click intersection
+  const clickPlane = new THREE.Mesh(
+    new THREE.PlaneGeometry(200, 200),
+    new THREE.MeshBasicMaterial({ visible: false })
+  );
+  clickPlane.rotation.x = -Math.PI / 2;
+  scene.add(clickPlane);
+
+  renderer.domElement.addEventListener('click', (e) => {
+    // Don't spawn if clicking UI
+    if (e.target !== renderer.domElement) return;
+
+    mouse.x = (e.clientX / innerWidth) * 2 - 1;
+    mouse.y = -(e.clientY / innerHeight) * 2 + 1;
+    raycaster.setFromCamera(mouse, camera);
+
+    const hits = raycaster.intersectObject(clickPlane);
+    if (hits.length > 0) {
+      const pt = hits[0].point;
+      const clickR = Math.sqrt(pt.x * pt.x + pt.z * pt.z);
+      const clickTh = Math.atan2(pt.z, pt.x);
+
+      // Spawn a burst of particles around click point
+      const burstP = 200;
+      const burstS = 60;
+      const pStart = activeP;
+      const pEnd = Math.min(pStart + burstP, MAX_P);
+      for (let i = pStart; i < pEnd; i++) {
+        const r = Math.max(1.6, clickR + (Math.random() - 0.5) * 3);
+        const th = clickTh + (Math.random() - 0.5) * 0.8;
+        initParticle(i, r, th);
+      }
+      activeP = pEnd;
+      pGeo.setDrawRange(0, activeP);
+
+      const sStart = activeS;
+      const sEnd = Math.min(sStart + burstS, MAX_S);
+      for (let i = sStart; i < sEnd; i++) {
+        const r = Math.max(1.6, clickR + (Math.random() - 0.5) * 2.5);
+        const th = clickTh + (Math.random() - 0.5) * 0.6;
+        initStreak(i, r, th);
+      }
+      activeS = sEnd;
+      sGeo.setDrawRange(0, activeS * 2);
+    }
+  });
+
+  // ==========================================
+  // UI
+  // ==========================================
+  const $ = id => document.getElementById(id);
+  $('mS').oninput = e => { mass = +e.target.value; $('mV').textContent = mass.toFixed(2); upD(); };
+  $('sS').oninput = e => { spin = +e.target.value; $('sV').textContent = spin.toFixed(3); upD(); };
+  $('spS').oninput = e => { speed = +e.target.value; $('spV').textContent = speed.toFixed(2); };
+  $('lS').oninput = e => { leak = +e.target.value; $('lV').textContent = leak.toFixed(2); };
+  $('dS').oninput = e => { disrupt = +e.target.value; $('dV').textContent = disrupt.toFixed(2); };
+
+  $('resetBtn').onclick = () => {
+    mass=1; spin=0.7; speed=1; leak=0.3; disrupt=0; consumed=0;
+    $('mS').value=1;    $('mV').textContent='1.00';
+    $('sS').value=0.7;  $('sV').textContent='0.700';
+    $('spS').value=1;   $('spV').textContent='1.00';
+    $('lS').value=0.3;  $('lV').textContent='0.30';
+    $('dS').value=0;    $('dV').textContent='0.00';
+    activeP = 0; activeS = 0;
+    seedParticles(10000, 1.5, 16);
+    seedStreaks(2000, 1.3, 10);
+    pGeo.setDrawRange(0, activeP);
+    sGeo.setDrawRange(0, activeS * 2);
+    upD();
+  };
+
+  function upD() {
+    const h = rH();
+    $('eD').textContent = h.toFixed(2);
+    $('cD').textContent = coherenceField(h, h, mass).toFixed(4);
+    $('wD').textContent = Math.max(1, Math.round(spin * 3));
+  }
+  upD();
+
+  addEventListener('resize', () => {
+    camera.aspect = innerWidth / innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(innerWidth, innerHeight);
+    bloomComp.setSize(innerWidth, innerHeight);
+    finalComp.setSize(innerWidth, innerHeight);
+  });
+
+  // ==========================================
+  // ANIMATE
+  // ==========================================
+  const clk = new THREE.Clock();
+  const tmpC = new THREE.Color();
+
+  function animate() {
+    requestAnimationFrame(animate);
+    const dt = Math.min(clk.getDelta(), 0.05); // cap dt
+    const t = clk.getElapsedTime();
+    const h = rH();
+    const a = spin * mass;
+
+    // Disruption
+    const dFac = disrupt;
+    const sphereScale = h * Math.max(0, 1 - dFac);
+    const ringExpand = 1 + dFac * 3;
+    const ringFade = Math.max(0, 1 - dFac);
+    const blowForce = dFac * dFac * 8;
+
+    bh.scale.set(sphereScale, sphereScale, sphereScale);
+
+    eqRings.forEach(ring => {
+      const s = h * ringExpand;
+      ring.scale.set(s, s, s);
+      ring.material.opacity = ring.userData.baseOpacity * ringFade;
+    });
+    polRing.scale.set(h * ringExpand, h * ringExpand, h * ringExpand);
+    polRing.material.opacity = polRing.userData.baseOpacity * ringFade;
+
+    // Horizon capture radius
+    const captureR = sphereScale * 1.0;
+
+    // === PARTICLES ===
+    const pp = pGeo.getAttribute('position');
+    const pc = pGeo.getAttribute('color');
+
+    for (let i = 0; i < activeP; i++) {
+      const p = pState[i];
+      if (!p.alive) continue;
+
+      p.age += dt * speed;
+
+      // Physics: Keplerian orbit + Kerr frame-dragging
+      const vOrb = keplerV(p.r, mass) * 0.3;
+      const vDrag = frameDrag(p.r, mass, a) * 0.5;
+      p.th += speed * (vOrb + vDrag) * dt;
+
+      // Infall: stronger pull at higher mass, accelerates near horizon
+      // dr/dt = -G·M / r² (gravitational infall)
+      const infall = 0.04 * mass / (p.r * p.r) * speed;
+
+      // Disruption outward force
+      p.vOut += blowForce * dt * speed;
+      p.vOut *= 0.98;
+
+      p.r += p.vOut * dt - infall * dt;
+
+      // === CONSUMED BY VORTEX ===
+      if (p.r <= captureR && dFac < 0.5) {
+        p.alive = false;
+        consumed++;
+        // Zero out position (hide)
+        pp.array[i*3] = 0; pp.array[i*3+1] = 0; pp.array[i*3+2] = 0;
+        pc.array[i*3] = 0; pc.array[i*3+1] = 0; pc.array[i*3+2] = 0;
+        continue;
+      }
+
+      // Vortex spiral: as particle approaches horizon, compress Y toward disk plane
+      // and increase orbital speed (angular momentum conservation)
+      const proximity = Math.max(0, (p.r - captureR) / (h * 3));
+      const yCompress = Math.min(1, proximity * 2); // 0 at horizon → 1 far out
+      const yPos = p.y * yCompress;
+
+      pp.array[i*3]     = p.r * Math.cos(p.th);
+      pp.array[i*3 + 1] = yPos + (dFac > 0 ? (Math.random()-0.5)*dFac*0.5 : 0);
+      pp.array[i*3 + 2] = p.r * Math.sin(p.th);
+
+      // Color: white-hot near horizon → gold → amber → dim red far out
+      // Temperature ∝ M/r (closer = hotter, more massive = hotter)
+      const temp = Math.min(1, mass / (p.r * 0.5));
+      if (temp > 0.8)       tmpC.setHSL(0.14, 0.2, 0.90);   // white-hot
+      else if (temp > 0.6)  tmpC.setHSL(0.13, 0.35, 0.78);  // bright gold
+      else if (temp > 0.4)  tmpC.setHSL(0.11, 0.50, 0.58);  // gold
+      else if (temp > 0.25) tmpC.setHSL(0.09, 0.55, 0.42);  // amber
+      else if (temp > 0.12) tmpC.setHSL(0.07, 0.50, 0.28);  // dark amber
+      else                   tmpC.setHSL(0.06, 0.35, 0.14);  // dim
+
+      // Fade out as approaching horizon (disappearing into void)
+      const fadeIn = Math.min(1, (p.r - captureR) / (h * 0.5));
+      tmpC.multiplyScalar(fadeIn);
+
+      // Disruption blue shift
+      if (dFac > 0.3) {
+        const dB = (dFac - 0.3) / 0.7;
+        tmpC.lerp(new THREE.Color(0.3, 0.4, 0.9), dB * 0.5);
+      }
+
+      pc.array[i*3] = tmpC.r; pc.array[i*3+1] = tmpC.g; pc.array[i*3+2] = tmpC.b;
+    }
+    pp.needsUpdate = true; pc.needsUpdate = true;
+
+    // === STREAKS ===
+    const spinTailMult = 0.5 + spin * 3.0; // spin drives blur length
+
+    const sp = sGeo.getAttribute('position');
+    const sc = sGeo.getAttribute('color');
+
+    for (let i = 0; i < activeS; i++) {
+      const p = sState[i];
+      if (!p.alive) continue;
+
+      const vOrb = keplerV(p.r, mass) * 0.3;
+      const vDrag = frameDrag(p.r, mass, a) * 0.5;
+      p.th += speed * (vOrb + vDrag) * dt;
+
+      const infall = 0.04 * mass / (p.r * p.r) * speed;
+      p.vOut += blowForce * dt * speed;
+      p.vOut *= 0.98;
+      p.r += p.vOut * dt - infall * dt;
+
+      // Consumed
+      if (p.r <= captureR && dFac < 0.5) {
+        p.alive = false;
+        const idx = i * 6;
+        for (let j = 0; j < 6; j++) { sp.array[idx+j] = 0; sc.array[idx+j] = 0; }
+        continue;
+      }
+
+      // Tail length: spin-driven + proximity boost
+      const tailLen = (0.05 + (1 / (p.r * 0.25)) * 0.08) * spinTailMult;
+
+      const hx = p.r * Math.cos(p.th);
+      const hz = p.r * Math.sin(p.th);
+      const tailAng = p.th - tailLen * (1 + 2.5 / p.r);
+      const tailR = p.r + tailLen * 0.25;
+      const tx = tailR * Math.cos(tailAng);
+      const tz = tailR * Math.sin(tailAng);
+
+      const sy = dFac > 0 ? (Math.random()-0.5)*dFac*0.2 : 0;
+
+      const idx = i * 6;
+      sp.array[idx] = hx; sp.array[idx+1] = sy; sp.array[idx+2] = hz;
+      sp.array[idx+3] = tx; sp.array[idx+4] = sy*0.5; sp.array[idx+5] = tz;
+
+      // Color: fade near horizon
+      const prox = Math.max(0, 1 - (p.r - captureR) / 8);
+      const fadeIn = Math.min(1, (p.r - captureR) / (h * 0.4));
+      const hc = new THREE.Color().setHSL(0.12, 0.3+prox*0.2, (0.3+prox*0.55) * fadeIn);
+      const tc = new THREE.Color().setHSL(0.10, 0.2+prox*0.1, (0.1+prox*0.2) * fadeIn);
+
+      if (dFac > 0.3) {
+        const dB = (dFac-0.3)/0.7;
+        hc.lerp(new THREE.Color(0.4,0.5,1.0), dB*0.4);
+        tc.lerp(new THREE.Color(0.2,0.3,0.7), dB*0.3);
+      }
+
+      sc.array[idx]=hc.r; sc.array[idx+1]=hc.g; sc.array[idx+2]=hc.b;
+      sc.array[idx+3]=tc.r; sc.array[idx+4]=tc.g; sc.array[idx+5]=tc.b;
+    }
+    sp.needsUpdate = true; sc.needsUpdate = true;
+    streakLines.material.opacity = 0.3 + spin * 0.5;
+
+    // === BLOOM ===
+    // Phase leakage = glow intensity (energy escaping horizon)
+    bloom.strength = 2.5 + leak * 2.0 + dFac * 2.0;
+
+    // === INFO ===
+    let aliveCount = 0;
+    for (let i = 0; i < activeP; i++) if (pState[i].alive) aliveCount++;
+    $('pD').textContent = aliveCount.toLocaleString();
+    $('kD').textContent = consumed.toLocaleString();
+
+    ctrl.update();
+
+    scene.traverse(darken);
+    bloomComp.render();
+    scene.traverse(restore);
+    finalComp.render();
+  }
+  animate();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Fourier Synthesis v5.0 - Wave Builder + Resonance Manifold</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0a0a0a; color: #e0e0e0; overflow: hidden; }
+        #container { display: grid; grid-template-columns: 350px 1fr 400px; grid-template-rows: 60px 1fr; height: 100vh; gap: 0; }
+        #header { grid-column: 1 / -1; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 15px 25px; border-bottom: 2px solid #0ff; display: flex; justify-content: space-between; align-items: center; }
+        #header h1 { font-size: 24px; color: #0ff; font-weight: 300; letter-spacing: 1px; }
+        #header .subtitle { font-size: 12px; color: #888; }
+        #controls { background: #1a1a1a; padding: 20px; overflow-y: auto; border-right: 1px solid #333; }
+        #canvas-area { position: relative; background: #000; }
+        #main-canvas-container { position: relative; width: 100%; height: 100%; }
+        #main-canvas-container canvas { display: block; width: 100%; height: 100%; }
+        #sub-viewports { display: none; flex-direction: column; border-left: 2px solid #1a1a2e; }
+        #sub-viewports.active { display: flex; }
+        .sub-viewport { position: relative; background: #050510; overflow: hidden; flex: 1; }
+        .sub-viewport:first-child { border-bottom: 1px solid #1a1a2e; }
+        .sub-viewport canvas { display: block; width: 100%; height: 100%; }
+        .viewport-label { position: absolute; top: 8px; left: 12px; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 1.5px; color: #0ff; background: rgba(0,0,0,0.7); padding: 4px 10px; border-radius: 3px; pointer-events: none; z-index: 10; border: 1px solid rgba(0,255,255,0.2); }
+        .viewport-label.magenta { color: #f0f; border-color: rgba(255,0,255,0.2); }
+        .viewport-info { position: absolute; bottom: 8px; left: 12px; right: 12px; font-size: 9px; color: #666; line-height: 1.4; background: rgba(0,0,0,0.6); padding: 6px 8px; border-radius: 3px; pointer-events: none; z-index: 10; }
+        .section { margin-bottom: 25px; padding-bottom: 20px; border-bottom: 1px solid #2a2a2a; }
+        .section:last-child { border-bottom: none; }
+        .section-title { font-size: 14px; font-weight: 600; color: #0ff; margin-bottom: 15px; text-transform: uppercase; letter-spacing: 1px; }
+        .preset-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .preset-btn { background: #2a2a2a; border: 1px solid #444; color: #fff; padding: 10px; border-radius: 6px; cursor: pointer; font-size: 11px; transition: all 0.2s; text-align: center; }
+        .preset-btn:hover { background: #3a3a3a; border-color: #0ff; transform: translateY(-2px); }
+        .preset-btn.active { background: #0ff; color: #000; border-color: #0ff; font-weight: 600; }
+        .control-group { margin-bottom: 15px; }
+        .control-label { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 12px; color: #aaa; }
+        .control-value { color: #0ff; font-weight: 600; }
+        input[type="range"] { width: 100%; height: 6px; border-radius: 3px; background: #2a2a2a; outline: none; -webkit-appearance: none; }
+        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: #0ff; cursor: pointer; }
+        input[type="range"]::-moz-range-thumb { width: 16px; height: 16px; border-radius: 50%; background: #0ff; cursor: pointer; border: none; }
+        input[type="number"] { background: #2a2a2a; color: #0ff; border: 1px solid #666; padding: 4px 8px; border-radius: 4px; font-size: 12px; text-align: right; font-family: 'Segoe UI', monospace; outline: none; }
+        input[type="number"]:focus { border-color: #0ff; background: #333; }
+        .checkbox-group { display: flex; align-items: center; margin-bottom: 12px; }
+        .checkbox-group input[type="checkbox"] { width: 18px; height: 18px; margin-right: 10px; cursor: pointer; accent-color: #0ff; }
+        .checkbox-group label { font-size: 13px; cursor: pointer; user-select: none; }
+        .harmonic-card { background: #222; border-radius: 8px; padding: 15px; margin-bottom: 12px; border-left: 4px solid; transition: all 0.2s; }
+        .harmonic-card:hover { background: #2a2a2a; transform: translateX(4px); }
+        .harmonic-header { font-size: 13px; font-weight: 600; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
+        .harmonic-number { color: #0ff; }
+        .harmonic-freq { font-size: 11px; color: #888; }
+        #harmonics-list { max-height: 400px; overflow-y: auto; }
+        #harmonics-list::-webkit-scrollbar { width: 8px; }
+        #harmonics-list::-webkit-scrollbar-track { background: #1a1a1a; }
+        #harmonics-list::-webkit-scrollbar-thumb { background: #444; border-radius: 4px; }
+        .info-box { background: #1a1a2e; border: 1px solid rgba(0,255,255,0.2); border-radius: 6px; padding: 12px; font-size: 11px; color: #aaa; line-height: 1.6; }
+        .stats-display { background: #1a1a1a; border-radius: 6px; padding: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 11px; }
+        .stat-item { text-align: center; }
+        .stat-label { color: #666; text-transform: uppercase; font-size: 9px; margin-bottom: 4px; }
+        .stat-value { color: #0ff; font-size: 16px; font-weight: 600; }
+        .manifold-controls { background: #151520; border: 1px solid rgba(0,255,255,0.15); border-radius: 6px; padding: 12px; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="header">
+            <div>
+                <h1>3D Fourier Synthesis v5.0</h1>
+                <div class="subtitle">Interactive Wave Decomposition &#8226; Resonance Manifold &#8226; Interference Geometry</div>
+            </div>
+        </div>
+        <div id="controls">
+            <div class="section">
+                <div class="section-title">Wave Presets</div>
+                <div class="preset-grid" id="preset-buttons"></div>
+            </div>
+            <div class="section">
+                <div class="section-title">Global Settings</div>
+                <div class="control-group">
+                    <div class="control-label"><span>Number of Harmonics</span><span class="control-value" id="harmonics-count">5</span></div>
+                    <input type="range" id="num-harmonics" min="1" max="20" value="5">
+                </div>
+                <div class="checkbox-group"><input type="checkbox" id="show-components" checked><label for="show-components">Show Component Waves</label></div>
+                <div class="checkbox-group"><input type="checkbox" id="enable-angular"><label for="enable-angular">Angular Momentum</label></div>
+                <div class="control-group" id="angular-control" style="display:none;">
+                    <div class="control-label"><span>L-Value</span><span class="control-value" id="angular-value">0.00</span></div>
+                    <input type="range" id="angular-momentum" min="-2" max="2" step="0.01" value="0">
+                </div>
+                <div class="checkbox-group"><input type="checkbox" id="enable-revolution"><label for="enable-revolution">Surface of Revolution</label></div>
+                <div class="control-group" id="revolution-control" style="display:none;">
+                    <div class="control-label"><span>Revolution Segments</span><span class="control-value" id="revolution-segments-value">32</span></div>
+                    <input type="range" id="revolution-segments" min="8" max="64" step="4" value="32">
+                    <div class="control-label" style="margin-top:10px;"><span>Surface Opacity</span><span class="control-value" id="surface-opacity-value">0.60</span></div>
+                    <input type="range" id="surface-opacity" min="0.1" max="1" step="0.05" value="0.6">
+                </div>
+                <div class="checkbox-group"><input type="checkbox" id="enable-time-evolution"><label for="enable-time-evolution">Time Evolution</label></div>
+                <div class="control-group" id="time-control" style="display:none;">
+                    <div style="display:flex;gap:8px;margin-bottom:10px;">
+                        <button id="play-pause-btn" class="preset-btn" style="flex:1;">&#9654; Play</button>
+                        <button id="reset-time-btn" class="preset-btn" style="flex:1;">&#10226; Reset</button>
+                    </div>
+                    <div class="control-label"><span>Time</span><span class="control-value" id="time-value">0.00</span></div>
+                    <input type="range" id="time-slider" min="0" max="6.28318" step="0.01" value="0">
+                    <div class="control-label" style="margin-top:10px;"><span>Speed</span><span class="control-value" id="speed-value">1.0x</span></div>
+                    <input type="range" id="speed-slider" min="0.1" max="5" step="0.1" value="1">
+                    <div class="checkbox-group" style="margin-top:10px;"><input type="checkbox" id="show-phase-velocity"><label for="show-phase-velocity">Show Phase Velocity</label></div>
+                </div>
+                <div class="control-group">
+                    <div class="control-label"><span>Resolution</span><span class="control-value" id="resolution-value">300</span></div>
+                    <input type="range" id="resolution" min="100" max="1000" step="50" value="300">
+                </div>
+            </div>
+            <div class="section">
+                <div class="section-title">Resonance Analysis</div>
+                <div class="checkbox-group"><input type="checkbox" id="enable-manifold"><label for="enable-manifold">Show Manifold Viewports</label></div>
+                <div class="manifold-controls" id="manifold-options" style="display:none;">
+                    <div class="control-group">
+                        <div class="control-label"><span>Sphere Detail</span><span class="control-value" id="sphere-detail-value">24</span></div>
+                        <input type="range" id="sphere-detail" min="8" max="48" step="4" value="24">
+                    </div>
+                    <div class="control-group">
+                        <div class="control-label"><span>Interference Gain</span><span class="control-value" id="interference-gain-value">1.00</span></div>
+                        <input type="range" id="interference-gain" min="0.1" max="3" step="0.1" value="1">
+                    </div>
+                    <div class="checkbox-group"><input type="checkbox" id="show-node-lines" checked><label for="show-node-lines">Show Nodal Lines</label></div>
+                    <div class="checkbox-group"><input type="checkbox" id="advanced-mode"><label for="advanced-mode">Advanced Mode (n,l,m)</label></div>
+                    <div class="checkbox-group"><input type="checkbox" id="enable-section-cut"><label for="enable-section-cut">Section Cut (Slice)</label></div>
+                    <div id="section-cut-controls" style="display:none;">
+                        <div class="control-group">
+                            <div class="control-label"><span>Cut Axis</span></div>
+                            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px;">
+                                <button class="preset-btn section-axis-btn active" data-axis="x">X</button>
+                                <button class="preset-btn section-axis-btn" data-axis="y">Y</button>
+                                <button class="preset-btn section-axis-btn" data-axis="z">Z</button>
+                            </div>
+                        </div>
+                        <div class="control-group">
+                            <div class="control-label"><span>Cut Position</span><span class="control-value" id="cut-position-value">0.00</span></div>
+                            <input type="range" id="cut-position" min="-1" max="1" step="0.05" value="0">
+                        </div>
+                        <div class="checkbox-group"><input type="checkbox" id="show-both-halves"><label for="show-both-halves">Show Both Halves</label></div>
+                    </div>
+                </div>
+            </div>
+            <div class="section">
+                <div class="section-title">Wave Statistics</div>
+                <div class="stats-display">
+                    <div class="stat-item"><div class="stat-label">Active</div><div class="stat-value" id="active-harmonics">1</div></div>
+                    <div class="stat-item"><div class="stat-label">Peak Amp</div><div class="stat-value" id="peak-amplitude">1.00</div></div>
+                    <div class="stat-item"><div class="stat-label">Dominant f</div><div class="stat-value" id="dominant-freq">1 Hz</div></div>
+                    <div class="stat-item"><div class="stat-label">Total Energy</div><div class="stat-value" id="total-energy">1.00</div></div>
+                </div>
+            </div>
+            <div class="section">
+                <div class="section-title">Harmonic Components</div>
+                <div id="harmonics-list"></div>
+            </div>
+            <div class="section">
+                <div class="info-box">
+                    <strong>Controls:</strong><br>
+                    &#8226; Drag to rotate any 3D view / Scroll to zoom<br>
+                    &#8226; Cyan = composite, Colored = components<br>
+                    &#8226; Angular momentum &#8594; helical patterns<br>
+                    &#8226; Revolution &#8594; 3D solid geometry<br><br>
+                    <strong>Resonance Viewports:</strong><br>
+                    &#8226; <span style="color:#0ff">Manifold</span> &#8212; Each harmonic as its own resonant sphere (standing-wave modes)<br>
+                    &#8226; <span style="color:#f0f">Interference</span> &#8212; Multi-scale superposition with radial weighting<br>
+                    &nbsp;&nbsp;&nbsp;Each frequency dominates at its natural scale<br><br>
+                    <strong>Advanced Mode:</strong><br>
+                    &#8226; Control quantum numbers n, l, m per harmonic<br>
+                    &#8226; Sphere size scales with n (quantum shells)<br>
+                    &#8226; Normal mode: size &#8733; 1/&#8730;freq (wave physics)<br>
+                    &#8226; Interference shows nested 3D volume patterns
+                </div>
+            </div>
+        </div>
+        <div id="canvas-area">
+            <div id="main-canvas-container"><canvas id="canvas"></canvas></div>
+        </div>
+        <div id="sub-viewports">
+            <div class="sub-viewport" id="manifold-container">
+                <div class="viewport-label">Resonance Manifold</div>
+                <div class="viewport-info">Individual harmonic modes as resonant spheres</div>
+                <canvas id="manifold-canvas"></canvas>
+            </div>
+            <div class="sub-viewport" id="interference-container">
+                <div class="viewport-label magenta">Interference Geometry</div>
+                <div class="viewport-info">Superposition of all modes &#8212; constructive &amp; destructive interference</div>
+                <canvas id="interference-canvas"></canvas>
+            </div>
+        </div>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script>
+        // === THREE.JS SETUP ===
+        const canvas = document.getElementById('canvas');
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, canvas.clientWidth / canvas.clientHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+        
+        function resizeRenderer() {
+            const c = document.getElementById('main-canvas-container');
+            renderer.setSize(c.clientWidth, c.clientHeight);
+            camera.aspect = c.clientWidth / c.clientHeight;
+            camera.updateProjectionMatrix();
+        }
+        resizeRenderer();
+        renderer.setClearColor(0x000000, 1);
+
+        // Manifold viewport
+        const manifoldCanvas = document.getElementById('manifold-canvas');
+        const manifoldScene = new THREE.Scene();
+        const manifoldCamera = new THREE.PerspectiveCamera(60, 1, 0.1, 500);
+        const manifoldRenderer = new THREE.WebGLRenderer({ canvas: manifoldCanvas, antialias: true, alpha: true });
+        manifoldRenderer.setClearColor(0x030308, 1);
+        let manifoldControls = null;
+
+        // Interference viewport
+        const interferenceCanvas = document.getElementById('interference-canvas');
+        const interferenceScene = new THREE.Scene();
+        const interferenceCamera = new THREE.PerspectiveCamera(60, 1, 0.1, 500);
+        const interferenceRenderer = new THREE.WebGLRenderer({ canvas: interferenceCanvas, antialias: true, alpha: true });
+        interferenceRenderer.setClearColor(0x030308, 1);
+        interferenceRenderer.localClippingEnabled = true;
+        let interferenceControls = null;
+
+        // === STATE ===
+        let harmonics = [], numHarmonics = 5, resolution = 300, waveLength = 20;
+        let showComponents = true, useAngularMomentum = false, angularMomentum = 0;
+        let useRevolution = false, revolutionSegments = 32, surfaceOpacity = 0.6;
+        let useTimeEvolution = false, currentTime = 0, animationSpeed = 1.0, isPlaying = false, showPhaseVelocity = false;
+        let showManifold = false, sphereDetail = 24, interferenceGain = 1.0, showNodeLines = true;
+        let enableSectionCut = false, cutAxis = 'x', cutPosition = 0, showBothHalves = false;
+        let advancedMode = false;
+
+        const presets = {
+            square: { name: 'Square Wave', fn: (n) => ({ amp: n % 2 ? 4/(Math.PI*n) : 0, freq: n, phase: 0 }) },
+            sawtooth: { name: 'Sawtooth', fn: (n) => ({ amp: 2/(Math.PI*n) * (n%2?1:-1), freq: n, phase: 0 }) },
+            triangle: { name: 'Triangle', fn: (n) => ({ amp: n%2 ? 8/(Math.PI*Math.PI*n*n)*(Math.floor(n/2)%2?-1:1) : 0, freq: n, phase: 0 }) },
+            pure: { name: 'Pure Sine', fn: (n) => ({ amp: n===1?1:0, freq: n, phase: 0 }) },
+            beats: { name: 'Beat Pattern', fn: (n) => ({ amp: n<=2?0.5:0, freq: n===1?1:1.1, phase: 0 }) },
+            harmonic: { name: 'Harmonic Series', fn: (n) => ({ amp: 1/n, freq: n, phase: 0 }) }
+        };
+
+        const waveGroup = new THREE.Group(); scene.add(waveGroup);
+        const manifoldGroup = new THREE.Group(); manifoldScene.add(manifoldGroup);
+        const interferenceGroup = new THREE.Group(); interferenceScene.add(interferenceGroup);
+
+        // === ORIGINAL WAVE FUNCTIONS (unchanged) ===
+        function initHarmonics(preset = null) {
+            harmonics = [];
+            for (let i = 1; i <= numHarmonics; i++) {
+                const baseHarmonic = preset ? preset.fn(i) : { amp: i===1?1:0, freq: i, phase: 0 };
+                // Add quantum numbers: n (principal), l (angular), m (magnetic)
+                harmonics.push({
+                    ...baseHarmonic,
+                    n: i,           // Principal quantum number (energy level)
+                    l: i - 1,       // Angular momentum (0 to n-1)
+                    m: 0            // Magnetic quantum number (-l to +l)
+                });
+            }
+            updateWaves(); updateUI();
+        }
+
+        function calculateWave(h) {
+            const pts = [];
+            for (let i = 0; i < resolution; i++) {
+                const t = (i/resolution)*waveLength, z = t - waveLength/2;
+                const sp = 2*Math.PI*h.freq*t/waveLength;
+                const tp = useTimeEvolution ? 2*Math.PI*h.freq*currentTime : 0;
+                let y = h.amp * Math.sin(sp - tp + h.phase);
+                if (useAngularMomentum) {
+                    const th = angularMomentum*t;
+                    pts.push(new THREE.Vector3(y*Math.cos(th), y*Math.sin(th), z));
+                } else { pts.push(new THREE.Vector3(0, y, z)); }
+            }
+            return pts;
+        }
+
+        function calculateComposite() {
+            const pts = [];
+            for (let i = 0; i < resolution; i++) {
+                const t = (i/resolution)*waveLength, z = t - waveLength/2;
+                let y = 0;
+                harmonics.forEach(h => {
+                    y += h.amp * Math.sin(2*Math.PI*h.freq*t/waveLength - (useTimeEvolution ? 2*Math.PI*h.freq*currentTime : 0) + h.phase);
+                });
+                if (useAngularMomentum) {
+                    const th = angularMomentum*t;
+                    pts.push(new THREE.Vector3(y*Math.cos(th), y*Math.sin(th), z));
+                } else { pts.push(new THREE.Vector3(0, y, z)); }
+            }
+            return pts;
+        }
+
+        function createRevolutionSurface() {
+            const pts = [];
+            for (let i = 0; i < resolution; i++) {
+                const t = (i/resolution)*waveLength, z = t - waveLength/2;
+                let y = 0;
+                harmonics.forEach(h => {
+                    y += h.amp * Math.sin(2*Math.PI*h.freq*t/waveLength - (useTimeEvolution ? 2*Math.PI*h.freq*currentTime : 0) + h.phase);
+                });
+                pts.push({ z, radius: Math.abs(y), angularPhase: useAngularMomentum ? angularMomentum*t : 0 });
+            }
+            const verts = [], idxs = [];
+            for (let i = 0; i < pts.length; i++) {
+                const {z, radius, angularPhase} = pts[i];
+                for (let j = 0; j <= revolutionSegments; j++) {
+                    const th = (j/revolutionSegments)*Math.PI*2 + angularPhase;
+                    verts.push(radius*Math.cos(th), radius*Math.sin(th), z);
+                }
+            }
+            for (let i = 0; i < pts.length-1; i++) {
+                for (let j = 0; j < revolutionSegments; j++) {
+                    const a = i*(revolutionSegments+1)+j, b = a+revolutionSegments+1, c = a+1, d = b+1;
+                    idxs.push(a,b,c, b,d,c);
+                }
+            }
+            const geo = new THREE.BufferGeometry();
+            geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+            geo.setIndex(idxs); geo.computeVertexNormals();
+            return geo;
+        }
+
+        // === MAIN VIEWPORT UPDATE ===
+        function updateWaves() {
+            waveGroup.children.forEach(c => {
+                if (c.geometry) c.geometry.dispose();
+                if (c.material) { (Array.isArray(c.material) ? c.material : [c.material]).forEach(m => m.dispose()); }
+            });
+            waveGroup.clear();
+
+            if (useRevolution) {
+                const rg = createRevolutionSurface();
+                waveGroup.add(new THREE.Mesh(rg, new THREE.MeshPhongMaterial({ color:0x00ffff, opacity:surfaceOpacity, transparent:true, side:THREE.DoubleSide, shininess:100, specular:0x444444 })));
+                waveGroup.add(new THREE.LineSegments(new THREE.WireframeGeometry(rg), new THREE.LineBasicMaterial({ color:0x00ffff, opacity:0.3, transparent:true })));
+            }
+
+            if (showComponents && !useRevolution) {
+                harmonics.forEach((h, idx) => {
+                    if (h.amp !== 0) {
+                        const color = new THREE.Color().setHSL((idx/numHarmonics), 0.8, 0.6);
+                        const pts = calculateWave(h);
+                        waveGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color, opacity:0.5, transparent:true })));
+                        if (showPhaseVelocity && useTimeEvolution) {
+                            for (let i = 0; i < 5; i++) {
+                                const pidx = Math.floor((i+0.5)/5*pts.length);
+                                if (pidx < pts.length-1) {
+                                    const ah = new THREE.ArrowHelper(new THREE.Vector3(0,0,-1), pts[pidx], 1.5, color, 0.5, 0.3);
+                                    ah.line.material.opacity = 0.6; ah.line.material.transparent = true;
+                                    ah.cone.material.opacity = 0.6; ah.cone.material.transparent = true;
+                                    waveGroup.add(ah);
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            if (!useRevolution) {
+                waveGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(calculateComposite()), new THREE.LineBasicMaterial({ color:0x00ffff, linewidth:2 })));
+            }
+
+            const grid = new THREE.GridHelper(waveLength, 20, 0x444444, 0x222222);
+            grid.rotation.x = Math.PI/2; waveGroup.add(grid);
+            waveGroup.add(new THREE.AxesHelper(5));
+            updateStats();
+            if (showManifold) { updateManifoldView(); updateInterferenceView(); }
+        }
+
+        // === RESONANCE MANIFOLD ===
+        // Each active harmonic becomes a resonant sphere with surface modulated
+        // by spherical harmonic-like patterns. Harmonic index -> "l" quantum number,
+        // angular momentum -> "m" order. Like atomic orbitals: each is a standing
+        // wave eigenmode; the cluster shows all modes coexisting.
+        function disposeGroup(g) {
+            g.children.forEach(c => {
+                if (c.geometry) c.geometry.dispose();
+                if (c.material) { (Array.isArray(c.material)?c.material:[c.material]).forEach(m=>m.dispose()); }
+            });
+            g.clear();
+        }
+
+        function updateManifoldView() {
+            disposeGroup(manifoldGroup);
+            const active = harmonics.filter(h => Math.abs(h.amp) > 0.001);
+            if (!active.length) return;
+
+            active.forEach((h, idx) => {
+                const origIdx = harmonics.indexOf(h);
+                const hue = origIdx / numHarmonics;
+                // Golden angle spiral cluster layout
+                const ang = idx * 2.399, rad = Math.sqrt(idx) * 1.92;
+                const px = rad*Math.cos(ang), pz = rad*Math.sin(ang);
+                
+                // Sphere size scaling:
+                // Advanced Mode: Size scales with quantum number n (like atomic orbitals)
+                // Normal Mode: Size inversely scales with frequency (higher freq = smaller, more compact)
+                const baseR = advancedMode ? 
+                    (Math.abs(h.amp) * (0.3 + h.n * 0.15)) :  // Quantum shell scaling
+                    (Math.abs(h.amp) * (2.0 / Math.sqrt(h.freq)) + 0.3);  // Inverse frequency scaling
+                
+                const geo = new THREE.SphereGeometry(1, sphereDetail, sphereDetail);
+                const pos = geo.attributes.position;
+                const cols = new Float32Array(pos.count * 3);
+                // Use per-harmonic quantum numbers in advanced mode, otherwise use global/frequency
+                const l = advancedMode ? h.l : Math.round(h.freq);
+                const m = advancedMode ? h.m : (useAngularMomentum ? Math.round(angularMomentum) : 0);
+                const tPh = useTimeEvolution ? 2*Math.PI*h.freq*currentTime : 0;
+
+                for (let v = 0; v < pos.count; v++) {
+                    const x=pos.getX(v), y=pos.getY(v), z=pos.getZ(v);
+                    const r = Math.sqrt(x*x+y*y+z*z) || 1;
+                    const theta = Math.acos(Math.max(-1, Math.min(1, y/r)));
+                    const phi = Math.atan2(z, x);
+                    const mod = Math.sin(l*theta + h.phase - tPh) * Math.cos(m*phi);
+                    const dR = baseR * (1.0 + 0.35*mod*interferenceGain);
+                    pos.setXYZ(v, x/r*dR, y/r*dR, z/r*dR);
+                    const intensity = 0.5 + 0.5*mod;
+                    const c = new THREE.Color().setHSL(hue, 0.75, 0.15 + intensity*0.55);
+                    cols[v*3]=c.r; cols[v*3+1]=c.g; cols[v*3+2]=c.b;
+                }
+                geo.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
+                pos.needsUpdate = true; geo.computeVertexNormals();
+
+                const mesh = new THREE.Mesh(geo, new THREE.MeshPhongMaterial({ vertexColors:true, transparent:true, opacity:0.85, side:THREE.DoubleSide, shininess:60, specular:0x333333 }));
+                mesh.position.set(px, 0, pz); manifoldGroup.add(mesh);
+
+                // Wireframe
+                const wg = new THREE.WireframeGeometry(geo);
+                const wire = new THREE.LineSegments(wg, new THREE.LineBasicMaterial({ color: new THREE.Color().setHSL(hue,0.8,0.7), opacity:0.12, transparent:true }));
+                wire.position.copy(mesh.position); manifoldGroup.add(wire);
+
+                // Frequency ring
+                const tg = new THREE.TorusGeometry(baseR*1.15, 0.03, 8, 32);
+                const torus = new THREE.Mesh(tg, new THREE.MeshBasicMaterial({ color: new THREE.Color().setHSL(hue,0.9,0.6), opacity:0.4, transparent:true }));
+                torus.position.copy(mesh.position); torus.rotation.x = Math.PI/2; manifoldGroup.add(torus);
+            });
+        }
+
+        // === INTERFERENCE GEOMETRY ===
+        // All harmonics superposed on one sphere. Radius at each (theta,phi) =
+        // sum of all harmonic contributions. Bright=constructive, dark=destructive.
+        // Yellow nodal lines mark zero-crossings (phase boundaries).
+        // Analogous to: Chladni patterns on a sphere, electron density clouds,
+        // and in TRR terms, the "rendered" matter geometry from synchronized resonance.
+        function updateInterferenceView() {
+            disposeGroup(interferenceGroup);
+            const active = harmonics.filter(h => Math.abs(h.amp) > 0.001);
+            if (!active.length) return;
+
+            // Calculate natural radius for each harmonic (same formula as manifold)
+            const harmonicRadii = active.map(h => {
+                return advancedMode ? 
+                    (Math.abs(h.amp) * (0.3 + h.n * 0.15)) :
+                    (Math.abs(h.amp) * (2.0 / Math.sqrt(h.freq)) + 0.3);
+            });
+            
+            // Adaptive base radius: use the maximum to contain all harmonics
+            const maxHarmonicR = Math.max(...harmonicRadii, 1.0);
+            const baseR = maxHarmonicR * 1.5;  // 1.5x to show interference beyond peak
+            
+            const geo = new THREE.SphereGeometry(1, sphereDetail, sphereDetail);
+            const pos = geo.attributes.position;
+            const cols = new Float32Array(pos.count * 3);
+            const vals = new Float32Array(pos.count);
+            let minV = Infinity, maxV = -Infinity;
+            const m = useAngularMomentum ? Math.round(angularMomentum) : 0;
+
+            // Pass 1: compute superposition with radial weighting
+            for (let v = 0; v < pos.count; v++) {
+                const x=pos.getX(v), y=pos.getY(v), z=pos.getZ(v);
+                const r = Math.sqrt(x*x+y*y+z*z) || 1;
+                const theta = Math.acos(Math.max(-1, Math.min(1, y/r)));
+                const phi = Math.atan2(z, x);
+                let sup = 0;
+                
+                active.forEach((h, idx) => {
+                    // Use per-harmonic quantum numbers in advanced mode
+                    const l = advancedMode ? h.l : Math.round(h.freq);
+                    const hm = advancedMode ? h.m : m;  // Per-harmonic m or global m
+                    const tPh = useTimeEvolution ? 2*Math.PI*h.freq*currentTime : 0;
+                    
+                    // Radial weighting: each harmonic contributes most at its natural radius
+                    const hRadius = harmonicRadii[idx];
+                    const currentR = r * baseR;  // Current radius in world units
+                    const radialDiff = (currentR - hRadius) / Math.max(hRadius, 0.1);
+                    const radialWeight = Math.exp(-radialDiff * radialDiff * 1.5);
+                    
+                    // Angular pattern
+                    const angularPattern = Math.sin(l*theta + h.phase - tPh) * Math.cos(hm*phi);
+                    
+                    // Weighted contribution
+                    sup += h.amp * radialWeight * angularPattern;
+                });
+                vals[v] = sup;
+                if (sup < minV) minV = sup;
+                if (sup > maxV) maxV = sup;
+            }
+
+            // Pass 2: deform & color
+            const range = Math.max(maxV - minV, 0.001);
+            const absMax = Math.max(Math.abs(maxV), Math.abs(minV)) || 1;
+
+            for (let v = 0; v < pos.count; v++) {
+                const x=pos.getX(v), y=pos.getY(v), z=pos.getZ(v);
+                const r = Math.sqrt(x*x+y*y+z*z) || 1;
+                const norm = (vals[v] - minV) / range;
+                const dR = baseR * (1.0 + 0.4*vals[v]*interferenceGain/absMax);
+                pos.setXYZ(v, x/r*dR, y/r*dR, z/r*dR);
+
+                let c;
+                if (vals[v] >= 0) {
+                    c = new THREE.Color().setHSL(0.52-norm*0.05, 0.9-norm*0.3, 0.15+norm*0.7);
+                } else {
+                    const t = 1.0 - norm;
+                    c = new THREE.Color().setHSL(0.8+t*0.1, 0.7+t*0.2, 0.08+(1-t)*0.25);
+                }
+                cols[v*3]=c.r; cols[v*3+1]=c.g; cols[v*3+2]=c.b;
+            }
+
+            geo.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
+            pos.needsUpdate = true; geo.computeVertexNormals();
+            
+            // Create material with clipping plane support
+            const material = new THREE.MeshPhongMaterial({ 
+                vertexColors:true, 
+                transparent:true, 
+                opacity:0.9, 
+                side:THREE.DoubleSide, 
+                shininess:80, 
+                specular:0x444444,
+                clippingPlanes: enableSectionCut ? [
+                    new THREE.Plane(
+                        new THREE.Vector3(
+                            cutAxis === 'x' ? 1 : 0,
+                            cutAxis === 'y' ? 1 : 0,
+                            cutAxis === 'z' ? 1 : 0
+                        ),
+                        -cutPosition * baseR
+                    )
+                ] : [],
+                clipIntersection: !showBothHalves
+            });
+            
+            interferenceGroup.add(new THREE.Mesh(geo, material));
+            interferenceGroup.add(new THREE.LineSegments(new THREE.WireframeGeometry(geo), new THREE.LineBasicMaterial({ color:0x8888ff, opacity:0.08, transparent:true })));
+
+            // Nodal lines (zero-crossings)
+            if (showNodeLines && geo.index) {
+                const nodalPts = [];
+                const edges = geo.index;
+                for (let i = 0; i < edges.count; i += 3) {
+                    const ti = [edges.getX(i), edges.getX(i+1), edges.getX(i+2)];
+                    for (let e = 0; e < 3; e++) {
+                        const i1 = ti[e], i2 = ti[(e+1)%3];
+                        if ((vals[i1]>=0 && vals[i2]<0)||(vals[i1]<0 && vals[i2]>=0)) {
+                            const t = vals[i1]/(vals[i1]-vals[i2]);
+                            const p1 = new THREE.Vector3(pos.getX(i1),pos.getY(i1),pos.getZ(i1));
+                            const p2 = new THREE.Vector3(pos.getX(i2),pos.getY(i2),pos.getZ(i2));
+                            nodalPts.push(p1.lerp(p2, t));
+                        }
+                    }
+                }
+                if (nodalPts.length) {
+                    interferenceGroup.add(new THREE.Points(
+                        new THREE.BufferGeometry().setFromPoints(nodalPts),
+                        new THREE.PointsMaterial({ color:0xffff00, size:0.06, transparent:true, opacity:0.7 })
+                    ));
+                }
+            }
+        }
+
+        // === UI HELPERS ===
+        function getHarmonicColor(idx) { return `hsl(${(idx/numHarmonics)*360}, 80%, 60%)`; }
+
+        function updateStats() {
+            const active = harmonics.filter(h => h.amp !== 0).length;
+            document.getElementById('active-harmonics').textContent = active;
+            document.getElementById('peak-amplitude').textContent = Math.max(...harmonics.map(h => Math.abs(h.amp))).toFixed(2);
+            const dom = harmonics.reduce((mx, h) => Math.abs(h.amp)>Math.abs(mx.amp)?h:mx);
+            document.getElementById('dominant-freq').textContent = dom.freq.toFixed(1)+' Hz';
+            document.getElementById('total-energy').textContent = harmonics.reduce((s,h) => s+h.amp*h.amp, 0).toFixed(2);
+        }
+
+        function updateUI() {
+            document.getElementById('harmonics-count').textContent = numHarmonics;
+            const list = document.getElementById('harmonics-list');
+            list.innerHTML = '';
+            harmonics.forEach((h, idx) => {
+                const card = document.createElement('div');
+                card.className = 'harmonic-card';
+                card.style.borderLeftColor = getHarmonicColor(idx);
+                card.innerHTML = `
+                    <div class="harmonic-header">
+                        <span class="harmonic-number">n = ${idx+1}</span>
+                        <span class="harmonic-freq">${h.freq.toFixed(2)} Hz</span>
+                    </div>
+                    <div class="control-group">
+                        <div class="control-label"><span>Amplitude</span><span class="control-value" id="amp-${idx}">${h.amp.toFixed(3)}</span></div>
+                        <input type="range" min="-2" max="2" step="0.01" value="${h.amp}" data-idx="${idx}" data-prop="amp">
+                    </div>
+                    <div class="control-group">
+                        <div class="control-label"><span>Frequency (Hz)</span>
+                            <input type="number" id="freq-input-${idx}" min="1" max="240" step="0.1" value="${h.freq.toFixed(1)}"
+                                style="width:70px;background:#333;color:#0ff;border:1px solid #666;padding:4px;border-radius:4px;font-size:12px;text-align:right;" data-idx="${idx}">
+                        </div>
+                        <input type="range" min="1" max="240" step="0.1" value="${h.freq}" id="freq-slider-${idx}" data-idx="${idx}" data-prop="freq">
+                    </div>
+                    <div class="control-group">
+                        <div class="control-label"><span>Phase</span><span class="control-value" id="phase-${idx}">${(h.phase*180/Math.PI).toFixed(1)}°</span></div>
+                        <input type="range" min="0" max="${2*Math.PI}" step="0.01" value="${h.phase}" data-idx="${idx}" data-prop="phase">
+                    </div>
+                    <div class="quantum-controls" id="quantum-${idx}" style="display:${advancedMode?'block':'none'};background:#1a1a2e;padding:10px;border-radius:6px;margin-top:10px;border:1px solid rgba(0,255,255,0.2);">
+                        <div style="font-size:11px;color:#0ff;margin-bottom:8px;font-weight:600;">Quantum Numbers</div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+                            <div>
+                                <div style="font-size:10px;color:#888;margin-bottom:4px;">l (angular)</div>
+                                <input type="number" id="l-${idx}" min="0" max="20" value="${h.l}" 
+                                    style="width:100%;background:#2a2a2a;color:#0ff;border:1px solid #666;padding:6px;border-radius:4px;font-size:11px;text-align:center;" 
+                                    data-idx="${idx}" data-qprop="l">
+                            </div>
+                            <div>
+                                <div style="font-size:10px;color:#888;margin-bottom:4px;">m (magnetic)</div>
+                                <input type="number" id="m-${idx}" min="-20" max="20" value="${h.m}" 
+                                    style="width:100%;background:#2a2a2a;color:#0ff;border:1px solid #666;padding:6px;border-radius:4px;font-size:11px;text-align:center;" 
+                                    data-idx="${idx}" data-qprop="m">
+                            </div>
+                            <div>
+                                <div style="font-size:10px;color:#888;margin-bottom:4px;">n (principal)</div>
+                                <input type="number" id="n-${idx}" min="1" max="20" value="${h.n}" 
+                                    style="width:100%;background:#2a2a2a;color:#0ff;border:1px solid #666;padding:6px;border-radius:4px;font-size:11px;text-align:center;" 
+                                    data-idx="${idx}" data-qprop="n">
+                            </div>
+                        </div>
+                        <div style="font-size:9px;color:#666;margin-top:6px;line-height:1.3;">
+                            l = nodal bands • m = azimuthal waves • n = energy level
+                        </div>
+                    </div>`;
+                list.appendChild(card);
+            });
+
+            list.querySelectorAll('input[type="range"]').forEach(sl => {
+                sl.addEventListener('input', (e) => {
+                    const idx = parseInt(e.target.dataset.idx), prop = e.target.dataset.prop;
+                    harmonics[idx][prop] = parseFloat(e.target.value);
+                    if (prop==='amp') document.getElementById(`amp-${idx}`).textContent = harmonics[idx].amp.toFixed(3);
+                    else if (prop==='freq') {
+                        const fi = document.getElementById(`freq-input-${idx}`);
+                        if (fi) fi.value = harmonics[idx].freq.toFixed(1);
+                        const cards = document.querySelectorAll('.harmonic-card');
+                        if (cards[idx]) { const fh = cards[idx].querySelector('.harmonic-freq'); if (fh) fh.textContent = harmonics[idx].freq.toFixed(2)+' Hz'; }
+                    } else if (prop==='phase') document.getElementById(`phase-${idx}`).textContent = (harmonics[idx].phase*180/Math.PI).toFixed(1)+'°';
+                    updateWaves();
+                });
+            });
+
+            list.querySelectorAll('input[type="number"]').forEach(inp => {
+                inp.addEventListener('input', (e) => {
+                    const idx = parseInt(e.target.dataset.idx);
+                    let v = parseFloat(e.target.value); if (v<1) v=1; if (v>240) v=240;
+                    harmonics[idx].freq = v;
+                    const fs = document.getElementById(`freq-slider-${idx}`); if (fs) fs.value = v;
+                    const fh = inp.closest('.harmonic-card').querySelector('.harmonic-freq'); if (fh) fh.textContent = v.toFixed(2)+' Hz';
+                    updateWaves();
+                });
+                inp.addEventListener('blur', (e) => {
+                    const idx = parseInt(e.target.dataset.idx);
+                    let v = parseFloat(e.target.value); if (isNaN(v)||v<1) v=1; if (v>240) v=240;
+                    e.target.value = v.toFixed(1); harmonics[idx].freq = v;
+                    const fs = document.getElementById(`freq-slider-${idx}`); if (fs) fs.value = v;
+                    updateWaves();
+                });
+            });
+            
+            // Quantum number inputs
+            list.querySelectorAll('input[data-qprop]').forEach(inp => {
+                inp.addEventListener('input', (e) => {
+                    const idx = parseInt(e.target.dataset.idx);
+                    const qprop = e.target.dataset.qprop;
+                    let v = parseInt(e.target.value);
+                    
+                    // Validate ranges
+                    if (qprop === 'n') {
+                        if (v < 1) v = 1;
+                        if (v > 20) v = 20;
+                    } else if (qprop === 'l') {
+                        if (v < 0) v = 0;
+                        if (v > 20) v = 20;
+                    } else if (qprop === 'm') {
+                        const maxM = Math.abs(harmonics[idx].l);
+                        if (v < -maxM) v = -maxM;
+                        if (v > maxM) v = maxM;
+                    }
+                    
+                    harmonics[idx][qprop] = v;
+                    e.target.value = v;
+                    if (showManifold) updateWaves();
+                });
+                
+                inp.addEventListener('blur', (e) => {
+                    const idx = parseInt(e.target.dataset.idx);
+                    const qprop = e.target.dataset.qprop;
+                    let v = parseInt(e.target.value);
+                    if (isNaN(v)) v = qprop === 'n' ? 1 : 0;
+                    
+                    // Enforce quantum rules: |m| <= l
+                    if (qprop === 'm') {
+                        const maxM = Math.abs(harmonics[idx].l);
+                        if (v < -maxM) v = -maxM;
+                        if (v > maxM) v = maxM;
+                    }
+                    
+                    harmonics[idx][qprop] = v;
+                    e.target.value = v;
+                    if (showManifold) updateWaves();
+                });
+            });
+        }
+
+        // === EVENT LISTENERS ===
+        const pc = document.getElementById('preset-buttons');
+        Object.keys(presets).forEach(k => { const b = document.createElement('button'); b.className='preset-btn'; b.textContent=presets[k].name; b.onclick=()=>initHarmonics(presets[k]); pc.appendChild(b); });
+
+        document.getElementById('num-harmonics').addEventListener('input', e => { numHarmonics=parseInt(e.target.value); initHarmonics(); });
+        document.getElementById('show-components').addEventListener('change', e => { showComponents=e.target.checked; updateWaves(); });
+        document.getElementById('enable-angular').addEventListener('change', e => { useAngularMomentum=e.target.checked; document.getElementById('angular-control').style.display=useAngularMomentum?'block':'none'; updateWaves(); });
+        document.getElementById('angular-momentum').addEventListener('input', e => { angularMomentum=parseFloat(e.target.value); document.getElementById('angular-value').textContent=angularMomentum.toFixed(2); updateWaves(); });
+        document.getElementById('resolution').addEventListener('input', e => { resolution=parseInt(e.target.value); document.getElementById('resolution-value').textContent=resolution; updateWaves(); });
+        document.getElementById('enable-revolution').addEventListener('change', e => { useRevolution=e.target.checked; document.getElementById('revolution-control').style.display=useRevolution?'block':'none'; updateWaves(); });
+        document.getElementById('revolution-segments').addEventListener('input', e => { revolutionSegments=parseInt(e.target.value); document.getElementById('revolution-segments-value').textContent=revolutionSegments; updateWaves(); });
+        document.getElementById('surface-opacity').addEventListener('input', e => { surfaceOpacity=parseFloat(e.target.value); document.getElementById('surface-opacity-value').textContent=surfaceOpacity.toFixed(2); updateWaves(); });
+        document.getElementById('enable-time-evolution').addEventListener('change', e => {
+            useTimeEvolution=e.target.checked; document.getElementById('time-control').style.display=useTimeEvolution?'block':'none';
+            if (!useTimeEvolution) { isPlaying=false; currentTime=0; document.getElementById('time-slider').value=0; document.getElementById('time-value').textContent='0.00'; document.getElementById('play-pause-btn').textContent='\u25B6 Play'; }
+            updateWaves();
+        });
+        document.getElementById('play-pause-btn').addEventListener('click', () => { isPlaying=!isPlaying; document.getElementById('play-pause-btn').textContent=isPlaying?'\u23F8 Pause':'\u25B6 Play'; });
+        document.getElementById('reset-time-btn').addEventListener('click', () => { currentTime=0; document.getElementById('time-slider').value=0; document.getElementById('time-value').textContent='0.00'; updateWaves(); });
+        document.getElementById('time-slider').addEventListener('input', e => { currentTime=parseFloat(e.target.value); document.getElementById('time-value').textContent=currentTime.toFixed(2); updateWaves(); });
+        document.getElementById('speed-slider').addEventListener('input', e => { animationSpeed=parseFloat(e.target.value); document.getElementById('speed-value').textContent=animationSpeed.toFixed(1)+'x'; });
+        document.getElementById('show-phase-velocity').addEventListener('change', e => { showPhaseVelocity=e.target.checked; updateWaves(); });
+
+        // Manifold controls
+        document.getElementById('enable-manifold').addEventListener('change', e => {
+            showManifold = e.target.checked;
+            document.getElementById('sub-viewports').classList.toggle('active', showManifold);
+            document.getElementById('manifold-options').style.display = showManifold ? 'block' : 'none';
+            if (showManifold) { initSubViewports(); updateWaves(); }
+            else { disposeGroup(manifoldGroup); disposeGroup(interferenceGroup); }
+            setTimeout(resizeAll, 50);
+        });
+        document.getElementById('sphere-detail').addEventListener('input', e => { sphereDetail=parseInt(e.target.value); document.getElementById('sphere-detail-value').textContent=sphereDetail; if(showManifold) updateWaves(); });
+        document.getElementById('interference-gain').addEventListener('input', e => { interferenceGain=parseFloat(e.target.value); document.getElementById('interference-gain-value').textContent=interferenceGain.toFixed(2); if(showManifold) updateWaves(); });
+        document.getElementById('show-node-lines').addEventListener('change', e => { showNodeLines=e.target.checked; if(showManifold) updateWaves(); });
+        
+        // Advanced mode toggle
+        document.getElementById('advanced-mode').addEventListener('change', e => {
+            advancedMode = e.target.checked;
+            // Show/hide quantum controls for all harmonics
+            document.querySelectorAll('[id^="quantum-"]').forEach(qc => {
+                qc.style.display = advancedMode ? 'block' : 'none';
+            });
+            if(showManifold) updateWaves();
+        });
+        
+        // Section cut controls
+        document.getElementById('enable-section-cut').addEventListener('change', e => { 
+            enableSectionCut=e.target.checked; 
+            document.getElementById('section-cut-controls').style.display=enableSectionCut?'block':'none'; 
+            if(showManifold) updateWaves(); 
+        });
+        document.querySelectorAll('.section-axis-btn').forEach(btn => {
+            btn.addEventListener('click', e => {
+                document.querySelectorAll('.section-axis-btn').forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                cutAxis = e.target.dataset.axis;
+                if(showManifold && enableSectionCut) updateWaves();
+            });
+        });
+        document.getElementById('cut-position').addEventListener('input', e => { 
+            cutPosition=parseFloat(e.target.value); 
+            document.getElementById('cut-position-value').textContent=cutPosition.toFixed(2); 
+            if(showManifold && enableSectionCut) updateWaves(); 
+        });
+        document.getElementById('show-both-halves').addEventListener('change', e => { 
+            showBothHalves=e.target.checked; 
+            if(showManifold && enableSectionCut) updateWaves(); 
+        });
+
+        // === LIGHTING & CAMERAS ===
+        scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+        const dl = new THREE.DirectionalLight(0xffffff, 0.8); dl.position.set(10,10,10); scene.add(dl);
+
+        manifoldScene.add(new THREE.AmbientLight(0xffffff, 0.5));
+        const mdl = new THREE.DirectionalLight(0xffffff, 0.7); mdl.position.set(5,8,5); manifoldScene.add(mdl);
+        const mdl2 = new THREE.DirectionalLight(0x4488ff, 0.3); mdl2.position.set(-5,-3,-5); manifoldScene.add(mdl2);
+
+        interferenceScene.add(new THREE.AmbientLight(0xffffff, 0.4));
+        const idl = new THREE.DirectionalLight(0xffffff, 0.8); idl.position.set(5,8,5); interferenceScene.add(idl);
+        const idl2 = new THREE.DirectionalLight(0xff44ff, 0.2); idl2.position.set(-5,-3,-5); interferenceScene.add(idl2);
+
+        camera.position.set(15, 8, 15); camera.lookAt(0,0,0);
+        manifoldCamera.position.set(6, 4, 6); manifoldCamera.lookAt(0,0,0);
+        interferenceCamera.position.set(6, 3, 6); interferenceCamera.lookAt(0,0,0);
+
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true; controls.dampingFactor = 0.05;
+
+        function initSubViewports() {
+            const mc = document.getElementById('manifold-container'), ic = document.getElementById('interference-container');
+            manifoldRenderer.setSize(mc.clientWidth, mc.clientHeight);
+            manifoldCamera.aspect = mc.clientWidth/mc.clientHeight; manifoldCamera.updateProjectionMatrix();
+            interferenceRenderer.setSize(ic.clientWidth, ic.clientHeight);
+            interferenceCamera.aspect = ic.clientWidth/ic.clientHeight; interferenceCamera.updateProjectionMatrix();
+            if (!manifoldControls) { manifoldControls = new THREE.OrbitControls(manifoldCamera, manifoldRenderer.domElement); manifoldControls.enableDamping=true; manifoldControls.dampingFactor=0.05; }
+            if (!interferenceControls) { interferenceControls = new THREE.OrbitControls(interferenceCamera, interferenceRenderer.domElement); interferenceControls.enableDamping=true; interferenceControls.dampingFactor=0.05; }
+        }
+
+        function resizeAll() { resizeRenderer(); if (showManifold) initSubViewports(); }
+
+        // === INIT & ANIMATE ===
+        initHarmonics();
+        let lastFrameTime = 0;
+        const targetFrameTime = 1000/30;
+
+        function animate(t) {
+            requestAnimationFrame(animate);
+            const dt = t - lastFrameTime;
+            if (dt >= targetFrameTime) {
+                lastFrameTime = t;
+                controls.update();
+                if (manifoldControls) manifoldControls.update();
+                if (interferenceControls) interferenceControls.update();
+                if (isPlaying && useTimeEvolution) {
+                    currentTime += 0.02 * animationSpeed * (dt/1000/(targetFrameTime/1000));
+                    if (currentTime > 2*Math.PI) currentTime %= (2*Math.PI);
+                    document.getElementById('time-slider').value = currentTime;
+                    document.getElementById('time-value').textContent = currentTime.toFixed(2);
+                    updateWaves();
+                }
+                renderer.render(scene, camera);
+                if (showManifold) { manifoldRenderer.render(manifoldScene, manifoldCamera); interferenceRenderer.render(interferenceScene, interferenceCamera); }
+            } else {
+                renderer.render(scene, camera);
+                if (showManifold) { manifoldRenderer.render(manifoldScene, manifoldCamera); interferenceRenderer.render(interferenceScene, interferenceCamera); }
+            }
+        }
+        animate(0);
+        window.addEventListener('resize', resizeAll);
+    </script>
+</body>
+</html>

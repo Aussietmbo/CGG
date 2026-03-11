@@ -1,0 +1,1041 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>The Big Chord — Primordial Resonance Simulator</title>
+<style>
+:root{--bg:#0a0a0f;--panel:rgba(15,18,25,.95);--text:#e6eef7;--muted:#7a8a9a;--accent:#4ecdc4;--hit:#ff6b6b}
+html,body{height:100%;margin:0;overflow:hidden;background:var(--bg);color:var(--text);font:13px/1.4 system-ui,-apple-system,sans-serif}
+#controls{position:absolute;top:10px;left:10px;width:320px;max-height:calc(100% - 20px);overflow-y:auto;padding:16px;border-radius:12px;background:var(--panel);backdrop-filter:blur(8px);box-shadow:0 8px 32px rgba(0,0,0,.5)}
+#controls h2{margin:0 0 4px 0;font-size:18px;font-weight:700;color:var(--accent)}
+#controls .subtitle{color:var(--muted);font-size:11px;margin-bottom:12px}
+#controls h3{margin:14px 0 8px 0;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px}
+.row{display:flex;align-items:center;gap:8px;margin:6px 0}
+.row label{flex:1;color:var(--muted);font-size:12px}
+.row input[type=range]{width:120px}
+.value{min-width:45px;text-align:right;color:#aab;font-family:monospace;font-size:12px}
+.hr{height:1px;background:linear-gradient(90deg,transparent,#2a3a4a,transparent);margin:12px 0}
+button{padding:10px 16px;border-radius:8px;border:none;cursor:pointer;font-weight:600;font-size:13px;transition:all .2s}
+#hitBtn{background:linear-gradient(135deg,#ff6b6b,#ee5a5a);color:#fff;width:100%;margin:8px 0;font-size:15px}
+#hitBtn:hover{transform:scale(1.02);box-shadow:0 4px 20px rgba(255,107,107,.4)}
+#hitBtn:active{transform:scale(0.98)}
+#resetBtn{background:#1a2030;color:var(--text);border:1px solid #2a3a4a;width:100%}
+#resetBtn:hover{border-color:var(--accent)}
+.state-display{background:#0a0f15;border-radius:8px;padding:12px;margin:10px 0}
+.state-row{display:flex;justify-content:space-between;margin:4px 0;font-size:12px}
+.state-label{color:var(--muted)}
+.state-value{color:var(--accent);font-family:monospace}
+.state-value.struck{color:var(--hit)}
+#info{position:absolute;left:10px;bottom:10px;background:var(--panel);padding:12px 16px;border-radius:10px;min-width:200px}
+#info .label{color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:1px}
+#info .big{font-size:28px;font-weight:700;color:var(--accent);font-family:monospace}
+#help{position:absolute;right:10px;top:10px;background:var(--panel);padding:10px 14px;border-radius:8px;color:var(--muted);font-size:11px;max-width:280px;line-height:1.5}
+#timeline{position:absolute;bottom:10px;left:350px;right:20px;height:60px;background:var(--panel);border-radius:10px;padding:10px 15px}
+#timeline .label{color:var(--muted);font-size:10px;text-transform:uppercase}
+#timeCanvas{width:100%;height:40px}
+.mode-indicator{position:absolute;top:10px;left:50%;transform:translateX(-50%);background:var(--panel);padding:8px 20px;border-radius:20px;font-size:13px;font-weight:600}
+.mode-indicator.pristine{color:#4ecdc4}
+.mode-indicator.struck{color:#ff6b6b;animation:pulse 1s ease-in-out}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}
+</style>
+</head>
+<body>
+
+<div id="controls">
+  <h2>🎵 The Big Chord</h2>
+  <div class="subtitle">Primordial Resonance Simulator</div>
+  
+  <div class="state-display">
+    <div class="state-row"><span class="state-label">Universe State</span><span id="stateLabel" class="state-value">PRISTINE (ℓ=0)</span></div>
+    <div class="state-row"><span class="state-label">Time Since Creation</span><span id="timeLabel" class="state-value">0.000 s</span></div>
+    <div class="state-row"><span class="state-label">Entropy</span><span id="entropyLabel" class="state-value">0.00%</span></div>
+  </div>
+  
+  <button id="hitBtn">⚡ STRIKE THE CHORD</button>
+  <button id="resetBtn">↺ Return to Void</button>
+  
+  <div class="hr"></div>
+  <h3>Lattice Structure</h3>
+  <div class="row"><label>Grid Size</label><input id="gridSize" type="range" min="3" max="7" value="5"/><span id="gridSizeVal" class="value">5³</span></div>
+  <div class="row"><label>Sphere Radius</label><input id="sphereRadius" type="range" min="0.1" max="0.5" step="0.05" value="0.25"/><span id="sphereRadiusVal" class="value">0.25</span></div>
+  <div class="row"><label>Spacing</label><input id="spacing" type="range" min="1" max="3" step="0.1" value="1.8"/><span id="spacingVal" class="value">1.8</span></div>
+  
+  <div class="hr"></div>
+  <h3>Wave Physics</h3>
+  <div class="row"><label>Base Frequency</label><input id="baseFreq" type="range" min="1" max="30" step="1" value="15"/><span id="baseFreqVal" class="value">15 Hz</span></div>
+  <div class="row"><label>Coupling Strength</label><input id="coupling" type="range" min="0" max="2" step="0.05" value="0.8"/><span id="couplingVal" class="value">0.80</span></div>
+  <div class="row"><label>Wave Speed</label><input id="waveSpeed" type="range" min="1" max="20" step="0.5" value="8"/><span id="waveSpeedVal" class="value">8</span></div>
+  <div class="row"><label>Damping</label><input id="damping" type="range" min="0" max="1" step="0.02" value="0.1"/><span id="dampingVal" class="value">0.10</span></div>
+  <div class="row"><label>Energy Sustain</label><input id="sustain" type="range" min="0" max="0.5" step="0.01" value="0"/><span id="sustainVal" class="value">0.00</span></div>
+  <div class="row"><label>Nonlinearity</label><input id="nonlinearity" type="range" min="0" max="2" step="0.05" value="0.5"/><span id="nonlinearityVal" class="value">0.50</span></div>
+  
+  <div class="hr"></div>
+  <h3>The Strike</h3>
+  <div class="row"><label>Hit Strength</label><input id="hitStrength" type="range" min="0.5" max="3" step="0.1" value="1.5"/><span id="hitStrengthVal" class="value">1.5</span></div>
+  <div class="row"><label>Hit Mode ℓ (degree)</label><input id="hitMode" type="range" min="0" max="4" step="1" value="2"/><span id="hitModeVal" class="value">ℓ=2</span></div>
+  <div class="row"><label>Hit Mode m (order)</label><input id="hitModeM" type="range" min="-4" max="4" step="1" value="0"/><span id="hitModeMVal" class="value">m=0</span></div>
+  <div class="row"><label>Pattern</label><span id="patternName" class="value" style="color:#4ecdc4;">Quadrupole (zonal)</span></div>
+  
+  <div class="hr"></div>
+  <h3>Interference Field</h3>
+  <div class="row"><label>Field Resolution</label><input id="fieldRes" type="range" min="12" max="40" step="2" value="24"/><span id="fieldResVal" class="value">24³</span></div>
+  <div class="row"><label>Update Rate (ms)</label><input id="updateRate" type="range" min="16" max="150" step="1" value="33"/><span id="updateRateVal" class="value">33ms</span></div>
+  <div class="row"><label>Field Threshold</label><input id="fieldThresh" type="range" min="0" max="0.5" step="0.01" value="0.08"/><span id="fieldThreshVal" class="value">0.08</span></div>
+  <div class="row"><label>Point Size</label><input id="pointSize" type="range" min="1" max="8" step="0.5" value="3"/><span id="pointSizeVal" class="value">3</span></div>
+  <div class="row"><label>Color Mode</label><select id="colorMode">
+    <option value="interference" selected>Interference (±)</option>
+    <option value="energy">Energy</option>
+    <option value="phase">Phase</option>
+    <option value="gradient">Gradient Magnitude</option>
+  </select></div>
+  <div class="row"><label>Brightness</label><input id="brightness" type="range" min="0.1" max="1" step="0.05" value="0.4"/><span id="brightnessVal" class="value">0.40</span></div>
+  <div class="row"><label>Blending</label><select id="blendMode">
+    <option value="additive">Additive (glow)</option>
+    <option value="normal" selected>Normal (solid)</option>
+  </select></div>
+  <div class="row"><label>Show Cube Bounds</label><input id="showBounds" type="checkbox" checked/></div>
+</div>
+
+<div id="modeIndicator" class="mode-indicator pristine">✧ PRIMORDIAL STATE ✧</div>
+
+<div id="info">
+  <div class="label">Global Coherence</div>
+  <div id="coherenceVal" class="big">R = 1.00</div>
+</div>
+
+<div id="help">
+  <strong>The Ball Pit Theory</strong><br/>
+  All spheres begin at ℓ=0 — pure breathing mode, perfect symmetry. 
+  Strike the chord to see interference patterns emerge.<br/><br/>
+  <strong>Physics:</strong><br/>
+  • Sustain: Keeps energy flowing (0=decay, >0=evolve)<br/>
+  • Nonlinearity: Chaos & mode mixing<br/>
+  • Coupling: Energy transfer between sources<br/><br/>
+  <strong>Controls:</strong> Drag to rotate, scroll to zoom<br/>
+  <strong>FPS:</strong> <span id="fpsCounter">--</span>
+</div>
+
+<div id="timeline">
+  <div class="label">Field Energy Over Time</div>
+  <canvas id="timeCanvas"></canvas>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// ============== SETUP ==============
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x050508);
+
+const camera = new THREE.PerspectiveCamera(55, window.innerWidth/window.innerHeight, 0.1, 1000);
+camera.position.set(12, 10, 12);
+camera.lookAt(0, 0, 0);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+document.body.appendChild(renderer.domElement);
+
+// Lighting
+const ambient = new THREE.AmbientLight(0x404050, 0.5);
+scene.add(ambient);
+const light1 = new THREE.DirectionalLight(0xffffff, 0.8);
+light1.position.set(10, 20, 10);
+scene.add(light1);
+
+// ============== STATE ==============
+let spheres = [];
+let isStruck = false;
+let strikeTime = 0;
+let simTime = 0;
+
+// Interference field
+let fieldPoints = null;
+let fieldGeometry = null;
+let fieldMaterial = null;
+let boundingBox = null;
+
+// Performance: cached distances from each field point to each source
+let distanceCache = null;
+let falloffCache = null;
+let cosThetaCache = null; // For spherical harmonic polar angle
+let phiCache = null; // For spherical harmonic azimuthal angle
+let fieldUpdateAccum = 0;
+
+// UI Elements
+const ui = {
+  gridSize: document.getElementById('gridSize'),
+  gridSizeVal: document.getElementById('gridSizeVal'),
+  sphereRadius: document.getElementById('sphereRadius'),
+  sphereRadiusVal: document.getElementById('sphereRadiusVal'),
+  spacing: document.getElementById('spacing'),
+  spacingVal: document.getElementById('spacingVal'),
+  baseFreq: document.getElementById('baseFreq'),
+  baseFreqVal: document.getElementById('baseFreqVal'),
+  coupling: document.getElementById('coupling'),
+  couplingVal: document.getElementById('couplingVal'),
+  waveSpeed: document.getElementById('waveSpeed'),
+  waveSpeedVal: document.getElementById('waveSpeedVal'),
+  damping: document.getElementById('damping'),
+  dampingVal: document.getElementById('dampingVal'),
+  sustain: document.getElementById('sustain'),
+  sustainVal: document.getElementById('sustainVal'),
+  nonlinearity: document.getElementById('nonlinearity'),
+  nonlinearityVal: document.getElementById('nonlinearityVal'),
+  hitStrength: document.getElementById('hitStrength'),
+  hitStrengthVal: document.getElementById('hitStrengthVal'),
+  hitMode: document.getElementById('hitMode'),
+  hitModeVal: document.getElementById('hitModeVal'),
+  hitModeM: document.getElementById('hitModeM'),
+  hitModeMVal: document.getElementById('hitModeMVal'),
+  patternName: document.getElementById('patternName'),
+  fieldRes: document.getElementById('fieldRes'),
+  fieldResVal: document.getElementById('fieldResVal'),
+  updateRate: document.getElementById('updateRate'),
+  updateRateVal: document.getElementById('updateRateVal'),
+  fieldThresh: document.getElementById('fieldThresh'),
+  fieldThreshVal: document.getElementById('fieldThreshVal'),
+  pointSize: document.getElementById('pointSize'),
+  pointSizeVal: document.getElementById('pointSizeVal'),
+  colorMode: document.getElementById('colorMode'),
+  brightness: document.getElementById('brightness'),
+  brightnessVal: document.getElementById('brightnessVal'),
+  blendMode: document.getElementById('blendMode'),
+  showBounds: document.getElementById('showBounds'),
+  hitBtn: document.getElementById('hitBtn'),
+  resetBtn: document.getElementById('resetBtn'),
+  stateLabel: document.getElementById('stateLabel'),
+  timeLabel: document.getElementById('timeLabel'),
+  entropyLabel: document.getElementById('entropyLabel'),
+  coherenceVal: document.getElementById('coherenceVal'),
+  modeIndicator: document.getElementById('modeIndicator')
+};
+
+// Timeline canvas
+const timeCanvas = document.getElementById('timeCanvas');
+const timeCtx = timeCanvas.getContext('2d');
+let energyHistory = [];
+
+// ============== SPHERE SOURCE CLASS ==============
+class ResonantSource {
+  constructor(x, y, z, index) {
+    this.index = index;
+    this.gridPos = new THREE.Vector3(x, y, z);
+    this.worldPos = new THREE.Vector3();
+    
+    // Wave state
+    this.phase = 0;
+    this.amplitude = 1.0;
+    this.frequency = 15;
+    
+    // Perturbation state
+    this.perturbation = 0;
+    this.perturbVelocity = 0;
+    this.struck = false;
+    this.strikeTime = 0;
+    this.hitMode = 0; // ℓ value for angular pattern
+    this.hitModeM = 0; // m value for angular pattern
+    
+    // Visual mesh (shown before strike)
+    const baseRadius = parseFloat(ui.sphereRadius.value);
+    const geometry = new THREE.SphereGeometry(baseRadius, 16, 16);
+    const material = new THREE.MeshPhongMaterial({
+      color: 0x4ecdc4,
+      transparent: true,
+      opacity: 0.6,
+      shininess: 80
+    });
+    this.mesh = new THREE.Mesh(geometry, material);
+    this.baseRadius = baseRadius;
+    this.originalPositions = geometry.attributes.position.array.slice();
+    
+    scene.add(this.mesh);
+  }
+  
+  setPosition(spacing) {
+    const gridSize = parseInt(ui.gridSize.value);
+    const offset = (gridSize - 1) * spacing / 2;
+    this.worldPos.set(
+      this.gridPos.x * spacing - offset,
+      this.gridPos.y * spacing - offset,
+      this.gridPos.z * spacing - offset
+    );
+    this.mesh.position.copy(this.worldPos);
+  }
+  
+  update(dt, globalTime, neighbors) {
+    const coupling = parseFloat(ui.coupling.value);
+    const damping = parseFloat(ui.damping.value);
+    const sustain = parseFloat(ui.sustain.value);
+    const nonlinearity = parseFloat(ui.nonlinearity.value);
+    
+    if (this.struck) {
+      // Couple to neighbors - energy exchange
+      let neighborForce = 0;
+      let neighborPhaseInfluence = 0;
+      
+      for (const n of neighbors) {
+        // Amplitude coupling (energy transfer)
+        const ampDiff = n.perturbation - this.perturbation;
+        neighborForce += ampDiff * coupling;
+        
+        // Phase coupling (Kuramoto-like synchronization)
+        neighborPhaseInfluence += Math.sin(n.phase - this.phase) * coupling * 0.1;
+        
+        // Nonlinear coupling: amplitude affects phase coupling
+        if (nonlinearity > 0) {
+          const nonlinearTerm = ampDiff * Math.abs(ampDiff) * nonlinearity * 0.5;
+          neighborForce += nonlinearTerm;
+        }
+      }
+      
+      // Damped oscillator for perturbation with neighbor coupling
+      this.perturbVelocity += neighborForce * dt;
+      this.perturbVelocity -= this.perturbation * coupling * dt;
+      
+      // Damping (energy loss)
+      this.perturbVelocity *= (1 - damping * dt);
+      
+      // Energy sustain (counteracts damping, keeps waves going)
+      if (sustain > 0 && Math.abs(this.perturbation) > 0.01) {
+        const sustainForce = Math.sign(this.perturbVelocity) * sustain * Math.abs(this.perturbation);
+        this.perturbVelocity += sustainForce * dt;
+      }
+      
+      this.perturbation += this.perturbVelocity * dt;
+      
+      // Phase evolves based on neighbors
+      this.phase += neighborPhaseInfluence * dt;
+      
+      // Nonlinear frequency shift: large perturbations shift frequency
+      if (nonlinearity > 0) {
+        const freqShift = this.perturbation * this.perturbation * nonlinearity;
+        this.phase += freqShift * dt;
+      }
+    }
+    
+    // Update mesh breathing (only visible before strike)
+    if (!isStruck) {
+      const freq = parseFloat(ui.baseFreq.value);
+      const baseOsc = Math.sin(2 * Math.PI * freq * globalTime);
+      this.morphGeometry(baseOsc);
+    }
+  }
+  
+  morphGeometry(baseOsc) {
+    const positions = this.mesh.geometry.attributes.position.array;
+    const orig = this.originalPositions;
+    const amp = this.baseRadius * 0.2;
+    
+    for (let i = 0; i < positions.length; i += 3) {
+      const ox = orig[i], oy = orig[i+1], oz = orig[i+2];
+      const r = Math.sqrt(ox*ox + oy*oy + oz*oz);
+      if (r < 0.001) continue;
+      
+      const nx = ox/r, ny = oy/r, nz = oz/r;
+      const disp = baseOsc * amp;
+      
+      positions[i] = ox + nx * disp;
+      positions[i+1] = oy + ny * disp;
+      positions[i+2] = oz + nz * disp;
+    }
+    this.mesh.geometry.attributes.position.needsUpdate = true;
+  }
+  
+  // Get wave contribution at a point in space
+  getWaveAt(point, time) {
+    const freq = parseFloat(ui.baseFreq.value);
+    const waveSpeed = parseFloat(ui.waveSpeed.value);
+    
+    const dist = point.distanceTo(this.worldPos);
+    const phaseDelay = dist / waveSpeed;
+    
+    // Base breathing wave
+    const baseWave = Math.sin(2 * Math.PI * freq * (time - phaseDelay) + this.phase);
+    
+    // Add perturbation component
+    const perturbWave = this.perturbation * Math.sin(2 * Math.PI * freq * 1.5 * (time - phaseDelay));
+    
+    // Amplitude falls off with distance
+    const falloff = 1 / (1 + dist * 0.3);
+    
+    return (baseWave + perturbWave * 2) * falloff * this.amplitude;
+  }
+  
+  strike(strength, delay, hitMode, hitModeM) {
+    setTimeout(() => {
+      this.struck = true;
+      this.strikeTime = simTime;
+      this.perturbation = strength;
+      this.perturbVelocity = strength * 3;
+      this.hitMode = hitMode;
+      this.hitModeM = hitModeM;
+    }, delay * 1000);
+  }
+  
+  reset() {
+    this.phase = 0;
+    this.perturbation = 0;
+    this.perturbVelocity = 0;
+    this.struck = false;
+    this.hitMode = 0;
+    this.hitModeM = 0;
+    this.mesh.visible = true;
+  }
+  
+  hide() {
+    this.mesh.visible = false;
+  }
+  
+  dispose() {
+    scene.remove(this.mesh);
+    this.mesh.geometry.dispose();
+    this.mesh.material.dispose();
+  }
+}
+
+// ============== INTERFERENCE FIELD ==============
+function createInterferenceField() {
+  if (fieldPoints) {
+    scene.remove(fieldPoints);
+    fieldGeometry.dispose();
+    fieldMaterial.dispose();
+  }
+  
+  const res = parseInt(ui.fieldRes.value);
+  const gridSize = parseInt(ui.gridSize.value);
+  const spacing = parseFloat(ui.spacing.value);
+  const extent = (gridSize - 1) * spacing / 2 + spacing;
+  
+  const positions = [];
+  const colors = [];
+  const sizes = [];
+  
+  const step = (extent * 2) / res;
+  const numPoints = res * res * res;
+  
+  // Build position array
+  for (let x = 0; x < res; x++) {
+    for (let y = 0; y < res; y++) {
+      for (let z = 0; z < res; z++) {
+        positions.push(
+          -extent + x * step + step/2,
+          -extent + y * step + step/2,
+          -extent + z * step + step/2
+        );
+        colors.push(0, 0.5, 0.5);
+        sizes.push(parseFloat(ui.pointSize.value));
+      }
+    }
+  }
+  
+  // Pre-compute distances and falloffs (these don't change until rebuild)
+  // Will be populated when sources exist
+  distanceCache = new Float32Array(numPoints * spheres.length);
+  falloffCache = new Float32Array(numPoints * spheres.length);
+  cosThetaCache = new Float32Array(numPoints * spheres.length); // cos(θ) for Yℓm
+  phiCache = new Float32Array(numPoints * spheres.length); // φ azimuthal angle
+  
+  // Calculate cached values
+  const tempPoint = new THREE.Vector3();
+  const tempDir = new THREE.Vector3();
+  for (let i = 0; i < numPoints; i++) {
+    tempPoint.set(positions[i*3], positions[i*3+1], positions[i*3+2]);
+    for (let s = 0; s < spheres.length; s++) {
+      const dist = tempPoint.distanceTo(spheres[s].worldPos);
+      const cacheIdx = i * spheres.length + s;
+      distanceCache[cacheIdx] = dist;
+      falloffCache[cacheIdx] = 1 / (1 + dist * 0.3);
+      
+      // Calculate angles for spherical harmonics
+      if (dist > 0.001) {
+        tempDir.subVectors(tempPoint, spheres[s].worldPos);
+        const dx = tempDir.x, dy = tempDir.y, dz = tempDir.z;
+        cosThetaCache[cacheIdx] = dz / dist; // cos(θ) where θ is from z-axis
+        phiCache[cacheIdx] = Math.atan2(dy, dx); // φ azimuthal angle in x-y plane
+      } else {
+        cosThetaCache[cacheIdx] = 1;
+        phiCache[cacheIdx] = 0;
+      }
+    }
+  }
+  
+  fieldGeometry = new THREE.BufferGeometry();
+  fieldGeometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  fieldGeometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  fieldGeometry.setAttribute('size', new THREE.Float32BufferAttribute(sizes, 1));
+  
+  fieldMaterial = new THREE.ShaderMaterial({
+    uniforms: {
+      uTime: { value: 0 },
+      uBrightness: { value: parseFloat(ui.brightness.value) }
+    },
+    vertexShader: `
+      attribute float size;
+      attribute vec3 color;
+      varying vec3 vColor;
+      varying float vAlpha;
+      
+      void main() {
+        vColor = color;
+        vAlpha = length(color) > 0.05 ? 1.0 : 0.0;
+        
+        vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+        gl_PointSize = size * (300.0 / -mvPosition.z);
+        gl_Position = projectionMatrix * mvPosition;
+      }
+    `,
+    fragmentShader: `
+      uniform float uBrightness;
+      varying vec3 vColor;
+      varying float vAlpha;
+      
+      void main() {
+        vec2 center = gl_PointCoord - vec2(0.5);
+        float dist = length(center);
+        if (dist > 0.5) discard;
+        
+        float alpha = smoothstep(0.5, 0.15, dist) * vAlpha;
+        vec3 color = vColor * uBrightness;
+        color = color / (1.0 + color);
+        
+        gl_FragColor = vec4(color, alpha * 0.9);
+      }
+    `,
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.NormalBlending
+  });
+  
+  fieldPoints = new THREE.Points(fieldGeometry, fieldMaterial);
+  fieldPoints.visible = false;
+  scene.add(fieldPoints);
+}
+
+// Real spherical harmonics Yℓm(θ, φ) - returns angular factor
+// Using real (tesseral) spherical harmonics commonly used in physics
+function sphericalHarmonic(l, m, cosTheta, phi) {
+  const c = cosTheta;
+  const s = Math.sqrt(1 - c * c); // sin(theta)
+  const absM = Math.abs(m);
+  
+  // Associated Legendre polynomial part (simplified for common cases)
+  let legendre = 0;
+  
+  if (l === 0) {
+    legendre = 1;
+  } else if (l === 1) {
+    if (absM === 0) legendre = c;
+    else if (absM === 1) legendre = s;
+  } else if (l === 2) {
+    if (absM === 0) legendre = (3*c*c - 1) / 2;
+    else if (absM === 1) legendre = s * c * 3;
+    else if (absM === 2) legendre = s * s * 3;
+  } else if (l === 3) {
+    if (absM === 0) legendre = (5*c*c*c - 3*c) / 2;
+    else if (absM === 1) legendre = s * (15*c*c - 3) / 2;
+    else if (absM === 2) legendre = s * s * c * 15;
+    else if (absM === 3) legendre = s * s * s * 15;
+  } else if (l === 4) {
+    if (absM === 0) legendre = (35*c*c*c*c - 30*c*c + 3) / 8;
+    else if (absM === 1) legendre = s * (35*c*c*c - 15*c) * 2.5;
+    else if (absM === 2) legendre = s * s * (7*c*c - 1) * 7.5;
+    else if (absM === 3) legendre = s * s * s * c * 105;
+    else if (absM === 4) legendre = s * s * s * s * 105;
+  }
+  
+  // Azimuthal part: cos(m*φ) for m≥0, sin(|m|*φ) for m<0
+  let azimuthal = 1;
+  if (m > 0) {
+    azimuthal = Math.cos(m * phi);
+  } else if (m < 0) {
+    azimuthal = Math.sin(absM * phi);
+  }
+  
+  return legendre * azimuthal;
+}
+
+function updateInterferenceField(time) {
+  if (!fieldPoints || !isStruck || !distanceCache) return;
+  
+  const colors = fieldGeometry.attributes.color.array;
+  const sizes = fieldGeometry.attributes.size.array;
+  
+  const threshold = parseFloat(ui.fieldThresh.value);
+  const pointSize = parseFloat(ui.pointSize.value);
+  const colorMode = ui.colorMode.value;
+  const freq = parseFloat(ui.baseFreq.value);
+  const waveSpeed = parseFloat(ui.waveSpeed.value);
+  const numSources = spheres.length;
+  const numPoints = colors.length / 3;
+  const invSqrtSources = 1 / Math.sqrt(numSources);
+  
+  // Pre-calculate source data (same for all points)
+  const sourcePhases = new Float32Array(numSources);
+  const sourcePerturbations = new Float32Array(numSources);
+  const sourceAmplitudes = new Float32Array(numSources);
+  const sourceHitModes = new Int8Array(numSources);
+  const sourceHitModesM = new Int8Array(numSources);
+  
+  for (let s = 0; s < numSources; s++) {
+    sourcePhases[s] = spheres[s].phase;
+    sourcePerturbations[s] = spheres[s].perturbation;
+    sourceAmplitudes[s] = spheres[s].amplitude;
+    sourceHitModes[s] = spheres[s].hitMode;
+    sourceHitModesM[s] = spheres[s].hitModeM;
+  }
+  
+  const twoPiFreq = 2 * Math.PI * freq;
+  const twoPiFreq15 = 2 * Math.PI * freq * 1.5;
+  
+  let totalEnergy = 0;
+  
+  for (let i = 0; i < numPoints; i++) {
+    let totalWave = 0;
+    const cacheBase = i * numSources;
+    
+    // Sum wave contributions using cached distances
+    for (let s = 0; s < numSources; s++) {
+      const cacheIdx = cacheBase + s;
+      const dist = distanceCache[cacheIdx];
+      const falloff = falloffCache[cacheIdx];
+      const cosTheta = cosThetaCache[cacheIdx];
+      const phi = phiCache[cacheIdx];
+      const phaseDelay = dist / waveSpeed;
+      
+      // Base wave (ℓ=0, isotropic breathing)
+      const baseWave = Math.sin(twoPiFreq * (time - phaseDelay) + sourcePhases[s]);
+      
+      // Perturbation wave with full spherical harmonic angular pattern
+      const angularFactor = sphericalHarmonic(sourceHitModes[s], sourceHitModesM[s], cosTheta, phi);
+      const perturbWave = sourcePerturbations[s] * angularFactor * 
+                          Math.sin(twoPiFreq15 * (time - phaseDelay));
+      
+      totalWave += (baseWave + perturbWave * 2) * falloff * sourceAmplitudes[s];
+    }
+    
+    totalWave *= invSqrtSources;
+    const absWave = Math.abs(totalWave);
+    totalEnergy += absWave * absWave;
+    
+    const i3 = i * 3;
+    
+    if (absWave < threshold) {
+      colors[i3] = 0;
+      colors[i3+1] = 0;
+      colors[i3+2] = 0;
+      sizes[i] = 0;
+      continue;
+    }
+    
+    sizes[i] = pointSize * (0.5 + absWave);
+    
+    // Color based on mode
+    if (colorMode === 'interference') {
+      if (totalWave > 0) {
+        const t = Math.min(1, totalWave * 0.7);
+        colors[i3] = 0.1 + t * 0.2;
+        colors[i3+1] = 0.4 + t * 0.5;
+        colors[i3+2] = 0.4 + t * 0.5;
+      } else {
+        const t = Math.min(1, -totalWave * 0.7);
+        colors[i3] = 0.6 + t * 0.3;
+        colors[i3+1] = 0.15;
+        colors[i3+2] = 0.3 + t * 0.3;
+      }
+    } else if (colorMode === 'energy') {
+      const e = Math.min(1, absWave * absWave);
+      colors[i3] = e * 0.8;
+      colors[i3+1] = 0.2 + e * 0.5;
+      colors[i3+2] = 0.7 - e * 0.3;
+    } else if (colorMode === 'phase') {
+      const phase = (Math.atan2(totalWave, absWave) + Math.PI) / (2 * Math.PI);
+      const h = phase * 6;
+      const x = 1 - Math.abs(h % 2 - 1);
+      let r, g, b;
+      if (h < 1) { r = 1; g = x; b = 0; }
+      else if (h < 2) { r = x; g = 1; b = 0; }
+      else if (h < 3) { r = 0; g = 1; b = x; }
+      else if (h < 4) { r = 0; g = x; b = 1; }
+      else if (h < 5) { r = x; g = 0; b = 1; }
+      else { r = 1; g = 0; b = x; }
+      colors[i3] = r * 0.6 + 0.15;
+      colors[i3+1] = g * 0.6 + 0.15;
+      colors[i3+2] = b * 0.6 + 0.15;
+    } else if (colorMode === 'gradient') {
+      const grad = Math.min(1, absWave);
+      colors[i3] = 0.15 + grad * 0.5;
+      colors[i3+1] = 0.5 - grad * 0.2;
+      colors[i3+2] = 0.4;
+    }
+  }
+  
+  fieldGeometry.attributes.color.needsUpdate = true;
+  fieldGeometry.attributes.size.needsUpdate = true;
+  
+  return { totalEnergy: totalEnergy / numPoints };
+}
+
+// ============== BOUNDING BOX ==============
+function createBoundingBox() {
+  if (boundingBox) {
+    scene.remove(boundingBox);
+    boundingBox.geometry.dispose();
+    boundingBox.material.dispose();
+  }
+  
+  const gridSize = parseInt(ui.gridSize.value);
+  const spacing = parseFloat(ui.spacing.value);
+  const extent = (gridSize - 1) * spacing / 2 + spacing * 0.8;
+  
+  const geometry = new THREE.BoxGeometry(extent * 2, extent * 2, extent * 2);
+  const edges = new THREE.EdgesGeometry(geometry);
+  const material = new THREE.LineBasicMaterial({ 
+    color: 0x2a3a4a, 
+    transparent: true, 
+    opacity: 0.5 
+  });
+  
+  boundingBox = new THREE.LineSegments(edges, material);
+  boundingBox.visible = ui.showBounds.checked;
+  scene.add(boundingBox);
+  
+  geometry.dispose();
+}
+
+// ============== BUILD LATTICE ==============
+function buildLattice() {
+  spheres.forEach(s => s.dispose());
+  spheres = [];
+  
+  const gridSize = parseInt(ui.gridSize.value);
+  const spacing = parseFloat(ui.spacing.value);
+  
+  let index = 0;
+  for (let x = 0; x < gridSize; x++) {
+    for (let y = 0; y < gridSize; y++) {
+      for (let z = 0; z < gridSize; z++) {
+        const source = new ResonantSource(x, y, z, index++);
+        source.setPosition(spacing);
+        spheres.push(source);
+      }
+    }
+  }
+  
+  createInterferenceField();
+  createBoundingBox();
+  
+  isStruck = false;
+  simTime = 0;
+  energyHistory = [];
+  updateStateDisplay();
+}
+
+// ============== GET NEIGHBORS ==============
+function getNeighbors(source) {
+  const neighbors = [];
+  for (const s of spheres) {
+    if (s === source) continue;
+    const dist = source.gridPos.distanceTo(s.gridPos);
+    if (dist <= 1.01) neighbors.push(s);
+  }
+  return neighbors;
+}
+
+// ============== STRIKE THE CHORD ==============
+function strikeChord() {
+  if (isStruck) return;
+  
+  isStruck = true;
+  strikeTime = simTime;
+  
+  const strength = parseFloat(ui.hitStrength.value);
+  const waveSpeed = parseFloat(ui.waveSpeed.value);
+  const hitMode = parseInt(ui.hitMode.value);
+  const hitModeM = parseInt(ui.hitModeM.value);
+  const gridSize = parseInt(ui.gridSize.value);
+  const spacing = parseFloat(ui.spacing.value);
+  
+  const center = (gridSize - 1) / 2;
+  
+  // Hide spheres, show field
+  for (const source of spheres) {
+    source.hide();
+    
+    const dist = source.gridPos.distanceTo(new THREE.Vector3(center, center, center));
+    const delay = dist * spacing / waveSpeed;
+    const falloff = Math.exp(-dist * 0.2);
+    source.strike(strength * falloff, delay, hitMode, hitModeM);
+  }
+  
+  fieldPoints.visible = true;
+  
+  // Update UI
+  ui.modeIndicator.className = 'mode-indicator struck';
+  ui.modeIndicator.textContent = '⚡ CHORD STRUCK (ℓ=' + hitMode + ', m=' + hitModeM + ') ⚡';
+  ui.stateLabel.textContent = 'INTERFERENCE';
+  ui.stateLabel.className = 'state-value struck';
+}
+
+// ============== RESET ==============
+function resetUniverse() {
+  isStruck = false;
+  simTime = 0;
+  energyHistory = [];
+  fieldUpdateAccum = 0;
+  
+  for (const source of spheres) {
+    source.reset();
+  }
+  
+  if (fieldPoints) fieldPoints.visible = false;
+  
+  ui.modeIndicator.className = 'mode-indicator pristine';
+  ui.modeIndicator.textContent = '✧ PRIMORDIAL STATE ✧';
+  updateStateDisplay();
+}
+
+// ============== UPDATE DISPLAYS ==============
+function updateStateDisplay() {
+  ui.timeLabel.textContent = simTime.toFixed(3) + ' s';
+  
+  let totalDeviation = 0;
+  for (const s of spheres) {
+    totalDeviation += Math.abs(s.perturbation);
+  }
+  const entropy = (totalDeviation / spheres.length) / 2 * 100;
+  ui.entropyLabel.textContent = entropy.toFixed(2) + '%';
+  
+  let phaseSum = 0;
+  for (const s of spheres) {
+    phaseSum += Math.cos(s.perturbation * Math.PI);
+  }
+  const coherence = Math.abs(phaseSum / spheres.length);
+  ui.coherenceVal.textContent = 'R = ' + coherence.toFixed(2);
+  
+  if (!isStruck) {
+    ui.stateLabel.textContent = 'PRISTINE (ℓ=0)';
+    ui.stateLabel.className = 'state-value';
+  }
+}
+
+// ============== TIMELINE ==============
+function updateTimeline(fieldEnergy) {
+  energyHistory.push(fieldEnergy || 0);
+  if (energyHistory.length > 200) energyHistory.shift();
+  
+  const w = timeCanvas.width = timeCanvas.offsetWidth * 2;
+  const h = timeCanvas.height = timeCanvas.offsetHeight * 2;
+  timeCtx.clearRect(0, 0, w, h);
+  
+  if (energyHistory.length < 2) return;
+  
+  const maxE = Math.max(...energyHistory, 0.01);
+  
+  const grad = timeCtx.createLinearGradient(0, h, 0, 0);
+  grad.addColorStop(0, 'rgba(78, 205, 196, 0.1)');
+  grad.addColorStop(1, 'rgba(255, 107, 107, 0.2)');
+  
+  timeCtx.beginPath();
+  timeCtx.moveTo(0, h);
+  for (let i = 0; i < energyHistory.length; i++) {
+    const x = (i / (energyHistory.length - 1)) * w;
+    const y = h - (energyHistory[i] / maxE) * h * 0.9;
+    timeCtx.lineTo(x, y);
+  }
+  timeCtx.lineTo(w, h);
+  timeCtx.fillStyle = grad;
+  timeCtx.fill();
+  
+  timeCtx.beginPath();
+  for (let i = 0; i < energyHistory.length; i++) {
+    const x = (i / (energyHistory.length - 1)) * w;
+    const y = h - (energyHistory[i] / maxE) * h * 0.9;
+    if (i === 0) timeCtx.moveTo(x, y);
+    else timeCtx.lineTo(x, y);
+  }
+  timeCtx.strokeStyle = isStruck ? '#ff6b6b' : '#4ecdc4';
+  timeCtx.lineWidth = 2;
+  timeCtx.stroke();
+}
+
+// ============== CAMERA CONTROLS ==============
+let isDragging = false;
+let prevMouse = { x: 0, y: 0 };
+let cameraTheta = Math.PI / 4;
+let cameraPhi = Math.PI / 4;
+let cameraRadius = 18;
+
+renderer.domElement.addEventListener('mousedown', e => {
+  isDragging = true;
+  prevMouse = { x: e.clientX, y: e.clientY };
+});
+
+renderer.domElement.addEventListener('mousemove', e => {
+  if (!isDragging) return;
+  const dx = e.clientX - prevMouse.x;
+  const dy = e.clientY - prevMouse.y;
+  cameraTheta -= dx * 0.01;
+  cameraPhi = Math.max(0.1, Math.min(Math.PI - 0.1, cameraPhi - dy * 0.01));
+  prevMouse = { x: e.clientX, y: e.clientY };
+});
+
+renderer.domElement.addEventListener('mouseup', () => isDragging = false);
+renderer.domElement.addEventListener('mouseleave', () => isDragging = false);
+
+renderer.domElement.addEventListener('wheel', e => {
+  cameraRadius = Math.max(5, Math.min(40, cameraRadius + e.deltaY * 0.02));
+});
+
+function updateCamera() {
+  camera.position.x = cameraRadius * Math.sin(cameraPhi) * Math.cos(cameraTheta);
+  camera.position.y = cameraRadius * Math.cos(cameraPhi);
+  camera.position.z = cameraRadius * Math.sin(cameraPhi) * Math.sin(cameraTheta);
+  camera.lookAt(0, 0, 0);
+}
+
+// ============== ANIMATION LOOP ==============
+let lastTime = performance.now();
+let frameCount = 0;
+let fpsTime = 0;
+const fpsCounter = document.getElementById('fpsCounter');
+
+function animate() {
+  requestAnimationFrame(animate);
+  
+  const now = performance.now();
+  const dt = Math.min((now - lastTime) / 1000, 0.05);
+  lastTime = now;
+  
+  // FPS counter
+  frameCount++;
+  fpsTime += dt;
+  if (fpsTime >= 0.5) {
+    fpsCounter.textContent = Math.round(frameCount / fpsTime);
+    frameCount = 0;
+    fpsTime = 0;
+  }
+  
+  simTime += dt;
+  
+  // Update sources
+  for (const source of spheres) {
+    const neighbors = getNeighbors(source);
+    source.update(dt, simTime, neighbors);
+  }
+  
+  // Update interference field (throttled)
+  let fieldEnergy = 0;
+  if (isStruck) {
+    fieldUpdateAccum += dt * 1000;
+    const updateRate = parseFloat(ui.updateRate.value);
+    if (fieldUpdateAccum >= updateRate) {
+      fieldUpdateAccum = 0;
+      const result = updateInterferenceField(simTime);
+      if (result) fieldEnergy = result.totalEnergy;
+    }
+  }
+  
+  updateCamera();
+  updateStateDisplay();
+  updateTimeline(fieldEnergy);
+  
+  renderer.render(scene, camera);
+}
+
+// ============== EVENT LISTENERS ==============
+ui.hitBtn.addEventListener('click', strikeChord);
+ui.resetBtn.addEventListener('click', resetUniverse);
+
+['gridSize', 'sphereRadius', 'spacing'].forEach(id => {
+  ui[id].addEventListener('input', () => {
+    ui[id + 'Val'].textContent = id === 'gridSize' ? ui[id].value + '³' : ui[id].value;
+    buildLattice();
+  });
+});
+
+['baseFreq', 'coupling', 'waveSpeed', 'damping', 'hitStrength', 'pointSize', 'fieldThresh', 'brightness', 'updateRate', 'sustain', 'nonlinearity'].forEach(id => {
+  ui[id].addEventListener('input', () => {
+    ui[id + 'Val'].textContent = id === 'updateRate' ? ui[id].value + 'ms' : ui[id].value;
+    if (id === 'brightness' && fieldMaterial) {
+      fieldMaterial.uniforms.uBrightness.value = parseFloat(ui.brightness.value);
+    }
+  });
+});
+
+ui.blendMode.addEventListener('change', () => {
+  if (fieldMaterial) {
+    fieldMaterial.blending = ui.blendMode.value === 'additive' 
+      ? THREE.AdditiveBlending 
+      : THREE.NormalBlending;
+    fieldMaterial.needsUpdate = true;
+  }
+});
+
+ui.fieldRes.addEventListener('input', () => {
+  ui.fieldResVal.textContent = ui.fieldRes.value + '³';
+  createInterferenceField();
+  if (isStruck) fieldPoints.visible = true;
+});
+
+// Pattern names for (l, m) combinations
+function getPatternName(l, m) {
+  const patterns = {
+    '0,0': 'Monopole (breathing)',
+    '1,0': 'Dipole (axial)',
+    '1,1': 'Dipole (lateral +)',
+    '1,-1': 'Dipole (lateral −)',
+    '2,0': 'Quadrupole (zonal)',
+    '2,1': 'Quadrupole (tesseral +)',
+    '2,-1': 'Quadrupole (tesseral −)',
+    '2,2': 'Quadrupole (sectoral +)',
+    '2,-2': 'Quadrupole (sectoral −)',
+    '3,0': 'Octupole (zonal)',
+    '3,1': 'Octupole (tesseral +)',
+    '3,-1': 'Octupole (tesseral −)',
+    '3,2': 'Octupole (sectoral +)',
+    '3,-2': 'Octupole (sectoral −)',
+    '3,3': 'Octupole (sectoral ++)',
+    '3,-3': 'Octupole (sectoral −−)',
+    '4,0': 'Hexadecapole (zonal)',
+  };
+  return patterns[l + ',' + m] || 'Y' + l + ',' + m;
+}
+
+function updateModeDisplay() {
+  const l = parseInt(ui.hitMode.value);
+  let m = parseInt(ui.hitModeM.value);
+  
+  // Constrain m to valid range: -l <= m <= l
+  if (m > l) { m = l; ui.hitModeM.value = m; }
+  if (m < -l) { m = -l; ui.hitModeM.value = m; }
+  
+  ui.hitModeVal.textContent = 'ℓ=' + l;
+  ui.hitModeMVal.textContent = 'm=' + m;
+  ui.patternName.textContent = getPatternName(l, m);
+  
+  // Update m slider range
+  ui.hitModeM.min = -l;
+  ui.hitModeM.max = l;
+}
+
+ui.hitMode.addEventListener('input', updateModeDisplay);
+ui.hitModeM.addEventListener('input', updateModeDisplay);
+
+ui.showBounds.addEventListener('change', () => {
+  if (boundingBox) boundingBox.visible = ui.showBounds.checked;
+});
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+// ============== INITIALIZE ==============
+buildLattice();
+updateModeDisplay();
+animate();
+</script>
+</body>
+</html>

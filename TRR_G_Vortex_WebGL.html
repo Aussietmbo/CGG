@@ -1,0 +1,877 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>TRR-G Vortex Field Explorer — WebGL</title>
+<style>
+:root{--bg:#071018;--panel:#0d1824;--panel2:#0f1e2e;--text:#dfe9f2;--muted:#7a8fa8;--accent:#44d7c4;--accent2:#6aa8ff;--accent3:#f5b14c;--accent4:#ff6b8a;--border:rgba(255,255,255,.08)}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:Inter,'Segoe UI',Arial,sans-serif}
+.app{display:grid;grid-template-columns:290px 1fr;height:100vh}
+.sidebar{background:var(--panel);border-right:1px solid var(--border);padding:8px 10px;overflow:hidden;display:flex;flex-direction:column;gap:4px}
+.sidebar h1{font-size:14px;font-weight:700;color:var(--accent);letter-spacing:.3px;margin-bottom:1px}
+.subtitle{font-size:9.5px;color:var(--muted);line-height:1.35;margin-bottom:4px}
+.card{background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:6px 8px;flex-shrink:0}
+.card h3{font-size:9px;text-transform:uppercase;letter-spacing:1.2px;color:var(--muted);margin-bottom:5px}
+.seg{display:flex;gap:3px;flex-wrap:wrap}
+.seg button{border:1px solid var(--border);border-radius:5px;background:rgba(255,255,255,.04);color:var(--muted);padding:3px 7px;font-size:10px;cursor:pointer;transition:all .15s}
+.seg button:hover{color:var(--text);border-color:rgba(255,255,255,.2)}
+.seg button.on{background:rgba(68,215,196,.15);border-color:rgba(68,215,196,.5);color:var(--accent)}
+.row{display:grid;grid-template-columns:82px 1fr 38px;gap:5px;align-items:center;margin:3px 0}
+.row label{font-size:10px;color:#b0c4d8}
+input[type=range]{width:100%;height:4px;-webkit-appearance:none;background:rgba(255,255,255,.1);border-radius:2px;outline:none;cursor:pointer}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;border-radius:50%;background:var(--accent);cursor:pointer}
+.val{font:10px ui-monospace,monospace;color:var(--accent);text-align:right}
+.stat{display:flex;justify-content:space-between;font-size:10px;padding:2px 0;border-bottom:1px solid rgba(255,255,255,.04)}
+.stat:last-child{border-bottom:none}
+.stat .k{color:var(--muted)}
+.stat .v{font-family:ui-monospace,monospace;color:var(--accent2)}
+.charge-box{background:rgba(0,0,0,.3);border:1px solid var(--border);border-radius:6px;padding:5px 8px;text-align:center;margin-top:3px}
+.charge-val{font:18px ui-monospace,monospace;color:var(--accent3);display:block;line-height:1.2}
+.charge-label{font-size:9px;color:var(--muted)}
+.charge-bar-wrap{height:4px;background:rgba(255,255,255,.08);border-radius:2px;margin:3px 0;overflow:hidden}
+.charge-bar{height:100%;background:var(--accent3);border-radius:2px;transition:width .3s}
+.preset-btns{display:flex;gap:3px;flex-wrap:wrap}
+.preset-btns button{border:1px solid var(--border);border-radius:5px;background:rgba(255,255,255,.03);color:var(--muted);padding:3px 6px;font-size:9.5px;cursor:pointer;transition:all .15s}
+.preset-btns button:hover{background:rgba(106,168,255,.12);border-color:rgba(106,168,255,.4);color:var(--accent2)}
+.main{position:relative;overflow:hidden}
+#glCanvas{display:block;width:100%;height:100%}
+.hud{position:absolute;bottom:0;left:0;right:0;background:rgba(7,16,24,.85);backdrop-filter:blur(6px);border-top:1px solid var(--border);padding:5px 12px;display:flex;gap:18px;align-items:center;font-size:10px;color:var(--muted)}
+.hud .eq{font-family:ui-monospace,monospace;color:#cfe3f5}
+.hud .fps{margin-left:auto;color:var(--accent)}
+.overlay-label{position:absolute;top:10px;right:12px;background:rgba(7,16,24,.82);backdrop-filter:blur(6px);border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:10px;color:var(--muted);text-align:right;line-height:1.6;pointer-events:none}
+.overlay-label b{color:var(--text)}
+</style>
+</head>
+<body>
+<div class="app">
+<aside class="sidebar">
+  <h1>TRR-G Vortex Field Explorer</h1>
+  <div class="subtitle">True WebGL · Spherical Harmonics · Hopf Fibration · Topological Charge</div>
+
+  <div class="card">
+    <h3>Visualization Mode</h3>
+    <div class="seg" id="modeBtns">
+      <button data-mode="sh" class="on">SH Surface</button>
+      <button data-mode="vortex">Vortex Tube</button>
+      <button data-mode="hopf">Hopf Fibration</button>
+      <button data-mode="linked">Linked Vortices</button>
+    </div>
+  </div>
+
+  <div class="card" id="shCard">
+    <h3>Spherical Harmonic Y<sup>m</sup><sub>ℓ</sub></h3>
+    <div class="row"><label>ℓ (degree)</label><input id="sl" type="range" min="0" max="6" step="1" value="2"><div class="val" id="slV">2</div></div>
+    <div class="row"><label>m (order)</label><input id="sm" type="range" min="-6" max="6" step="1" value="1"><div class="val" id="smV">1</div></div>
+    <div class="row"><label>Amplitude</label><input id="sAmp" type="range" min="0.1" max="2.5" step="0.05" value="1.0"><div class="val" id="sAmpV">1.00</div></div>
+    <div class="row"><label>Animate ω</label><input id="sOmega" type="range" min="0" max="3" step="0.05" value="0.6"><div class="val" id="sOmegaV">0.60</div></div>
+    <div class="row"><label>Render</label>
+      <div class="seg" id="shRenderBtns" style="grid-column:2/4">
+        <button data-render="surface" class="on">Surface</button>
+        <button data-render="wire">Wire</button>
+        <button data-render="both">Both</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" id="vortexCard" style="display:none">
+    <h3>Vortex Geometry</h3>
+    <div class="row"><label>Winding m</label><input id="vm" type="range" min="1" max="8" step="1" value="3"><div class="val" id="vmV">3</div></div>
+    <div class="row"><label>Axial k</label><input id="vk" type="range" min="0" max="12" step="0.5" value="4"><div class="val" id="vkV">4.00</div></div>
+    <div class="row"><label>Tube radius</label><input id="va" type="range" min="0.1" max="0.6" step="0.01" value="0.25"><div class="val" id="vaV">0.25</div></div>
+    <div class="row"><label>Core ξ</label><input id="vxi" type="range" min="0.03" max="0.4" step="0.01" value="0.12"><div class="val" id="vxiV">0.12</div></div>
+    <div class="row"><label>Morph τ</label><input id="vtau" type="range" min="0" max="1" step="0.005" value="0"><div class="val" id="vtauV">0.00</div></div>
+  </div>
+
+  <div class="card" id="hopfCard" style="display:none">
+    <h3>Hopf Fibration S³→S²</h3>
+    <div class="row"><label>Fibers n</label><input id="hn" type="range" min="6" max="48" step="1" value="20"><div class="val" id="hnV">20</div></div>
+    <div class="row"><label>Base θ</label><input id="hth" type="range" min="0.1" max="3.0" step="0.05" value="1.2"><div class="val" id="hthV">1.20</div></div>
+    <div class="row"><label>Rotate φ</label><input id="hphi" type="range" min="0" max="6.28" step="0.05" value="0"><div class="val" id="hphiV">0.00</div></div>
+    <div class="row"><label>Tube r</label><input id="htr" type="range" min="0.01" max="0.08" step="0.002" value="0.03"><div class="val" id="htrV">0.030</div></div>
+  </div>
+
+  <div class="card" id="linkedCard" style="display:none">
+    <h3>Linked Vortex Rings</h3>
+    <div class="row"><label>Ring 1 R</label><input id="lr1" type="range" min="0.5" max="2.0" step="0.05" value="1.0"><div class="val" id="lr1V">1.00</div></div>
+    <div class="row"><label>Ring 2 R</label><input id="lr2" type="range" min="0.5" max="2.0" step="0.05" value="1.0"><div class="val" id="lr2V">1.00</div></div>
+    <div class="row"><label>Separation</label><input id="lsep" type="range" min="0.0" max="1.5" step="0.05" value="0.5"><div class="val" id="lsepV">0.50</div></div>
+    <div class="row"><label>Twist m</label><input id="ltw" type="range" min="1" max="6" step="1" value="2"><div class="val" id="ltwV">2</div></div>
+  </div>
+
+  <div class="card">
+    <h3>Topological Charge Detector</h3>
+    <div class="charge-box">
+      <span class="charge-val" id="chargeVal">0</span>
+      <div class="charge-bar-wrap"><div class="charge-bar" id="chargeBar" style="width:50%"></div></div>
+      <div class="charge-label">Winding Number Q = (1/2π)∮ dφ</div>
+    </div>
+    <div class="stat" style="margin-top:4px"><div class="k">∮ ∇φ · dl</div><div class="v" id="windingRaw">0.000</div></div>
+    <div class="stat"><div class="k">Vorticity type</div><div class="v" id="vorticityType">none</div></div>
+    <div class="stat"><div class="k">Linking number</div><div class="v" id="linkNum">—</div></div>
+  </div>
+
+  <div class="card">
+    <h3>Presets</h3>
+    <div class="preset-btns">
+      <button onclick="loadPreset('Y20')">Y₂⁰</button>
+      <button onclick="loadPreset('Y32')">Y₃²</button>
+      <button onclick="loadPreset('Y44')">Y₄⁴</button>
+      <button onclick="loadPreset('helix')">Helix</button>
+      <button onclick="loadPreset('toroid')">Toroid</button>
+      <button onclick="loadPreset('hopfStd')">Hopf</button>
+      <button onclick="loadPreset('trefoil')">Trefoil</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Render</h3>
+    <div class="seg" id="bloomBtns">
+      <button data-bloom="on" class="on">Bloom</button>
+      <button data-bloom="off">No bloom</button>
+    </div>
+    <div class="row" style="margin-top:4px"><label>Bloom str</label><input id="bloomStr" type="range" min="0.1" max="3.0" step="0.05" value="1.2"><div class="val" id="bloomStrV">1.20</div></div>
+    <div class="row"><label>Rotation</label><input id="autoRot" type="range" min="0" max="0.5" step="0.005" value="0.08"><div class="val" id="autoRotV">0.08</div></div>
+  </div>
+
+</aside>
+
+<main class="main">
+  <canvas id="glCanvas"></canvas>
+  <div class="overlay-label" id="overlayLabel">
+    <b>SH Surface</b><br>Y₂¹ · ℓ=2 m=1<br>Drag: orbit · Scroll: zoom
+  </div>
+  <div class="hud">
+    <span class="eq" id="hudEq">ψ ~ Y<sub>ℓ</sub><sup>m</sup>(θ,φ)·e<sup>−iωt</sup></span>
+    <span id="hudInfo" style="color:var(--accent2);font-size:10px"></span>
+    <span class="fps" id="fpsEl">— fps</span>
+  </div>
+</main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// ═══════════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════════
+const S = {
+  mode:'sh',
+  sh:{ l:2, m:1, amp:1.0, omega:0.6, render:'surface' },
+  vortex:{ m:3, k:4, a:0.25, xi:0.12, tau:0 },
+  hopf:{ n:20, theta:1.2, phi:0, tubeR:0.03 },
+  linked:{ r1:1.0, r2:1.0, sep:0.5, twist:2 },
+  bloom:true, bloomStr:1.2, autoRot:0.08,
+  charge:0, winding:0, linkNum:0
+};
+
+// ═══════════════════════════════════════════════════════════════
+// THREE.JS SETUP
+// ═══════════════════════════════════════════════════════════════
+const canvas = document.getElementById('glCanvas');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias:true, alpha:false });
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setClearColor(0x071018);
+renderer.shadowMap.enabled = false;
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(55, 1, 0.01, 200);
+camera.position.set(0, 1.5, 5.5);
+
+// Orbit controls (manual - no import available)
+let isDragging=false, lastX=0, lastY=0;
+let camTheta=0.3, camPhi=1.1, camR=5.5;
+function camPos(){
+  camera.position.set(
+    camR*Math.sin(camPhi)*Math.sin(camTheta),
+    camR*Math.cos(camPhi),
+    camR*Math.sin(camPhi)*Math.cos(camTheta)
+  );
+  camera.lookAt(0,0,0);
+}
+canvas.addEventListener('mousedown',e=>{isDragging=true;lastX=e.clientX;lastY=e.clientY});
+window.addEventListener('mouseup',()=>isDragging=false);
+window.addEventListener('mousemove',e=>{
+  if(!isDragging)return;
+  camTheta-=(e.clientX-lastX)*0.005;
+  camPhi=Math.max(0.1,Math.min(Math.PI-0.1,camPhi+(e.clientY-lastY)*0.005));
+  lastX=e.clientX;lastY=e.clientY;camPos();
+});
+canvas.addEventListener('wheel',e=>{
+  e.preventDefault();
+  camR=Math.max(1.5,Math.min(18,camR+e.deltaY*0.01));
+  camPos();
+},{passive:false});
+// Touch
+let t0=null,t1=null;
+canvas.addEventListener('touchstart',e=>{if(e.touches.length===1){isDragging=true;lastX=e.touches[0].clientX;lastY=e.touches[0].clientY;}});
+canvas.addEventListener('touchend',()=>isDragging=false);
+canvas.addEventListener('touchmove',e=>{
+  e.preventDefault();
+  if(isDragging&&e.touches.length===1){
+    camTheta-=(e.touches[0].clientX-lastX)*0.005;
+    camPhi=Math.max(0.1,Math.min(Math.PI-0.1,camPhi+(e.touches[0].clientY-lastY)*0.005));
+    lastX=e.touches[0].clientX;lastY=e.touches[0].clientY;camPos();
+  }
+},{passive:false});
+camPos();
+
+// Lighting
+scene.add(new THREE.AmbientLight(0x1a2a3a,1.5));
+const dLight = new THREE.DirectionalLight(0xffffff,0.8);
+dLight.position.set(5,8,5);
+scene.add(dLight);
+const pLight1 = new THREE.PointLight(0x44d7c4,1.5,20);
+pLight1.position.set(-3,3,2);
+scene.add(pLight1);
+const pLight2 = new THREE.PointLight(0x6aa8ff,1.0,15);
+pLight2.position.set(3,-2,-3);
+scene.add(pLight2);
+
+// Post-processing (manual bloom via additive layer)
+// We use a simple approach: render scene twice with different opacity for bloom effect
+// Full EffectComposer not available without imports — use renderer toneMapping instead
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.2;
+
+// ═══════════════════════════════════════════════════════════════
+// MATH UTILITIES
+// ═══════════════════════════════════════════════════════════════
+function factorial(n){ let r=1; for(let i=2;i<=n;i++)r*=i; return r; }
+
+function assocLegendre(l,m,x){
+  // Compute P_l^m(x) via recurrence — stable for l≤6
+  m=Math.abs(m);
+  let pmm=1;
+  if(m>0){
+    const sx=Math.sqrt(1-x*x);
+    let fact=1;
+    for(let i=1;i<=m;i++){pmm*=(-fact)*sx;fact+=2;}
+  }
+  if(l===m)return pmm;
+  let pmmp1=x*(2*m+1)*pmm;
+  if(l===m+1)return pmmp1;
+  let pll=0;
+  for(let ll=m+2;ll<=l;ll++){
+    pll=((2*ll-1)*x*pmmp1-(ll+m-1)*pmm)/(ll-m);
+    pmm=pmmp1;pmmp1=pll;
+  }
+  return pll;
+}
+
+function Ylm(l,m,theta,phi){
+  // Real spherical harmonic
+  const absm=Math.abs(m);
+  const P=assocLegendre(l,absm,Math.cos(theta));
+  const norm=Math.sqrt((2*l+1)/(4*Math.PI)*factorial(l-absm)/factorial(l+absm));
+  if(m>0) return Math.SQRT2*norm*P*Math.cos(m*phi);
+  if(m<0) return Math.SQRT2*norm*P*Math.sin(absm*phi);
+  return norm*P;
+}
+
+// HSL color from phase angle
+function phaseToColor(phi,sat=0.9,lig=0.55){
+  const h=(((phi%(Math.PI*2))+Math.PI*2)%(Math.PI*2))/(Math.PI*2);
+  // HSL to RGB
+  const c=(1-Math.abs(2*lig-1))*sat;
+  const x=c*(1-Math.abs((h*6)%2-1));
+  const m=lig-c/2;
+  let r=0,g=0,b=0;
+  const s=h*6;
+  if(s<1){r=c;g=x;}else if(s<2){r=x;g=c;}else if(s<3){g=c;b=x;}
+  else if(s<4){g=x;b=c;}else if(s<5){r=x;b=c;}else{r=c;b=x;}
+  return new THREE.Color(r+m,g+m,b+m);
+}
+
+function amplitudeToColor(v,mode='sh'){
+  // Map signed amplitude to color
+  if(mode==='sh'){
+    if(v>0){const t=Math.min(v*2,1);return new THREE.Color(0.2+0.7*t,0.9*t,0.6*t);}
+    else{const t=Math.min(-v*2,1);return new THREE.Color(0.8*t,0.2*t,0.3+0.6*t);}
+  }
+  return new THREE.Color(0.3+0.7*Math.abs(v),0.7*Math.abs(v),0.9);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SCENE OBJECTS CONTAINER
+// ═══════════════════════════════════════════════════════════════
+const sceneGroup = new THREE.Group();
+scene.add(sceneGroup);
+
+function clearScene(){
+  while(sceneGroup.children.length){
+    const c=sceneGroup.children[0];
+    sceneGroup.remove(c);
+    if(c.geometry)c.geometry.dispose();
+    if(c.material){
+      if(Array.isArray(c.material))c.material.forEach(m=>m.dispose());
+      else c.material.dispose();
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SPHERICAL HARMONIC SURFACE
+// ═══════════════════════════════════════════════════════════════
+function buildSHSurface(time){
+  clearScene();
+  const {l,m,amp,render} = S.sh;
+  const NTH=120, NPH=240;
+  const positions=[], colors=[], normals=[], indices=[];
+
+  // Sample Y_l^m on sphere, displace radially
+  const verts=[];
+  for(let i=0;i<=NTH;i++){
+    const theta=Math.PI*i/NTH;
+    for(let j=0;j<=NPH;j++){
+      const phi=2*Math.PI*j/NPH + m*time*0.0; // static shape, color animates
+      const y=Ylm(l,m,theta,phi);
+      // Animate: real part of Y_l^m * e^{-imt*omega}
+      const phaseAnim = m*time*S.sh.omega;
+      const yAnimated = Ylm(l,m,theta,phi)*Math.cos(phaseAnim)
+                       - (m!==0 ? Ylm(l,-m,theta,phi)*Math.sin(phaseAnim) : 0);
+      const r = 1.5 + amp * yAnimated;
+      const x=r*Math.sin(theta)*Math.cos(phi);
+      const yz=r*Math.sin(theta)*Math.sin(phi);
+      const z=r*Math.cos(theta);
+      verts.push({x,y:yz,z:z,val:yAnimated,phi:phi+(yAnimated>0?0:Math.PI)});
+    }
+  }
+
+  // Build geometry
+  const posArr=new Float32Array(verts.length*3);
+  const colArr=new Float32Array(verts.length*3);
+  verts.forEach((v,i)=>{
+    posArr[i*3]=v.x; posArr[i*3+1]=v.y; posArr[i*3+2]=v.z;
+    const c=amplitudeToColor(v.val,'sh');
+    colArr[i*3]=c.r; colArr[i*3+1]=c.g; colArr[i*3+2]=c.b;
+  });
+
+  const idxArr=[];
+  for(let i=0;i<NTH;i++){
+    for(let j=0;j<NPH;j++){
+      const a=i*(NPH+1)+j, b=a+1, c=a+(NPH+1), d=c+1;
+      idxArr.push(a,c,b, b,c,d);
+    }
+  }
+
+  const geo=new THREE.BufferGeometry();
+  geo.setAttribute('position',new THREE.BufferAttribute(posArr,3));
+  geo.setAttribute('color',new THREE.BufferAttribute(colArr,3));
+  geo.setIndex(idxArr);
+  geo.computeVertexNormals();
+
+  if(render==='surface'||render==='both'){
+    const mat=new THREE.MeshPhongMaterial({
+      vertexColors:true,
+      side:THREE.DoubleSide,
+      shininess:80,
+      specular:new THREE.Color(0.3,0.3,0.4),
+      transparent:true,opacity:0.92
+    });
+    sceneGroup.add(new THREE.Mesh(geo.clone(),mat));
+  }
+  if(render==='wire'||render==='both'){
+    const wmat=new THREE.MeshBasicMaterial({
+      color:0x44d7c4,wireframe:true,transparent:true,opacity:0.12
+    });
+    sceneGroup.add(new THREE.Mesh(geo.clone(),wmat));
+  }
+  geo.dispose();
+
+  // Compute topological charge: winding number of phase around equator
+  computeSHCharge(l,m,time);
+}
+
+function computeSHCharge(l,m,time){
+  // Winding number of e^{i m φ} around φ ∈ [0,2π] at equator
+  // Q = m (by construction for Y_l^m)
+  S.charge = m;
+  S.winding = m;
+  updateChargeDisplay('azimuthal Y_l^m','—');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// VORTEX TUBE (upgraded to WebGL tubes)
+// ═══════════════════════════════════════════════════════════════
+function buildVortexTube(time){
+  clearScene();
+  const {m,k,a,xi,tau} = S.vortex;
+  const R=1.2, L=2.0;
+  const NSEG=120, NRING=18;
+
+  // Generate tube path (morph helix→torus)
+  const path=[];
+  for(let i=0;i<=NSEG;i++){
+    const u=i/NSEG;
+    const uAng=2*Math.PI*u;
+    const zS=L*(2*u-1);
+    const xS=0,yS=0;
+    const xT=R*Math.cos(uAng),yT=R*Math.sin(uAng),zT=0;
+    path.push({
+      x:lerp(xS,xT,tau)+xS*0,
+      y:lerp(yS,yT,tau),
+      z:lerp(zS,zT,tau),
+      u:uAng, zS, phase: m*uAng + k*zS - time*1.2
+    });
+  }
+
+  // Build tube geometry around path
+  const positions=[], colors=[], idxs=[];
+  path.forEach((pt,i)=>{
+    // Frenet frame
+    const prev=path[Math.max(0,i-1)], next=path[Math.min(NSEG,i+1)];
+    const tangent=new THREE.Vector3(next.x-prev.x,next.y-prev.y,next.z-prev.z).normalize();
+    const up=Math.abs(tangent.y)<0.9?new THREE.Vector3(0,1,0):new THREE.Vector3(1,0,0);
+    const normal=new THREE.Vector3().crossVectors(tangent,up).normalize();
+    const binormal=new THREE.Vector3().crossVectors(tangent,normal).normalize();
+
+    for(let j=0;j<=NRING;j++){
+      const v=2*Math.PI*j/NRING;
+      const r=a;
+      const ox=normal.x*r*Math.cos(v)+binormal.x*r*Math.sin(v);
+      const oy=normal.y*r*Math.cos(v)+binormal.y*r*Math.sin(v);
+      const oz=normal.z*r*Math.cos(v)+binormal.z*r*Math.sin(v);
+      positions.push(pt.x+ox,pt.y+oy,pt.z+oz);
+      const phi=pt.phase + m*v;
+      const c=phaseToColor(phi);
+      colors.push(c.r,c.g,c.b);
+    }
+  });
+
+  for(let i=0;i<NSEG;i++){
+    for(let j=0;j<NRING;j++){
+      const a0=i*(NRING+1)+j, b0=a0+1;
+      const c0=a0+(NRING+1), d0=c0+1;
+      idxs.push(a0,c0,b0,b0,c0,d0);
+    }
+  }
+
+  const geo=new THREE.BufferGeometry();
+  geo.setAttribute('position',new THREE.BufferAttribute(new Float32Array(positions),3));
+  geo.setAttribute('color',new THREE.BufferAttribute(new Float32Array(colors),3));
+  geo.setIndex(idxs);
+  geo.computeVertexNormals();
+  const mat=new THREE.MeshPhongMaterial({vertexColors:true,side:THREE.DoubleSide,shininess:60});
+  sceneGroup.add(new THREE.Mesh(geo,mat));
+
+  // Flow axis line
+  const axPts=[new THREE.Vector3(0,-L,0),new THREE.Vector3(0,L,0)];
+  const axGeo=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,-L,0),new THREE.Vector3(0,L,0)]);
+  sceneGroup.add(new THREE.Line(axGeo,new THREE.LineBasicMaterial({color:0x44d7c4,transparent:true,opacity:0.3})));
+
+  // Charge: winding number around the tube cross-section = m
+  S.charge=m; S.winding=m;
+  updateChargeDisplay('helical vortex','—');
+}
+
+function lerp(a,b,t){return a+(b-a)*t;}
+
+// ═══════════════════════════════════════════════════════════════
+// HOPF FIBRATION
+// ═══════════════════════════════════════════════════════════════
+// Hopf map η: S³→S², stereographic projection S³ → R³
+// A point on S² at (θ,φ) lifts to a circle (fiber) in S³
+// which projects stereographically to a circle (or line) in R³.
+function hopfFiber(theta, phi, t, nPts=80){
+  // Point on S²: (sinθ cosφ, sinθ sinφ, cosθ)
+  // Lift to great circle on S³ (Hopf fiber)
+  // Parameterize: for ζ ∈ [0,2π]:
+  //   z1 = cos(θ/2)·e^{i(ζ+φ/2)}
+  //   z2 = sin(θ/2)·e^{i(ζ-φ/2)}
+  // Stereographic projection from S³\{north} to R³:
+  //   (x,y,z) = (2·Re(z1·conj(z2))) / (1-Im(z2)),  etc.
+  const pts=[];
+  for(let i=0;i<nPts;i++){
+    const zeta=2*Math.PI*i/(nPts-1)+t*0.3;
+    const c1r=Math.cos(theta/2)*Math.cos(zeta+phi/2);
+    const c1i=Math.cos(theta/2)*Math.sin(zeta+phi/2);
+    const c2r=Math.sin(theta/2)*Math.cos(zeta-phi/2);
+    const c2i=Math.sin(theta/2)*Math.sin(zeta-phi/2);
+    // Stereographic proj from S³ to R³:
+    // (a,b,c,d) on S³, project from d=1:
+    // Use (c1r,c1i,c2r,c2i)=(a,b,c,d)
+    const denom=1-c2i;
+    if(Math.abs(denom)<1e-6){pts.push(new THREE.Vector3(0,10,0));continue;}
+    const sc=3; // scale factor
+    pts.push(new THREE.Vector3(sc*c1r/denom, sc*c1i/denom, sc*c2r/denom));
+  }
+  return pts;
+}
+
+function buildHopf(time){
+  clearScene();
+  const {n,theta,phi:phi0,tubeR} = S.hopf;
+  let totalLinking=0;
+
+  // Generate n fibers at evenly spaced base points on S²
+  for(let i=0;i<n;i++){
+    const phi_i=2*Math.PI*i/n+phi0+time*0.05;
+    const pts=hopfFiber(theta,phi_i,time);
+
+    // TubeGeometry via manual segments
+    const curve=new THREE.CatmullRomCurve3(pts,true,'catmullrom',0.2);
+    const tubeSeg=60, radSeg=6;
+    try{
+      const geo=new THREE.TubeGeometry(curve,tubeSeg,tubeR,radSeg,true);
+      const hue=i/n;
+      const c=new THREE.Color().setHSL(hue,0.9,0.6);
+      const mat=new THREE.MeshPhongMaterial({color:c,shininess:100,
+        transparent:true,opacity:0.85,emissive:c.clone().multiplyScalar(0.2)});
+      sceneGroup.add(new THREE.Mesh(geo,mat));
+    }catch(e){}
+  }
+
+  // Base S² sphere (faint)
+  const sGeo=new THREE.SphereGeometry(0.18,24,16);
+  const sMat=new THREE.MeshBasicMaterial({color:0xffffff,wireframe:true,transparent:true,opacity:0.08});
+  sceneGroup.add(new THREE.Mesh(sGeo,sMat));
+
+  // Topological charge: Hopf invariant = linking number = 1 for standard Hopf map
+  S.charge=1; S.winding=1; S.linkNum=1;
+  updateChargeDisplay('Hopf fiber',1);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// LINKED VORTEX RINGS
+// ═══════════════════════════════════════════════════════════════
+function buildLinkedVortices(time){
+  clearScene();
+  const {r1,r2,sep,twist} = S.linked;
+  const NSEG=100, NRING=14;
+
+  // Ring 1: in xz-plane centered at (0,sep/2,0)
+  // Ring 2: in xy-plane centered at (0,-sep/2,0)
+  // These two rings are topologically linked (linking number=1)
+  const rings=[
+    {R:r1,center:new THREE.Vector3(0,sep*0.5,0),
+     axis:new THREE.Vector3(0,1,0),color:0x44d7c4},
+    {R:r2,center:new THREE.Vector3(0,-sep*0.5,0),
+     axis:new THREE.Vector3(1,0,0),color:0xf5b14c}
+  ];
+
+  rings.forEach((ring,ri)=>{
+    const path=[];
+    for(let i=0;i<=NSEG;i++){
+      const u=2*Math.PI*i/NSEG;
+      // Basis vectors perpendicular to ring axis
+      const ax=ring.axis;
+      const e1=ax.equals(new THREE.Vector3(0,1,0))
+        ? new THREE.Vector3(1,0,0)
+        : new THREE.Vector3(0,1,0);
+      const e2=new THREE.Vector3().crossVectors(ax,e1).normalize();
+      const e1n=new THREE.Vector3().crossVectors(e2,ax).normalize();
+      const x=ring.center.x+ring.R*(e1n.x*Math.cos(u)+e2.x*Math.sin(u));
+      const y=ring.center.y+ring.R*(e1n.y*Math.cos(u)+e2.y*Math.sin(u));
+      const z=ring.center.z+ring.R*(e1n.z*Math.cos(u)+e2.z*Math.sin(u));
+      path.push({x,y,z,u,phase:twist*u-time*0.8+ri*Math.PI});
+    }
+
+    const positions=[],colorArr=[],idxs=[];
+    path.forEach((pt,i)=>{
+      const prev=path[Math.max(0,i-1)],next=path[Math.min(NSEG,i+1)];
+      const tang=new THREE.Vector3(next.x-prev.x,next.y-prev.y,next.z-prev.z).normalize();
+      const upV=ring.axis.clone();
+      const norm=new THREE.Vector3().crossVectors(tang,upV).normalize();
+      const binorm=new THREE.Vector3().crossVectors(tang,norm).normalize();
+      const tr=0.18;
+      for(let j=0;j<=NRING;j++){
+        const v=2*Math.PI*j/NRING;
+        const ox=norm.x*tr*Math.cos(v)+binorm.x*tr*Math.sin(v);
+        const oy=norm.y*tr*Math.cos(v)+binorm.y*tr*Math.sin(v);
+        const oz=norm.z*tr*Math.cos(v)+binorm.z*tr*Math.sin(v);
+        positions.push(pt.x+ox,pt.y+oy,pt.z+oz);
+        const c=phaseToColor(pt.phase+twist*v);
+        colorArr.push(c.r,c.g,c.b);
+      }
+    });
+
+    for(let i=0;i<NSEG;i++){
+      for(let j=0;j<NRING;j++){
+        const a0=i*(NRING+1)+j,b0=a0+1,c0=a0+(NRING+1),d0=c0+1;
+        idxs.push(a0,c0,b0,b0,c0,d0);
+      }
+    }
+    const geo=new THREE.BufferGeometry();
+    geo.setAttribute('position',new THREE.BufferAttribute(new Float32Array(positions),3));
+    geo.setAttribute('color',new THREE.BufferAttribute(new Float32Array(colorArr),3));
+    geo.setIndex(idxs);
+    geo.computeVertexNormals();
+    const mat=new THREE.MeshPhongMaterial({vertexColors:true,side:THREE.FrontSide,shininess:70});
+    sceneGroup.add(new THREE.Mesh(geo,mat));
+  });
+
+  // Compute linking number via Gauss linking integral (discrete)
+  const lk=computeLinkingNumber(rings,8);
+  S.charge=twist; S.winding=twist; S.linkNum=lk;
+  updateChargeDisplay('vortex ring',lk);
+}
+
+function computeLinkingNumber(rings,N){
+  // Discrete Gauss linking integral:
+  // Lk = (1/4π) ∮∮ (dr1/dt × dr2/ds) · (r1-r2)/|r1-r2|³ dt ds
+  let sum=0;
+  const n=N;
+  const c1=[],c2=[];
+  const {r1,r2,sep}=S.linked;
+  for(let i=0;i<n;i++){
+    const u=2*Math.PI*i/n;
+    c1.push(new THREE.Vector3(r1*Math.cos(u),sep*0.5,r1*Math.sin(u)));
+    c2.push(new THREE.Vector3(r2*Math.cos(u),-sep*0.5,0,r2*Math.sin(u)));
+    c2[i].set(r2*Math.cos(u),-sep*0.5,r2*Math.sin(u));
+    // Ring 2 in xy-plane: x=r*cos, y=-sep/2... wait, ring2 is in xz-plane with axis x
+    // Let ring 2 be in yz-plane: y=r*cos, z=r*sin, x=-sep/2... 
+    // Actually use the geometry from buildLinkedVortices
+    c2[i].set(-sep*0.5,r2*Math.cos(u),r2*Math.sin(u));
+  }
+  for(let i=0;i<n;i++){
+    const t1=c1[(i+1)%n].clone().sub(c1[(i-1+n)%n]);
+    for(let j=0;j<n;j++){
+      const t2=c2[(j+1)%n].clone().sub(c2[(j-1+n)%n]);
+      const diff=c1[i].clone().sub(c2[j]);
+      const d3=Math.pow(diff.length(),3);
+      if(d3<1e-9)continue;
+      const cr=new THREE.Vector3().crossVectors(t1,t2);
+      sum+=cr.dot(diff)/d3;
+    }
+  }
+  return Math.round(sum/(4*Math.PI*n*n)*n*n);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CHARGE DISPLAY
+// ═══════════════════════════════════════════════════════════════
+function updateChargeDisplay(vorticityType,linkNum){
+  document.getElementById('chargeVal').textContent = S.charge>=0?'+'+S.charge:String(S.charge);
+  document.getElementById('windingRaw').textContent = S.winding.toFixed(3)+'·2π';
+  document.getElementById('vorticityType').textContent = vorticityType;
+  document.getElementById('linkNum').textContent = linkNum==='—'?'—':String(linkNum);
+  const pct=Math.min(100,Math.abs(S.charge)/6*100);
+  document.getElementById('chargeBar').style.width=pct+'%';
+  document.getElementById('chargeBar').style.background=
+    S.charge>0?'var(--accent3)':S.charge<0?'var(--accent4)':'var(--muted)';
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PRESETS
+// ═══════════════════════════════════════════════════════════════
+const PRESETS={
+  Y20:{mode:'sh',sh:{l:2,m:0,amp:1.2,omega:0.4,render:'surface'}},
+  Y32:{mode:'sh',sh:{l:3,m:2,amp:1.0,omega:0.8,render:'both'}},
+  Y44:{mode:'sh',sh:{l:4,m:4,amp:0.8,omega:1.2,render:'surface'}},
+  helix:{mode:'vortex',vortex:{m:3,k:4,a:0.25,xi:0.12,tau:0}},
+  toroid:{mode:'vortex',vortex:{m:3,k:0,a:0.25,xi:0.12,tau:1}},
+  hopfStd:{mode:'hopf',hopf:{n:24,theta:1.2,phi:0,tubeR:0.028}},
+  trefoil:{mode:'linked',linked:{r1:1.1,r2:0.9,sep:0.6,twist:3}}
+};
+
+window.loadPreset=function(name){
+  const p=PRESETS[name];
+  if(!p)return;
+  if(p.mode)S.mode=p.mode;
+  if(p.sh)Object.assign(S.sh,p.sh);
+  if(p.vortex)Object.assign(S.vortex,p.vortex);
+  if(p.hopf)Object.assign(S.hopf,p.hopf);
+  if(p.linked)Object.assign(S.linked,p.linked);
+  // Sync UI
+  syncUI();
+  setMode(S.mode);
+  needsRebuild=true;
+};
+
+function syncUI(){
+  // SH
+  setSlider('sl',S.sh.l,'slV',v=>Math.round(v));
+  setSlider('sm',S.sh.m,'smV',v=>Math.round(v));
+  setSlider('sAmp',S.sh.amp,'sAmpV',v=>v.toFixed(2));
+  setSlider('sOmega',S.sh.omega,'sOmegaV',v=>v.toFixed(2));
+  // vortex
+  setSlider('vm',S.vortex.m,'vmV',v=>Math.round(v));
+  setSlider('vk',S.vortex.k,'vkV',v=>v.toFixed(2));
+  setSlider('va',S.vortex.a,'vaV',v=>v.toFixed(2));
+  setSlider('vxi',S.vortex.xi,'vxiV',v=>v.toFixed(2));
+  setSlider('vtau',S.vortex.tau,'vtauV',v=>v.toFixed(2));
+  // hopf
+  setSlider('hn',S.hopf.n,'hnV',v=>Math.round(v));
+  setSlider('hth',S.hopf.theta,'hthV',v=>v.toFixed(2));
+  setSlider('hphi',S.hopf.phi,'hphiV',v=>v.toFixed(2));
+  setSlider('htr',S.hopf.tubeR,'htrV',v=>v.toFixed(3));
+  // linked
+  setSlider('lr1',S.linked.r1,'lr1V',v=>v.toFixed(2));
+  setSlider('lr2',S.linked.r2,'lr2V',v=>v.toFixed(2));
+  setSlider('lsep',S.linked.sep,'lsepV',v=>v.toFixed(2));
+  setSlider('ltw',S.linked.twist,'ltwV',v=>Math.round(v));
+  // mode btns
+  document.querySelectorAll('#modeBtns button').forEach(b=>{
+    b.classList.toggle('on',b.dataset.mode===S.mode);
+  });
+}
+
+function setSlider(id,val,valId,fmt){
+  const el=document.getElementById(id);
+  if(el){el.value=val;document.getElementById(valId).textContent=fmt(val);}
+}
+
+// ═══════════════════════════════════════════════════════════════
+// UI BINDING
+// ═══════════════════════════════════════════════════════════════
+function bindSlider(id,valId,stateProp,fmt,rebuild){
+  const el=document.getElementById(id),vEl=document.getElementById(valId);
+  if(!el)return;
+  el.addEventListener('input',()=>{
+    const v=parseFloat(el.value);
+    // set nested state
+    const keys=stateProp.split('.');
+    let obj=S;
+    for(let i=0;i<keys.length-1;i++)obj=obj[keys[i]];
+    obj[keys[keys.length-1]]=v;
+    vEl.textContent=fmt(v);
+    if(rebuild)needsRebuild=true;
+  });
+}
+
+// SH sliders
+bindSlider('sl','slV','sh.l',v=>Math.round(v),true);
+bindSlider('sm','smV','sh.m',v=>Math.round(v),true);
+bindSlider('sAmp','sAmpV','sh.amp',v=>v.toFixed(2),true);
+bindSlider('sOmega','sOmegaV','sh.omega',v=>v.toFixed(2),false);
+// Vortex
+bindSlider('vm','vmV','vortex.m',v=>Math.round(v),true);
+bindSlider('vk','vkV','vortex.k',v=>v.toFixed(2),true);
+bindSlider('va','vaV','vortex.a',v=>v.toFixed(2),true);
+bindSlider('vxi','vxiV','vortex.xi',v=>v.toFixed(2),true);
+bindSlider('vtau','vtauV','vortex.tau',v=>v.toFixed(2),true);
+// Hopf
+bindSlider('hn','hnV','hopf.n',v=>Math.round(v),true);
+bindSlider('hth','hthV','hopf.theta',v=>v.toFixed(2),true);
+bindSlider('hphi','hphiV','hopf.phi',v=>v.toFixed(2),true);
+bindSlider('htr','htrV','hopf.tubeR',v=>v.toFixed(3),true);
+// Linked
+bindSlider('lr1','lr1V','linked.r1',v=>v.toFixed(2),true);
+bindSlider('lr2','lr2V','linked.r2',v=>v.toFixed(2),true);
+bindSlider('lsep','lsepV','linked.sep',v=>v.toFixed(2),true);
+bindSlider('ltw','ltwV','linked.twist',v=>Math.round(v),true);
+// Render
+bindSlider('bloomStr','bloomStrV','bloomStr',v=>v.toFixed(2),false);
+bindSlider('autoRot','autoRotV','autoRot',v=>v.toFixed(2),false);
+
+// Mode buttons
+function setMode(mode){
+  S.mode=mode;
+  document.getElementById('shCard').style.display=mode==='sh'?'':'none';
+  document.getElementById('vortexCard').style.display=mode==='vortex'?'':'none';
+  document.getElementById('hopfCard').style.display=mode==='hopf'?'':'none';
+  document.getElementById('linkedCard').style.display=mode==='linked'?'':'none';
+  document.querySelectorAll('#modeBtns button').forEach(b=>b.classList.toggle('on',b.dataset.mode===mode));
+  needsRebuild=true;
+  const labels={
+    sh:'<b>SH Surface</b><br>Y<sub>ℓ</sub><sup>m</sup>(θ,φ) displaced sphere<br>Phase-animated · Vertex colored',
+    vortex:'<b>Vortex Tube</b><br>Helical phase winding + morph τ<br>Frenet-frame WebGL tube',
+    hopf:'<b>Hopf Fibration</b><br>S³→S² · Linked fiber circles<br>Hopf invariant Q=1',
+    linked:'<b>Linked Vortex Rings</b><br>Gauss linking number Lk<br>Topological charge = twist m'
+  };
+  document.getElementById('overlayLabel').innerHTML=labels[mode]+'<br><span style="color:var(--muted);font-size:9px">Drag: orbit · Scroll: zoom</span>';
+  const huds={
+    sh:'ψ ~ Y<sub>ℓ</sub><sup>m</sup>(θ,φ)·e<sup>−iωt</sup>',
+    vortex:'ψ ~ A(ρ)·exp[i(mφ+kz−ωt)]',
+    hopf:'η: S³→S²  ·  H(ψ) = (1/4π²)∫ψ*(dψ∧dψ)',
+    linked:'Lk = (1/4π)∮∮ (ṙ₁×ṙ₂)·Δr/|Δr|³ dt ds'
+  };
+  document.getElementById('hudEq').innerHTML=huds[mode];
+}
+
+document.querySelectorAll('#modeBtns button').forEach(b=>{
+  b.addEventListener('click',()=>setMode(b.dataset.mode));
+});
+
+// SH render toggle
+document.querySelectorAll('#shRenderBtns button').forEach(b=>{
+  b.addEventListener('click',()=>{
+    document.querySelectorAll('#shRenderBtns button').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');
+    S.sh.render=b.dataset.render;
+    needsRebuild=true;
+  });
+});
+
+// Bloom toggle
+document.querySelectorAll('#bloomBtns button').forEach(b=>{
+  b.addEventListener('click',()=>{
+    document.querySelectorAll('#bloomBtns button').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');
+    S.bloom=(b.dataset.bloom==='on');
+    renderer.toneMappingExposure=S.bloom?1.4:1.0;
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// RESIZE
+// ═══════════════════════════════════════════════════════════════
+function onResize(){
+  const W=canvas.clientWidth, H=canvas.clientHeight;
+  renderer.setSize(W,H,false);
+  camera.aspect=W/H;
+  camera.updateProjectionMatrix();
+}
+window.addEventListener('resize',onResize);
+onResize();
+
+// ═══════════════════════════════════════════════════════════════
+// ANIMATION LOOP
+// ═══════════════════════════════════════════════════════════════
+let needsRebuild=true;
+let lastRebuildTime=-99;
+const REBUILD_THROTTLE=0.05; // min seconds between rebuilds
+let fpsCount=0,fpsLast=performance.now(),fpsVal=0;
+let elapsed=0,lastNow=performance.now();
+
+function animate(now){
+  requestAnimationFrame(animate);
+
+  const dt=Math.min((now-lastNow)/1000,0.05);
+  lastNow=now;
+  elapsed+=dt;
+
+  // FPS counter
+  fpsCount++;
+  if(now-fpsLast>800){fpsVal=Math.round(fpsCount*1000/(now-fpsLast));fpsCount=0;fpsLast=now;document.getElementById('fpsEl').textContent=fpsVal+' fps';}
+
+  // Auto-rotate scene group
+  if(S.autoRot>0.001) sceneGroup.rotation.y+=S.autoRot*dt;
+
+  // Rebuild geometry when needed (throttled)
+  if(needsRebuild && elapsed-lastRebuildTime>REBUILD_THROTTLE){
+    needsRebuild=false;
+    lastRebuildTime=elapsed;
+    if(S.mode==='sh') buildSHSurface(elapsed);
+    else if(S.mode==='vortex') buildVortexTube(elapsed);
+    else if(S.mode==='hopf') buildHopf(elapsed);
+    else if(S.mode==='linked') buildLinkedVortices(elapsed);
+  }
+
+  // For SH: rebuild every frame for smooth animation
+  if(S.mode==='sh' && S.sh.omega>0.01){
+    buildSHSurface(elapsed);
+  }
+  // For vortex: rebuild for phase animation
+  if(S.mode==='vortex'){buildVortexTube(elapsed);}
+  if(S.mode==='hopf'){buildHopf(elapsed);}
+  if(S.mode==='linked'){buildLinkedVortices(elapsed);}
+
+  // HUD info
+  if(S.mode==='sh'){
+    const m=Math.round(document.getElementById('sm').value);
+    const l=Math.round(document.getElementById('sl').value);
+    document.getElementById('hudInfo').textContent=`Y${l}^${m>=0?'+':''}${m}  ·  Q=${m}`;
+  }
+
+  camPos();
+  renderer.render(scene,camera);
+}
+requestAnimationFrame(animate);
+
+// Init
+setMode('sh');
+</script>
+</body>
+</html>

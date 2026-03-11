@@ -1,0 +1,1410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lambdoma Resonance Keyboard</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0a0a1a 0%, #1a1a3e 50%, #0f2060 100%);
+            min-height: 100vh;
+            padding: 15px;
+            color: white;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 5px;
+            font-size: 1.8rem;
+            text-shadow: 0 0 20px rgba(100, 200, 255, 0.5);
+        }
+
+        .subtitle {
+            text-align: center;
+            margin-bottom: 15px;
+            opacity: 0.8;
+            font-size: 0.9rem;
+        }
+
+        .main-container {
+            display: flex;
+            gap: 15px;
+            max-width: 1600px;
+            margin: 0 auto;
+            flex-wrap: wrap;
+        }
+
+        .sidebar {
+            flex: 0 0 320px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .panel {
+            background: rgba(255,255,255,0.08);
+            border-radius: 12px;
+            padding: 12px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .panel h3 {
+            font-size: 0.95rem;
+            margin-bottom: 10px;
+            color: #ffd93d;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .preset-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+        }
+
+        .preset-btn {
+            padding: 8px 10px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.75rem;
+            transition: all 0.2s ease;
+            text-align: left;
+            color: white;
+        }
+
+        .preset-btn:hover {
+            transform: scale(1.03);
+            box-shadow: 0 3px 15px rgba(0,0,0,0.3);
+        }
+
+        .preset-btn.active {
+            box-shadow: 0 0 15px rgba(255,255,255,0.5);
+            outline: 2px solid white;
+        }
+
+        .preset-btn .freq {
+            display: block;
+            font-size: 0.65rem;
+            opacity: 0.8;
+            margin-top: 2px;
+        }
+
+        /* Preset category colors */
+        .brainwave { background: linear-gradient(135deg, #667eea, #764ba2); }
+        .schumann { background: linear-gradient(135deg, #11998e, #38ef7d); }
+        .solfeggio { background: linear-gradient(135deg, #fc4a1a, #f7b733); }
+        .planetary { background: linear-gradient(135deg, #4568dc, #b06ab3); }
+        .harmonic { background: linear-gradient(135deg, #ee0979, #ff6a00); }
+
+        .keyboard-area {
+            flex: 1;
+            min-width: 500px;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(255,255,255,0.1);
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+        }
+
+        input[type="number"], select {
+            padding: 6px 10px;
+            border: none;
+            border-radius: 5px;
+            background: rgba(255,255,255,0.9);
+            color: #333;
+            font-size: 0.85rem;
+            width: 90px;
+        }
+
+        select {
+            width: 110px;
+        }
+
+        button.action-btn {
+            padding: 8px 15px;
+            border: none;
+            border-radius: 6px;
+            background: linear-gradient(135deg, #ff6b6b, #ee5a5a);
+            color: white;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        button.action-btn:hover {
+            transform: scale(1.05);
+        }
+
+        button.action-btn.active {
+            background: linear-gradient(135deg, #38ef7d, #11998e);
+        }
+
+        .keyboard-container {
+            overflow-x: auto;
+            padding: 5px;
+        }
+
+        .lambdoma-grid {
+            display: grid;
+            gap: 2px;
+            background: rgba(0,0,0,0.3);
+            padding: 8px;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+        }
+
+        .cell {
+            width: 52px;
+            height: 52px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            font-size: 0.65rem;
+            text-align: center;
+            user-select: none;
+            position: relative;
+        }
+
+        .cell:hover {
+            transform: scale(1.12);
+            z-index: 10;
+        }
+
+        .cell.playing {
+            box-shadow: 0 0 20px 5px rgba(255, 255, 255, 0.6);
+            transform: scale(1.05);
+        }
+
+        .cell.playing::after {
+            content: '♪';
+            position: absolute;
+            top: 1px;
+            right: 3px;
+            font-size: 0.6rem;
+        }
+
+        .cell .ratio {
+            font-weight: bold;
+            font-size: 0.8rem;
+        }
+
+        .cell .freq {
+            font-size: 0.6rem;
+            opacity: 0.85;
+        }
+
+        .header-cell {
+            background: rgba(255,255,255,0.2);
+            font-weight: bold;
+            cursor: default;
+        }
+
+        .header-cell:hover { transform: none; }
+
+        .corner-cell {
+            background: rgba(100,100,100,0.3);
+            cursor: default;
+        }
+
+        .corner-cell:hover { transform: none; }
+
+        /* Interval colors */
+        .unison { background: linear-gradient(135deg, #ff6b6b, #ee5a5a); }
+        .octave { background: linear-gradient(135deg, #ffd93d, #f9c846); }
+        .fifth { background: linear-gradient(135deg, #6bcb77, #4caf50); }
+        .fourth { background: linear-gradient(135deg, #4ecdc4, #26a69a); }
+        .third { background: linear-gradient(135deg, #a29bfe, #8c7ae6); }
+        .sixth { background: linear-gradient(135deg, #fd79a8, #e84393); }
+        .second { background: linear-gradient(135deg, #74b9ff, #0984e3); }
+        .seventh { background: linear-gradient(135deg, #ff9f43, #e67e22); }
+        .other { background: linear-gradient(135deg, #636e72, #4a5568); }
+
+        .info-panel {
+            background: rgba(0,0,0,0.3);
+            border-radius: 10px;
+            padding: 12px;
+            margin-top: 10px;
+            font-size: 0.8rem;
+            line-height: 1.5;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .info-panel h4 {
+            color: #ffd93d;
+            margin-bottom: 8px;
+        }
+
+        .info-panel table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 8px;
+            font-size: 0.75rem;
+        }
+
+        .info-panel th, .info-panel td {
+            padding: 4px 6px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .info-panel th {
+            color: #4ecdc4;
+        }
+
+        .status-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 8px;
+            margin-bottom: 10px;
+            font-size: 0.85rem;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .binaural-info {
+            color: #38ef7d;
+            font-size: 0.8rem;
+        }
+
+        .chord-info {
+            color: #74b9ff;
+            font-size: 0.8rem;
+        }
+
+        .auto-chord-toggle {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+
+        .toggle-switch {
+            position: relative;
+            width: 50px;
+            height: 26px;
+            background: #4a5568;
+            border-radius: 13px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .toggle-switch.active {
+            background: #38ef7d;
+        }
+
+        .toggle-switch::after {
+            content: '';
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 20px;
+            height: 20px;
+            background: white;
+            border-radius: 50%;
+            transition: transform 0.3s;
+        }
+
+        .toggle-switch.active::after {
+            transform: translateX(24px);
+        }
+
+        @media (max-width: 900px) {
+            .main-container {
+                flex-direction: column;
+            }
+            .sidebar {
+                flex: none;
+                width: 100%;
+            }
+            .keyboard-area {
+                min-width: auto;
+            }
+            .cell {
+                width: 42px;
+                height: 42px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>🌀 Lambdoma Resonance Keyboard 🧠</h1>
+    <p class="subtitle">Harmonic Ratios • Brainwave Entrainment • Auto-Play Chords</p>
+
+    <div class="main-container">
+        <div class="sidebar">
+            <!-- Brainwave Presets -->
+            <div class="panel">
+                <h3>🧠 Brainwave Frequencies</h3>
+                <div class="preset-grid">
+                    <button class="preset-btn brainwave" data-preset="delta" onclick="setPreset('delta')">
+                        Delta δ<span class="freq">2 Hz • Deep Sleep</span>
+                    </button>
+                    <button class="preset-btn brainwave" data-preset="theta" onclick="setPreset('theta')">
+                        Theta θ<span class="freq">6 Hz • Meditation</span>
+                    </button>
+                    <button class="preset-btn brainwave" data-preset="alpha" onclick="setPreset('alpha')">
+                        Alpha α<span class="freq">10 Hz • Relaxation</span>
+                    </button>
+                    <button class="preset-btn brainwave" data-preset="beta" onclick="setPreset('beta')">
+                        Beta β<span class="freq">18 Hz • Focus</span>
+                    </button>
+                    <button class="preset-btn brainwave" data-preset="gamma" onclick="setPreset('gamma')">
+                        Gamma γ<span class="freq">40 Hz • Cognition</span>
+                    </button>
+                    <button class="preset-btn brainwave" data-preset="epsilon" onclick="setPreset('epsilon')">
+                        Epsilon ε<span class="freq">0.5 Hz • Deep Trance</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Schumann Resonances -->
+            <div class="panel">
+                <h3>🌍 Schumann Resonances</h3>
+                <div class="preset-grid">
+                    <button class="preset-btn schumann" data-preset="schumann1" onclick="setPreset('schumann1')">
+                        7.83 Hz<span class="freq">Earth Pulse (1st)</span>
+                    </button>
+                    <button class="preset-btn schumann" data-preset="schumann2" onclick="setPreset('schumann2')">
+                        14.3 Hz<span class="freq">2nd Harmonic</span>
+                    </button>
+                    <button class="preset-btn schumann" data-preset="schumann3" onclick="setPreset('schumann3')">
+                        20.8 Hz<span class="freq">3rd Harmonic</span>
+                    </button>
+                    <button class="preset-btn schumann" data-preset="schumannStack" onclick="setPreset('schumannStack')">
+                        Stack<span class="freq">Multiple Harmonics</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Solfeggio Frequencies -->
+            <div class="panel">
+                <h3>🎵 Solfeggio Frequencies</h3>
+                <div class="preset-grid">
+                    <button class="preset-btn solfeggio" data-preset="solf174" onclick="setPreset('solf174')">
+                        174 Hz<span class="freq">Foundation</span>
+                    </button>
+                    <button class="preset-btn solfeggio" data-preset="solf285" onclick="setPreset('solf285')">
+                        285 Hz<span class="freq">Healing</span>
+                    </button>
+                    <button class="preset-btn solfeggio" data-preset="solf396" onclick="setPreset('solf396')">
+                        396 Hz<span class="freq">Liberation (Ut)</span>
+                    </button>
+                    <button class="preset-btn solfeggio" data-preset="solf417" onclick="setPreset('solf417')">
+                        417 Hz<span class="freq">Change (Re)</span>
+                    </button>
+                    <button class="preset-btn solfeggio" data-preset="solf528" onclick="setPreset('solf528')">
+                        528 Hz<span class="freq">Miracle (Mi)</span>
+                    </button>
+                    <button class="preset-btn solfeggio" data-preset="solf639" onclick="setPreset('solf639')">
+                        639 Hz<span class="freq">Connection (Fa)</span>
+                    </button>
+                    <button class="preset-btn solfeggio" data-preset="solf741" onclick="setPreset('solf741')">
+                        741 Hz<span class="freq">Intuition (Sol)</span>
+                    </button>
+                    <button class="preset-btn solfeggio" data-preset="solf852" onclick="setPreset('solf852')">
+                        852 Hz<span class="freq">Spiritual (La)</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Planetary Frequencies -->
+            <div class="panel">
+                <h3>🪐 Planetary Frequencies (Cousto)</h3>
+                <div class="preset-grid">
+                    <button class="preset-btn planetary" data-preset="earthYear" onclick="setPreset('earthYear')">
+                        136.1 Hz<span class="freq">Earth Year (OM)</span>
+                    </button>
+                    <button class="preset-btn planetary" data-preset="earthDay" onclick="setPreset('earthDay')">
+                        194.18 Hz<span class="freq">Earth Day</span>
+                    </button>
+                    <button class="preset-btn planetary" data-preset="moon" onclick="setPreset('moon')">
+                        210.42 Hz<span class="freq">Lunar Month</span>
+                    </button>
+                    <button class="preset-btn planetary" data-preset="sun" onclick="setPreset('sun')">
+                        126.22 Hz<span class="freq">Sun</span>
+                    </button>
+                    <button class="preset-btn planetary" data-preset="venus" onclick="setPreset('venus')">
+                        221.23 Hz<span class="freq">Venus</span>
+                    </button>
+                    <button class="preset-btn planetary" data-preset="mars" onclick="setPreset('mars')">
+                        144.72 Hz<span class="freq">Mars</span>
+                    </button>
+                    <button class="preset-btn planetary" data-preset="jupiter" onclick="setPreset('jupiter')">
+                        183.58 Hz<span class="freq">Jupiter</span>
+                    </button>
+                    <button class="preset-btn planetary" data-preset="saturn" onclick="setPreset('saturn')">
+                        147.85 Hz<span class="freq">Saturn</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Harmonic/Research Frequencies -->
+            <div class="panel">
+                <h3>🔬 Research & Harmonic</h3>
+                <div class="preset-grid">
+                    <button class="preset-btn harmonic" data-preset="scientific256" onclick="setPreset('scientific256')">
+                        256 Hz<span class="freq">Scientific C4</span>
+                    </button>
+                    <button class="preset-btn harmonic" data-preset="verdi432" onclick="setPreset('verdi432')">
+                        432 Hz<span class="freq">Verdi A4</span>
+                    </button>
+                    <button class="preset-btn harmonic" data-preset="concert440" onclick="setPreset('concert440')">
+                        440 Hz<span class="freq">Concert A4</span>
+                    </button>
+                    <button class="preset-btn harmonic" data-preset="cellular111" onclick="setPreset('cellular111')">
+                        111 Hz<span class="freq">Cell Regeneration</span>
+                    </button>
+                    <button class="preset-btn harmonic" data-preset="fibonacci" onclick="setPreset('fibonacci')">
+                        Fibonacci<span class="freq">Golden Ratio Chord</span>
+                    </button>
+                    <button class="preset-btn harmonic" data-preset="pythagorean" onclick="setPreset('pythagorean')">
+                        Pythagorean<span class="freq">Perfect Intervals</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="keyboard-area">
+            <div class="auto-chord-toggle">
+                <span>Auto-Play Chord:</span>
+                <div class="toggle-switch active" id="autoChordToggle" onclick="toggleAutoChord()"></div>
+                <span id="autoChordStatus">ON</span>
+            </div>
+
+            <div class="status-bar">
+                <span>Base: <strong id="currentBase">256</strong> Hz | Active: <strong id="activeCount">0</strong></span>
+                <span id="presetName">Scientific C4</span>
+                <span class="chord-info" id="chordInfo"></span>
+                <span class="binaural-info" id="binauralInfo"></span>
+            </div>
+
+            <div class="controls">
+                <div class="control-group">
+                    <label for="baseFreq">Base Hz:</label>
+                    <input type="number" id="baseFreq" value="256" min="20" max="2000" step="0.01">
+                </div>
+                <div class="control-group">
+                    <label for="gridSize">Grid:</label>
+                    <select id="gridSize">
+                        <option value="8">8×8</option>
+                        <option value="12">12×12</option>
+                        <option value="16" selected>16×16</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label for="waveform">Wave:</label>
+                    <select id="waveform">
+                        <option value="sine">Sine</option>
+                        <option value="triangle">Triangle</option>
+                        <option value="square">Square</option>
+                        <option value="sawtooth">Sawtooth</option>
+                    </select>
+                </div>
+
+                <div class="control-group">
+                    <label>Phase Mod:</label>
+                    <button id="phaseModBtn" class="action-btn active" type="button" onclick="togglePhaseMod()">ON</button>
+                </div>
+                <div class="control-group">
+                    <label for="fMod">fmod (Hz):</label>
+                    <input type="number" id="fMod" value="0.05" min="0.02" max="0.08" step="0.01" style="width:90px;">
+                </div>
+                <div class="control-group">
+                    <label for="betaMod">β:</label>
+                    <input type="number" id="betaMod" value="0.35" min="0" max="0.8" step="0.05" style="width:90px;">
+                </div>
+
+                <div class="control-group">
+                    <label for="octaveShift">Octave:</label>
+                    <select id="octaveShift">
+                        <option value="0.25">-2</option>
+                        <option value="0.5">-1</option>
+                        <option value="1" selected>0</option>
+                        <option value="2">+1</option>
+                        <option value="4">+2</option>
+                        <option value="8">+3</option>
+                    </select>
+                </div>
+                <button class="action-btn" onclick="stopAllSounds()">🔇 Stop All</button>
+            </div>
+
+            <div class="keyboard-container">
+                <div class="lambdoma-grid" id="grid"></div>
+            </div>
+
+            <div class="info-panel" id="infoPanel">
+                <h4>📚 About Resonance Frequencies</h4>
+                <p>Click a preset to auto-play its signature chord. The Lambdoma creates harmonic ratios from any base frequency.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============== PRESET DEFINITIONS ==============
+        const PRESETS = {
+            // BRAINWAVE PRESETS - Using binaural beats for entrainment
+            delta: {
+                name: 'Delta δ - Deep Sleep',
+                baseFreq: 128,  // Audible carrier
+                octaveShift: 1,
+                binauralBeat: 2, // 2 Hz delta
+                chord: [[1,1], [2,1]], // Octave - simple, stable for sleep
+                chordName: 'Binaural 2Hz + Octave',
+                info: `<h4>Delta Waves (0.5-4 Hz)</h4>
+                    <p>Delta waves occur during deep dreamless sleep. Associated with healing, regeneration, and growth hormone release.</p>
+                    <p><strong>Chord:</strong> Binaural beat at 2 Hz (128 Hz & 130 Hz) creates delta entrainment. Octave provides stability.</p>
+                    <p><strong>Research:</strong> Delta entrainment linked to improved sleep quality (Jirakittayakorn & Wongsawat, 2017).</p>`
+            },
+            theta: {
+                name: 'Theta θ - Meditation',
+                baseFreq: 144,
+                octaveShift: 1,
+                binauralBeat: 6, // 6 Hz theta
+                chord: [[1,1], [3,2], [2,1]], // Root, fifth, octave - meditative
+                chordName: 'Binaural 6Hz + Power Chord',
+                info: `<h4>Theta Waves (4-8 Hz)</h4>
+                    <p>Theta waves occur during light sleep, deep meditation, and REM. Associated with creativity and memory.</p>
+                    <p><strong>Chord:</strong> Binaural beat at 6 Hz with grounding power chord (root-fifth-octave).</p>
+                    <p><strong>Research:</strong> Theta entrainment enhances meditation depth (Lagopoulos et al., 2009).</p>`
+            },
+            alpha: {
+                name: 'Alpha α - Relaxation',
+                baseFreq: 136.1, // Earth year frequency
+                octaveShift: 1,
+                binauralBeat: 10, // 10 Hz alpha
+                chord: [[1,1], [5,4], [3,2]], // Major triad - warm, relaxing
+                chordName: 'Binaural 10Hz + Major Triad',
+                info: `<h4>Alpha Waves (8-12 Hz)</h4>
+                    <p>Alpha waves indicate relaxed awareness - the bridge between conscious and subconscious.</p>
+                    <p><strong>Chord:</strong> Binaural beat at 10 Hz with warm major triad (1:1, 5:4, 3:2).</p>
+                    <p><strong>Note:</strong> Base frequency 136.1 Hz is the Earth Year / OM frequency.</p>`
+            },
+            beta: {
+                name: 'Beta β - Focus',
+                baseFreq: 160,
+                octaveShift: 1,
+                binauralBeat: 18, // 18 Hz beta
+                chord: [[1,1], [9,8], [5,4], [3,2]], // Major scale fragment - energizing
+                chordName: 'Binaural 18Hz + Focus Chord',
+                info: `<h4>Beta Waves (12-30 Hz)</h4>
+                    <p>Beta waves are associated with active thinking and focused concentration.</p>
+                    <p><strong>Chord:</strong> Binaural beat at 18 Hz with energizing intervals.</p>
+                    <p><strong>Use:</strong> Good for studying, problem-solving, and alertness.</p>`
+            },
+            gamma: {
+                name: 'Gamma γ - High Cognition',
+                baseFreq: 200,
+                octaveShift: 1,
+                binauralBeat: 40, // 40 Hz gamma
+                chord: [[1,1], [5,4], [3,2], [15,8]], // Extended chord - complex cognition
+                chordName: 'Binaural 40Hz + Extended Chord',
+                info: `<h4>Gamma Waves (30-100+ Hz)</h4>
+                    <p>Gamma waves are associated with higher cognitive function and perception binding.</p>
+                    <p><strong>Chord:</strong> Binaural beat at 40 Hz with harmonically rich extended chord.</p>
+                    <p><strong>Research:</strong> MIT Tsai Lab (2016) found 40 Hz stimulation may help clear amyloid plaques.</p>`
+            },
+            epsilon: {
+                name: 'Epsilon ε - Deep Trance',
+                baseFreq: 128,
+                octaveShift: 1,
+                binauralBeat: 0.5, // 0.5 Hz epsilon
+                chord: [[1,1], [2,1], [4,1]], // Stacked octaves - very stable
+                chordName: 'Binaural 0.5Hz + Octave Stack',
+                info: `<h4>Epsilon Waves (<0.5 Hz)</h4>
+                    <p>Extremely slow waves associated with deep trance states and extraordinary meditation.</p>
+                    <p><strong>Chord:</strong> Very slow 0.5 Hz binaural with stable octave stack.</p>
+                    <p><strong>Note:</strong> These states are reported by advanced meditators.</p>`
+            },
+
+            // SCHUMANN RESONANCES
+            schumann1: {
+                name: 'Schumann Fundamental',
+                baseFreq: 7.83,
+                octaveShift: 32, // Bring to ~250 Hz
+                chord: [[1,1], [3,2], [2,1]], // Power chord
+                chordName: 'Earth Power Chord',
+                info: `<h4>Schumann Resonance - 7.83 Hz</h4>
+                    <p>The fundamental electromagnetic resonance of Earth's cavity, discovered by Winfried Otto Schumann (1952).</p>
+                    <p><strong>Chord:</strong> Grounding power chord built on Earth's fundamental pulse.</p>
+                    <p><strong>Connection:</strong> 7.83 Hz sits at the alpha-theta border of human brainwaves.</p>`
+            },
+            schumann2: {
+                name: 'Schumann 2nd Harmonic',
+                baseFreq: 14.3,
+                octaveShift: 16,
+                chord: [[1,1], [4,3], [3,2]], // Root, fourth, fifth
+                chordName: 'Suspended Chord',
+                info: `<h4>Schumann 2nd Harmonic - 14.3 Hz</h4>
+                    <p>The second Schumann resonance, falling in the beta brainwave range.</p>
+                    <p><strong>Chord:</strong> Suspended chord (no third) - open and spacious.</p>`
+            },
+            schumann3: {
+                name: 'Schumann 3rd Harmonic',
+                baseFreq: 20.8,
+                octaveShift: 8,
+                chord: [[1,1], [5,4], [3,2], [2,1]], // Major triad + octave
+                chordName: 'Major Chord + Octave',
+                info: `<h4>Schumann 3rd Harmonic - 20.8 Hz</h4>
+                    <p>The third Schumann resonance at the low beta range.</p>
+                    <p><strong>Chord:</strong> Full major chord with octave reinforcement.</p>`
+            },
+            schumannStack: {
+                name: 'Schumann Stack',
+                baseFreq: 7.83,
+                octaveShift: 32,
+                chord: [[1,1], [14.3/7.83, 1], [20.8/7.83, 1], [2,1]], // Actual Schumann ratios
+                chordName: 'Schumann Harmonic Series',
+                info: `<h4>Schumann Harmonic Stack</h4>
+                    <p>Multiple Schumann resonances played together based on their actual frequency ratios.</p>
+                    <p><strong>Frequencies:</strong> 7.83, 14.3, 20.8 Hz (octaved up)</p>
+                    <p><strong>Effect:</strong> Creates complex Earth-resonance entrainment.</p>`
+            },
+
+            // SOLFEGGIO FREQUENCIES
+            solf174: {
+                name: 'Solfeggio 174 Hz',
+                baseFreq: 174,
+                octaveShift: 1,
+                chord: [[1,1], [3,2], [2,1]], // Power chord
+                chordName: 'Foundation Power Chord',
+                info: `<h4>174 Hz - Foundation</h4>
+                    <p>The lowest Solfeggio frequency, associated with grounding and security.</p>
+                    <p><strong>Numerology:</strong> 1+7+4 = 12 → 1+2 = 3</p>`
+            },
+            solf285: {
+                name: 'Solfeggio 285 Hz',
+                baseFreq: 285,
+                octaveShift: 1,
+                chord: [[1,1], [6,5], [3,2]], // Minor triad
+                chordName: 'Healing Minor Triad',
+                info: `<h4>285 Hz - Quantum Cognition</h4>
+                    <p>Associated with tissue healing and the quantum field.</p>
+                    <p><strong>Numerology:</strong> 2+8+5 = 15 → 1+5 = 6</p>`
+            },
+            solf396: {
+                name: 'Solfeggio 396 Hz - Ut',
+                baseFreq: 396,
+                octaveShift: 1,
+                chord: [[1,1], [5,4], [3,2]], // Major triad
+                chordName: 'Liberation Major Triad',
+                info: `<h4>396 Hz - Liberation (Ut)</h4>
+                    <p>First note of the original scale. Associated with liberating fear and guilt.</p>
+                    <p><strong>Numerology:</strong> 3+9+6 = 18 → 1+8 = 9</p>`
+            },
+            solf417: {
+                name: 'Solfeggio 417 Hz - Re',
+                baseFreq: 417,
+                octaveShift: 1,
+                chord: [[1,1], [9,8], [5,4], [3,2]], // Major add2
+                chordName: 'Change Chord (add2)',
+                info: `<h4>417 Hz - Facilitating Change (Re)</h4>
+                    <p>Associated with undoing situations and facilitating change.</p>
+                    <p><strong>Numerology:</strong> 4+1+7 = 12 → 1+2 = 3</p>`
+            },
+            solf528: {
+                name: 'Solfeggio 528 Hz - Mi',
+                baseFreq: 528,
+                octaveShift: 1,
+                chord: [[1,1], [5,4], [3,2], [2,1]], // Major + octave
+                chordName: 'Miracle Chord (Love)',
+                info: `<h4>528 Hz - Transformation (Mi)</h4>
+                    <p>Called the "Love Frequency" or "Miracle Tone." Associated with DNA repair (claimed).</p>
+                    <p><strong>Numerology:</strong> 5+2+8 = 15 → 1+5 = 6</p>
+                    <p><strong>Note:</strong> Close to scientific C5 (512 Hz) and the musical note C.</p>`
+            },
+            solf639: {
+                name: 'Solfeggio 639 Hz - Fa',
+                baseFreq: 639,
+                octaveShift: 1,
+                chord: [[1,1], [6,5], [3,2], [8,5]], // Minor + minor 6th
+                chordName: 'Connection Chord',
+                info: `<h4>639 Hz - Connecting Relationships (Fa)</h4>
+                    <p>Associated with harmonious relationships and connection.</p>
+                    <p><strong>Numerology:</strong> 6+3+9 = 18 → 1+8 = 9</p>`
+            },
+            solf741: {
+                name: 'Solfeggio 741 Hz - Sol',
+                baseFreq: 741,
+                octaveShift: 1,
+                chord: [[1,1], [4,3], [3,2], [15,8]], // Lydian-ish
+                chordName: 'Intuition Chord',
+                info: `<h4>741 Hz - Awakening Intuition (Sol)</h4>
+                    <p>Associated with intuition, problem-solving, and self-expression.</p>
+                    <p><strong>Numerology:</strong> 7+4+1 = 12 → 1+2 = 3</p>`
+            },
+            solf852: {
+                name: 'Solfeggio 852 Hz - La',
+                baseFreq: 852,
+                octaveShift: 1,
+                chord: [[1,1], [5,4], [3,2], [5,3]], // Major + 6th
+                chordName: 'Spiritual Major 6th',
+                info: `<h4>852 Hz - Returning to Spiritual Order (La)</h4>
+                    <p>Associated with spiritual awareness and returning to order.</p>
+                    <p><strong>Numerology:</strong> 8+5+2 = 15 → 1+5 = 6</p>`
+            },
+
+            // PLANETARY FREQUENCIES
+            earthYear: {
+                name: 'Earth Year (OM)',
+                baseFreq: 136.1,
+                octaveShift: 1,
+                chord: [[1,1], [5,4], [3,2], [2,1]], // Major triad + octave
+                chordName: 'OM Chord',
+                info: `<h4>136.1 Hz - Earth Year (OM)</h4>
+                    <p>Derived from Earth's orbital period (365.25 days) octaved up by Hans Cousto.</p>
+                    <p><strong>Tradition:</strong> Matches the traditional pitch of OM in Eastern practices.</p>
+                    <p><strong>Chord:</strong> Full, warm major chord representing Earth's yearly cycle.</p>`
+            },
+            earthDay: {
+                name: 'Earth Day',
+                baseFreq: 194.18,
+                octaveShift: 1,
+                chord: [[1,1], [3,2], [2,1]], // Power chord
+                chordName: 'Day/Night Power Chord',
+                info: `<h4>194.18 Hz - Earth Day</h4>
+                    <p>Derived from Earth's rotation (24 hours) octaved up.</p>
+                    <p><strong>Color:</strong> Corresponds to orange-red in octaved light spectrum.</p>`
+            },
+            moon: {
+                name: 'Moon (Synodic)',
+                baseFreq: 210.42,
+                octaveShift: 1,
+                chord: [[1,1], [6,5], [3,2], [2,1]], // Minor + octave
+                chordName: 'Lunar Minor Chord',
+                info: `<h4>210.42 Hz - Lunar Synodic Month</h4>
+                    <p>Derived from the Moon's synodic period (29.53 days).</p>
+                    <p><strong>Chord:</strong> Minor quality reflects the Moon's introspective, emotional associations.</p>`
+            },
+            sun: {
+                name: 'Sun',
+                baseFreq: 126.22,
+                octaveShift: 1,
+                chord: [[1,1], [5,4], [3,2], [9,4]], // Major + 9th
+                chordName: 'Solar Major 9th',
+                info: `<h4>126.22 Hz - Sun</h4>
+                    <p>Derived from the Sun's rotation period (25.38 days).</p>
+                    <p><strong>Chord:</strong> Bright, expansive major 9th chord.</p>`
+            },
+            venus: {
+                name: 'Venus',
+                baseFreq: 221.23,
+                octaveShift: 1,
+                chord: [[1,1], [5,4], [3,2], [5,3]], // Major 6th
+                chordName: 'Venus Major 6th',
+                info: `<h4>221.23 Hz - Venus</h4>
+                    <p>Derived from Venus's orbital period (224.7 days).</p>
+                    <p><strong>Tradition:</strong> Associated with love, beauty, harmony.</p>
+                    <p><strong>Chord:</strong> Sweet major 6th chord - traditionally "beautiful."</p>`
+            },
+            mars: {
+                name: 'Mars',
+                baseFreq: 144.72,
+                octaveShift: 1,
+                chord: [[1,1], [6,5], [3,2], [7,4]], // Minor 7th
+                chordName: 'Mars Minor 7th',
+                info: `<h4>144.72 Hz - Mars</h4>
+                    <p>Derived from Mars's orbital period (686.98 days).</p>
+                    <p><strong>Tradition:</strong> Associated with energy, action, drive.</p>
+                    <p><strong>Chord:</strong> Driving minor 7th with tension.</p>`
+            },
+            jupiter: {
+                name: 'Jupiter',
+                baseFreq: 183.58,
+                octaveShift: 1,
+                chord: [[1,1], [5,4], [3,2], [2,1], [5,2]], // Major + octave + 10th
+                chordName: 'Jupiter Expansive Chord',
+                info: `<h4>183.58 Hz - Jupiter</h4>
+                    <p>Derived from Jupiter's orbital period (11.86 years).</p>
+                    <p><strong>Tradition:</strong> Associated with expansion, abundance, wisdom.</p>
+                    <p><strong>Chord:</strong> Wide, expansive voicing across multiple octaves.</p>`
+            },
+            saturn: {
+                name: 'Saturn',
+                baseFreq: 147.85,
+                octaveShift: 1,
+                chord: [[1,1], [6,5], [3,2]], // Minor triad
+                chordName: 'Saturn Minor Triad',
+                info: `<h4>147.85 Hz - Saturn</h4>
+                    <p>Derived from Saturn's orbital period (29.46 years).</p>
+                    <p><strong>Tradition:</strong> Associated with structure, discipline, time.</p>
+                    <p><strong>Chord:</strong> Stark minor triad - serious and grounded.</p>`
+            },
+
+            // RESEARCH & HARMONIC
+            scientific256: {
+                name: 'Scientific C4 (256 Hz)',
+                baseFreq: 256,
+                octaveShift: 1,
+                chord: [[1,1], [5,4], [3,2], [2,1]], // Major + octave
+                chordName: 'Scientific Major Chord',
+                info: `<h4>256 Hz - Scientific Pitch</h4>
+                    <p>Middle C at exactly 256 Hz (2^8). All C notes become powers of 2.</p>
+                    <p><strong>Advocates:</strong> Sauveur (1713), Rudolf Steiner.</p>
+                    <p><strong>Property:</strong> Creates mathematically pure relationships.</p>`
+            },
+            verdi432: {
+                name: 'Verdi A4 (432 Hz)',
+                baseFreq: 432,
+                octaveShift: 1,
+                chord: [[1,1], [5,4], [3,2], [2,1]], // Major + octave
+                chordName: 'Verdi Major Chord',
+                info: `<h4>432 Hz - Verdi Tuning</h4>
+                    <p>Giuseppe Verdi advocated for A4 = 432 Hz as more natural for singers.</p>
+                    <p><strong>C4:</strong> Places C4 at ~256.87 Hz (close to scientific pitch).</p>
+                    <p><strong>Claims:</strong> Said to reduce listener fatigue; scientific evidence limited.</p>`
+            },
+            concert440: {
+                name: 'Concert A4 (440 Hz)',
+                baseFreq: 440,
+                octaveShift: 1,
+                chord: [[1,1], [5,4], [3,2], [2,1]], // Major + octave
+                chordName: 'Concert Major Chord',
+                info: `<h4>440 Hz - Concert Pitch</h4>
+                    <p>International standard since 1955 (ISO 16).</p>
+                    <p><strong>History:</strong> Pitch varied historically from ~415 Hz to 450+ Hz.</p>`
+            },
+            cellular111: {
+                name: 'Cellular 111 Hz',
+                baseFreq: 111,
+                octaveShift: 1,
+                chord: [[1,1], [3,2], [2,1], [3,1]], // Stacked fifths
+                chordName: 'Regeneration Fifths Stack',
+                info: `<h4>111 Hz - Cell Regeneration</h4>
+                    <p>Found in ancient chamber resonances (Malta Hypogeum, Irish cairns).</p>
+                    <p><strong>Research:</strong> Dr. Ian Cook (UCLA) found shifts in brain activity at 111 Hz.</p>
+                    <p><strong>Chord:</strong> Stacked perfect fifths - very pure and resonant.</p>`
+            },
+            fibonacci: {
+                name: 'Fibonacci Chord',
+                baseFreq: 256,
+                octaveShift: 1,
+                chord: [[1,1], [2,1], [3,2], [5,3], [8,5], [13,8]], // Fibonacci ratios!
+                chordName: 'Golden Ratio Chord',
+                info: `<h4>Fibonacci / Golden Ratio Chord</h4>
+                    <p>Ratios from the Fibonacci sequence: 1/1, 2/1, 3/2, 5/3, 8/5, 13/8</p>
+                    <p><strong>Convergence:</strong> These ratios approach φ (1.618...) - the Golden Ratio.</p>
+                    <p><strong>In Nature:</strong> Appears in spirals, plant growth, and shell patterns.</p>
+                    <table>
+                        <tr><th>Ratio</th><th>Decimal</th><th>→ φ</th></tr>
+                        <tr><td>2/1</td><td>2.000</td><td></td></tr>
+                        <tr><td>3/2</td><td>1.500</td><td></td></tr>
+                        <tr><td>5/3</td><td>1.667</td><td></td></tr>
+                        <tr><td>8/5</td><td>1.600</td><td></td></tr>
+                        <tr><td>13/8</td><td>1.625</td><td>→ 1.618</td></tr>
+                    </table>`
+            },
+            pythagorean: {
+                name: 'Pythagorean Scale',
+                baseFreq: 256,
+                octaveShift: 1,
+                chord: [[1,1], [9,8], [81,64], [4,3], [3,2], [27,16], [243,128], [2,1]], // Full Pythagorean
+                chordName: 'Pythagorean Complete Scale',
+                info: `<h4>Pythagorean Scale</h4>
+                    <p>Built entirely from perfect fifths (3:2) stacked and octave-reduced.</p>
+                    <table>
+                        <tr><th>Note</th><th>Ratio</th><th>Interval</th></tr>
+                        <tr><td>C</td><td>1/1</td><td>Unison</td></tr>
+                        <tr><td>D</td><td>9/8</td><td>Major 2nd</td></tr>
+                        <tr><td>E</td><td>81/64</td><td>Major 3rd</td></tr>
+                        <tr><td>F</td><td>4/3</td><td>Perfect 4th</td></tr>
+                        <tr><td>G</td><td>3/2</td><td>Perfect 5th</td></tr>
+                        <tr><td>A</td><td>27/16</td><td>Major 6th</td></tr>
+                        <tr><td>B</td><td>243/128</td><td>Major 7th</td></tr>
+                        <tr><td>C</td><td>2/1</td><td>Octave</td></tr>
+                    </table>`
+            }
+        };
+
+        // ============== AUDIO ENGINE ==============
+        let audioCtx = null;
+        const activeOscillators = new Map();
+        let binauralOscillators = null;
+        let autoChordEnabled = true;
+        let currentPresetKey = null;
+
+        // ===== Phase / Amplitude Modulation (slow “breathing” inside chord) =====
+        // A_i(t) = A0 * [1 + β sin(2π fmod t + ϕ_i)]
+        let phaseModEnabled = true;
+        function togglePhaseMod() {
+            phaseModEnabled = !phaseModEnabled;
+            const btn = document.getElementById('phaseModBtn');
+            if (btn) {
+                btn.classList.toggle('active', phaseModEnabled);
+                btn.textContent = phaseModEnabled ? 'ON' : 'OFF';
+            }
+            // Rebuild modulation on currently-active oscillators
+            activeOscillators.forEach((obj, cellEl) => {
+                if (obj && obj.applyMod) obj.applyMod();
+            });
+        }
+        function getPhaseModParams() {
+            const fMod = Math.max(0.001, parseFloat(document.getElementById('fMod')?.value || '0.05'));
+            const beta = Math.min(0.95, Math.max(0, parseFloat(document.getElementById('betaMod')?.value || '0.35')));
+            return { fMod, beta };
+        }
+
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function updateActiveCount() {
+            document.getElementById('activeCount').textContent = activeOscillators.size + (binauralOscillators ? 2 : 0);
+            updateBinauralInfo();
+        }
+
+        function updateCurrentBase() {
+            const baseFreq = parseFloat(document.getElementById('baseFreq').value);
+            const octaveShift = parseFloat(document.getElementById('octaveShift').value);
+            document.getElementById('currentBase').textContent = (baseFreq * octaveShift).toFixed(2);
+        }
+
+        function updateBinauralInfo() {
+            const preset = PRESETS[currentPresetKey];
+            if (preset && preset.binauralBeat && binauralOscillators) {
+                document.getElementById('binauralInfo').textContent = `Binaural: ${preset.binauralBeat} Hz`;
+            } else {
+                const freqs = Array.from(activeOscillators.values()).map(o => o.freq).sort((a, b) => a - b);
+                if (freqs.length >= 2) {
+                    const diff = Math.abs(freqs[1] - freqs[0]).toFixed(2);
+                    document.getElementById('binauralInfo').textContent = `Beat: ${diff} Hz`;
+                } else {
+                    document.getElementById('binauralInfo').textContent = '';
+                }
+            }
+        }
+
+        function gcd(a, b) {
+            a = Math.abs(Math.round(a));
+            b = Math.abs(Math.round(b));
+            while (b) { [a, b] = [b, a % b]; }
+            return a || 1;
+        }
+
+        function simplifyRatio(num, den) {
+            const g = gcd(num, den);
+            return [Math.round(num / g), Math.round(den / g)];
+        }
+
+        function getIntervalClass(num, den) {
+            const [n, d] = simplifyRatio(num, den);
+            if (n === d) return 'unison';
+            const ratio = n / d;
+            if (ratio === 2 || ratio === 0.5 || ratio === 4 || ratio === 0.25) return 'octave';
+            if ((n === 3 && d === 2) || (n === 2 && d === 3)) return 'fifth';
+            if ((n === 4 && d === 3) || (n === 3 && d === 4)) return 'fourth';
+            if ((n === 5 && d === 4) || (n === 4 && d === 5) || (n === 6 && d === 5) || (n === 5 && d === 6)) return 'third';
+            if ((n === 5 && d === 3) || (n === 3 && d === 5) || (n === 8 && d === 5) || (n === 5 && d === 8)) return 'sixth';
+            if ((n === 9 && d === 8) || (n === 8 && d === 9)) return 'second';
+            if ((n === 15 && d === 8) || (n === 8 && d === 15)) return 'seventh';
+            return 'other';
+        }
+
+        // ============== SOUND FUNCTIONS ==============
+        
+        function startFrequency(freq, cellElement, gain = 0.12) {
+            initAudio();
+            const waveform = document.getElementById('waveform').value;
+
+            const oscillator = audioCtx.createOscillator();
+            oscillator.type = waveform;
+            oscillator.frequency.setValueAtTime(freq, audioCtx.currentTime);
+
+            // Output gain node (this gets modulated)
+            const gainNode = audioCtx.createGain();
+            gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+
+            // Slow internal chord “breathing” via amplitude modulation:
+            // A_i(t)=A0[1+β sin(2π fmod t + ϕ_i)]
+            // Implemented with: ConstantSource (A0) + LFO oscillator (β*A0)
+            let mod = {
+                enabled: false,
+                offset: null,
+                lfo: null,
+                lfoGain: null,
+                phaseDelay: 0
+            };
+
+            // Small per-tone phase offset based on active order (stable-ish)
+            const activeIndex = activeOscillators.size; // before adding this tone
+
+            function buildModulation() {
+                // Tear down old mod nodes if present
+                try {
+                    if (mod.offset) { mod.offset.disconnect(); mod.offset.stop(); }
+                    if (mod.lfo) { mod.lfo.disconnect(); mod.lfo.stop(); }
+                    if (mod.lfoGain) mod.lfoGain.disconnect();
+                } catch(_) {}
+
+                mod.offset = null; mod.lfo = null; mod.lfoGain = null; mod.enabled = false;
+
+                if (!phaseModEnabled) return;
+
+                const { fMod, beta } = getPhaseModParams();
+                if (beta <= 0) return;
+
+                // Base offset (A0)
+                const offset = audioCtx.createConstantSource();
+                offset.offset.setValueAtTime(0, audioCtx.currentTime);
+                offset.connect(gainNode.gain);
+
+                // LFO (sin)
+                const lfo = audioCtx.createOscillator();
+                lfo.type = 'sine';
+                lfo.frequency.setValueAtTime(fMod, audioCtx.currentTime);
+
+                const lfoGain = audioCtx.createGain();
+                lfoGain.gain.setValueAtTime(0, audioCtx.currentTime);
+
+                lfo.connect(lfoGain);
+                lfoGain.connect(gainNode.gain);
+
+                // Phase offsets spread tones around the LFO cycle:
+                // ϕ_i = 2π * i/N  (approx; N grows as you add tones)
+                // Implement as a start delay so tones enter different points on the breathing cycle.
+                const N = Math.max(3, Math.min(12, activeOscillators.size + 1));
+                const phi = (2 * Math.PI * (activeIndex % N)) / N;
+                const phaseDelay = (phi / (2 * Math.PI)) / fMod; // seconds
+
+                // Ramp-in: bring offset to A0 and LFO depth to β*A0
+                offset.offset.linearRampToValueAtTime(gain, audioCtx.currentTime + 0.08);
+                lfoGain.gain.linearRampToValueAtTime(gain * beta, audioCtx.currentTime + 0.08);
+
+                // Start nodes (LFO start delayed gives effective phase shift)
+                offset.start(audioCtx.currentTime);
+                lfo.start(audioCtx.currentTime + phaseDelay);
+
+                mod.enabled = true;
+                mod.offset = offset;
+                mod.lfo = lfo;
+                mod.lfoGain = lfoGain;
+                mod.phaseDelay = phaseDelay;
+            }
+
+            // Build modulation, then connect audio graph
+            buildModulation();
+
+            // If modulation is OFF, we still need a steady ramp to gain
+            if (!mod.enabled) {
+                gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+                gainNode.gain.linearRampToValueAtTime(gain, audioCtx.currentTime + 0.05);
+            }
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            oscillator.start();
+
+            activeOscillators.set(cellElement, {
+                oscillator,
+                gainNode,
+                freq,
+                mod,
+                applyMod: buildModulation
+            });
+
+            if (cellElement && cellElement.classList) cellElement.classList.add('playing');
+            updateActiveCount();
+        }
+
+
+        
+        function stopFrequency(cellElement) {
+            if (activeOscillators.has(cellElement)) {
+                const obj = activeOscillators.get(cellElement);
+                const { oscillator, gainNode } = obj;
+
+                // Ramp down steady or modulated paths
+                const t0 = audioCtx.currentTime;
+                try {
+                    // If modulation is enabled, ramp offset + LFO depth down
+                    if (obj.mod && obj.mod.enabled) {
+                        if (obj.mod.offset) obj.mod.offset.offset.linearRampToValueAtTime(0, t0 + 0.12);
+                        if (obj.mod.lfoGain) obj.mod.lfoGain.gain.linearRampToValueAtTime(0, t0 + 0.12);
+                    }
+                } catch(_) {}
+
+                // Also ramp the gainNode itself down as a safety net
+                try {
+                    gainNode.gain.cancelScheduledValues(t0);
+                    gainNode.gain.linearRampToValueAtTime(0, t0 + 0.12);
+                } catch(_) {}
+
+                setTimeout(() => {
+                    try { oscillator.stop(); } catch(_) {}
+                    try { oscillator.disconnect(); } catch(_) {}
+                    try { gainNode.disconnect(); } catch(_) {}
+                    try {
+                        if (obj.mod && obj.mod.offset) { obj.mod.offset.stop(); obj.mod.offset.disconnect(); }
+                        if (obj.mod && obj.mod.lfo) { obj.mod.lfo.stop(); obj.mod.lfo.disconnect(); }
+                        if (obj.mod && obj.mod.lfoGain) obj.mod.lfoGain.disconnect();
+                    } catch(_) {}
+                }, 170);
+
+                activeOscillators.delete(cellElement);
+                if (cellElement && cellElement.classList) cellElement.classList.remove('playing');
+                updateActiveCount();
+            }
+        }
+
+
+        function toggleFrequency(freq, cellElement) {
+            if (activeOscillators.has(cellElement)) {
+                stopFrequency(cellElement);
+            } else {
+                startFrequency(freq, cellElement);
+            }
+        }
+
+        function stopAllSounds() {
+            activeOscillators.forEach((_, cell) => stopFrequency(cell));
+            stopBinaural();
+            
+            // Clear active button state
+            document.querySelectorAll('.preset-btn').forEach(btn => btn.classList.remove('active'));
+            currentPresetKey = null;
+            document.getElementById('chordInfo').textContent = '';
+        }
+
+        // ============== BINAURAL BEAT ENGINE ==============
+        function startBinaural(carrierFreq, beatFreq) {
+            initAudio();
+            stopBinaural();
+
+            const leftOsc = audioCtx.createOscillator();
+            const rightOsc = audioCtx.createOscillator();
+            const leftGain = audioCtx.createGain();
+            const rightGain = audioCtx.createGain();
+            const merger = audioCtx.createChannelMerger(2);
+
+            leftOsc.type = 'sine';
+            rightOsc.type = 'sine';
+            leftOsc.frequency.setValueAtTime(carrierFreq, audioCtx.currentTime);
+            rightOsc.frequency.setValueAtTime(carrierFreq + beatFreq, audioCtx.currentTime);
+
+            leftGain.gain.setValueAtTime(0, audioCtx.currentTime);
+            rightGain.gain.setValueAtTime(0, audioCtx.currentTime);
+            leftGain.gain.linearRampToValueAtTime(0.15, audioCtx.currentTime + 0.1);
+            rightGain.gain.linearRampToValueAtTime(0.15, audioCtx.currentTime + 0.1);
+
+            leftOsc.connect(leftGain);
+            rightOsc.connect(rightGain);
+            leftGain.connect(merger, 0, 0);
+            rightGain.connect(merger, 0, 1);
+            merger.connect(audioCtx.destination);
+
+            leftOsc.start();
+            rightOsc.start();
+
+            binauralOscillators = { leftOsc, rightOsc, leftGain, rightGain, merger };
+            updateActiveCount();
+        }
+
+        function stopBinaural() {
+            if (binauralOscillators) {
+                const { leftOsc, rightOsc, leftGain, rightGain, merger } = binauralOscillators;
+                leftGain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.1);
+                rightGain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.1);
+                setTimeout(() => {
+                    leftOsc.stop();
+                    rightOsc.stop();
+                    leftOsc.disconnect();
+                    rightOsc.disconnect();
+                    leftGain.disconnect();
+                    rightGain.disconnect();
+                    merger.disconnect();
+                }, 150);
+                binauralOscillators = null;
+                updateActiveCount();
+            }
+        }
+
+        // ============== PRESET SYSTEM ==============
+        function toggleAutoChord() {
+            autoChordEnabled = !autoChordEnabled;
+            const toggle = document.getElementById('autoChordToggle');
+            const status = document.getElementById('autoChordStatus');
+            toggle.classList.toggle('active', autoChordEnabled);
+            status.textContent = autoChordEnabled ? 'ON' : 'OFF';
+        }
+
+        function setPreset(presetKey) {
+            const preset = PRESETS[presetKey];
+            if (!preset) return;
+
+            // Stop previous sounds
+            stopAllSounds();
+
+            currentPresetKey = presetKey;
+
+            // Update UI
+            document.getElementById('baseFreq').value = preset.baseFreq;
+            document.getElementById('octaveShift').value = preset.octaveShift;
+            document.getElementById('presetName').textContent = preset.name;
+            document.getElementById('infoPanel').innerHTML = preset.info;
+            document.getElementById('chordInfo').textContent = preset.chordName;
+
+            // Highlight active button
+            document.querySelectorAll('.preset-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelector(`[data-preset="${presetKey}"]`)?.classList.add('active');
+
+            // Build grid first
+            buildGrid();
+
+            // Play auto-chord if enabled
+            if (autoChordEnabled) {
+                setTimeout(() => playPresetChord(preset), 100);
+            }
+        }
+
+        function playPresetChord(preset) {
+            initAudio();
+            const baseFreq = preset.baseFreq * preset.octaveShift;
+
+            // Start binaural beat if defined
+            if (preset.binauralBeat) {
+                startBinaural(baseFreq, preset.binauralBeat);
+            }
+
+            // Play chord tones - each tone only ONCE
+            preset.chord.forEach(([num, den], index) => {
+                const freq = baseFreq * (num / den);
+                
+                // Find the FIRST matching grid cell for visual highlight
+                const gridCells = document.querySelectorAll('.cell:not(.header-cell):not(.corner-cell)');
+                let foundCell = null;
+                
+                for (const cell of gridCells) {
+                    const cellFreq = parseFloat(cell.dataset.freq);
+                    if (Math.abs(cellFreq - freq) < 0.5) {
+                        foundCell = cell;
+                        break; // Stop at first match
+                    }
+                }
+
+                // Play the frequency once, using the found cell or a placeholder
+                if (foundCell) {
+                    startFrequency(freq, foundCell, 0.08);
+                } else {
+                    // Frequency not on grid (e.g., complex ratios) - play without cell highlight
+                    startFrequency(freq, { id: `chord_${index}` }, 0.08);
+                }
+            });
+        }
+
+        // ============== GRID BUILDER ==============
+        function buildGrid() {
+            const gridSize = parseInt(document.getElementById('gridSize').value);
+            const baseFreq = parseFloat(document.getElementById('baseFreq').value);
+            const octaveShift = parseFloat(document.getElementById('octaveShift').value);
+            const grid = document.getElementById('grid');
+
+            // Don't stop sounds when just rebuilding grid
+            grid.innerHTML = '';
+            grid.style.gridTemplateColumns = `repeat(${gridSize + 1}, auto)`;
+
+            // Corner cell
+            const corner = document.createElement('div');
+            corner.className = 'cell corner-cell';
+            corner.innerHTML = '<span class="ratio">÷</span>';
+            grid.appendChild(corner);
+
+            // Top header row
+            for (let col = 1; col <= gridSize; col++) {
+                const header = document.createElement('div');
+                header.className = 'cell header-cell';
+                header.innerHTML = `<span class="ratio">${col}</span>`;
+                grid.appendChild(header);
+            }
+
+            // Grid rows
+            for (let row = 1; row <= gridSize; row++) {
+                const rowHeader = document.createElement('div');
+                rowHeader.className = 'cell header-cell';
+                rowHeader.innerHTML = `<span class="ratio">${row}</span>`;
+                grid.appendChild(rowHeader);
+
+                for (let col = 1; col <= gridSize; col++) {
+                    const cell = document.createElement('div');
+                    const [simpNum, simpDen] = simplifyRatio(col, row);
+                    const freq = baseFreq * octaveShift * (col / row);
+                    const intervalClass = getIntervalClass(col, row);
+
+                    cell.className = `cell ${intervalClass}`;
+                    cell.dataset.freq = freq;
+                    cell.innerHTML = `
+                        <span class="ratio">${simpNum}/${simpDen}</span>
+                        <span class="freq">${freq.toFixed(1)}</span>
+                    `;
+
+                    cell.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        toggleFrequency(freq, cell);
+                    });
+
+                    cell.addEventListener('touchstart', (e) => {
+                        e.preventDefault();
+                        toggleFrequency(freq, cell);
+                    });
+
+                    grid.appendChild(cell);
+                }
+            }
+
+            updateCurrentBase();
+        }
+
+        // ============== EVENT LISTENERS ==============
+        document.getElementById('baseFreq').addEventListener('change', () => {
+            buildGrid();
+            document.getElementById('presetName').textContent = 'Custom';
+            document.querySelectorAll('.preset-btn').forEach(btn => btn.classList.remove('active'));
+        });
+        document.getElementById('gridSize').addEventListener('change', buildGrid);
+        document.getElementById('octaveShift').addEventListener('change', () => {
+            buildGrid();
+            updateCurrentBase();
+        });
+
+        // ============== INITIALIZE ==============
+        buildGrid();
+    </script>
+</body>
+</html>

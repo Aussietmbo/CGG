@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TRR-G — ψ Wavefront Propagation</title>
+<style>
+:root {
+  --bg: #060810;
+  --panel: rgba(10,14,24,0.97);
+  --text: #dde8f5;
+  --muted: #6a7d92;
+  --accent: #4ecdc4;
+  --accent2: #ff6b6b;
+  --gold: #ffe66d;
+  --border: rgba(255,255,255,0.07);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
+
+#titlebar {
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  padding: 8px 16px;
+  display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+}
+#titlebar h1 { font-size: 13px; font-weight: 600; color: var(--accent); }
+#titlebar p  { font-size: 10px; color: var(--muted); margin-top: 1px; }
+.badge { font-size: 9px; padding: 2px 7px; border-radius: 3px; font-weight: 700; }
+.b-canon { background:#1a2535; color:#4ecdc4; border:1px solid #4ecdc430; }
+.b-prov  { background:#251f10; color:#ffe66d; border:1px solid #ffe66d30; }
+
+#layout { display: flex; flex: 1; overflow: hidden; }
+
+#controls {
+  width: 220px; flex-shrink: 0;
+  background: var(--panel);
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+  padding: 12px;
+  display: flex; flex-direction: column; gap: 9px;
+}
+.sec { font-size: 9px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); border-bottom: 1px solid var(--border); padding-bottom: 3px; margin-top: 2px; }
+.row { display: flex; flex-direction: column; gap: 2px; }
+.row label { font-size: 10px; color: var(--muted); display: flex; justify-content: space-between; }
+.row label b { color: var(--text); font-weight: 600; }
+input[type=range] {
+  -webkit-appearance: none; width: 100%; height: 4px;
+  border-radius: 2px; background: #1a2232; outline: none; cursor: pointer;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 13px; height: 13px;
+  border-radius: 50%; background: var(--accent); cursor: pointer;
+}
+.presets { display: flex; flex-wrap: wrap; gap: 4px; }
+.pbtn { background: #101820; border: 1px solid var(--border); color: var(--text); font-size: 10px; padding: 4px 8px; border-radius: 4px; cursor: pointer; }
+.pbtn:hover { border-color: var(--accent); color: var(--accent); }
+.btns { display: flex; gap: 5px; }
+.btn { flex:1; background: #101820; border: 1px solid var(--border); color: var(--text); font-size: 11px; padding: 6px; border-radius: 4px; cursor: pointer; text-align: center; }
+.btn:hover { border-color: var(--accent); color: var(--accent); }
+
+.readout { background: #0a1018; border: 1px solid var(--border); border-radius: 4px; padding: 7px 9px; font-size: 10px; display: flex; flex-direction: column; gap: 3px; }
+.rrow { display: flex; justify-content: space-between; }
+.rk { color: var(--muted); }
+.rv  { color: var(--accent);  font-weight: 600; font-family: monospace; }
+.rv2 { color: var(--gold); font-weight: 600; font-family: monospace; }
+.note { font-size: 9px; color: var(--muted); line-height: 1.5; margin-top: 2px; }
+.note b { color: var(--gold); }
+
+#vp { flex:1; position: relative; }
+canvas { display: block; }
+
+#infobar {
+  background: var(--panel); border-top: 1px solid var(--border);
+  height: 40px; display: flex; align-items: center; padding: 0 16px; gap: 20px; flex-shrink: 0;
+  font-size: 11px; overflow: hidden;
+}
+.eq  { color: var(--gold); font-family: monospace; font-size: 12px; }
+.eqn { color: var(--muted); font-size: 10px; }
+#fps { color: var(--muted); font-size: 10px; margin-left: auto; }
+
+/* legend */
+#legend {
+  position: absolute; right: 12px; top: 12px;
+  background: rgba(6,8,16,0.9); border: 1px solid var(--border);
+  border-radius: 6px; padding: 8px 11px; font-size: 10px;
+}
+.li { display: flex; align-items: center; gap: 8px; margin-bottom: 3px; }
+.lc { width: 22px; height: 2px; border-radius: 1px; }
+.ld { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+</style>
+</head>
+<body>
+
+<div id="titlebar">
+  <div>
+    <h1>TRR-G / CGG — ψ Field Wavefront Propagation</h1>
+    <p>Phase crests of the complex scalar ψ propagating through the coherence gradient δC</p>
+  </div>
+  <div style="display:flex;gap:5px">
+    <span class="badge b-canon">CANONICAL EOM</span>
+    <span class="badge b-prov">INTERIOR PROVISIONAL</span>
+  </div>
+</div>
+
+<div id="layout">
+<div id="controls">
+
+  <div class="sec">Source</div>
+  <div class="row">
+    <label>Mass M <b id="lv-mass">1.0</b> M☉</label>
+    <input type="range" id="sl-mass" min="0.1" max="4" step="0.05" value="1.0">
+  </div>
+
+  <div class="sec">ψ Field</div>
+  <div class="row">
+    <label>Carrier freq ω_c <b id="lv-wc">2.0</b></label>
+    <input type="range" id="sl-wc" min="0.5" max="6" step="0.1" value="2.0">
+  </div>
+  <div class="row">
+    <label>Envelope width σ <b id="lv-sigma">1.0</b></label>
+    <input type="range" id="sl-sigma" min="0.2" max="3" step="0.1" value="1.0">
+  </div>
+  <div class="row">
+    <label>Coupling g_m <b id="lv-gm">1.0</b></label>
+    <input type="range" id="sl-gm" min="0" max="3" step="0.05" value="1.0">
+  </div>
+  <div class="row">
+    <label>Injection angle θ <b id="lv-ang">0°</b></label>
+    <input type="range" id="sl-ang" min="-60" max="60" step="1" value="0">
+  </div>
+
+  <div class="sec">Display</div>
+  <div class="row">
+    <label>Field opacity <b id="lv-op">0.6</b></label>
+    <input type="range" id="sl-op" min="0" max="1" step="0.05" value="0.6">
+  </div>
+  <div class="row">
+    <label>Show phase crests</label>
+    <input type="range" id="sl-crests" min="0" max="1" step="1" value="1">
+  </div>
+  <div class="row">
+    <label>Speed <b id="lv-spd">1.0</b></label>
+    <input type="range" id="sl-spd" min="0.1" max="3" step="0.1" value="1.0">
+  </div>
+
+  <div class="sec">Presets</div>
+  <div class="presets">
+    <button class="pbtn" onclick="loadPreset('flat')">Flat space</button>
+    <button class="pbtn" onclick="loadPreset('solar')">Solar</button>
+    <button class="pbtn" onclick="loadPreset('compact')">Compact</button>
+    <button class="pbtn" onclick="loadPreset('grazing')">Grazing</button>
+  </div>
+
+  <div class="btns">
+    <div class="btn" id="btn-pause" onclick="togglePause()">⏸ Pause</div>
+    <div class="btn" onclick="resetSim()">↺ Reset</div>
+  </div>
+
+  <div class="readout">
+    <div class="rrow"><span class="rk">Phase velocity v_φ</span><span class="rv" id="rd-vp">—</span></div>
+    <div class="rrow"><span class="rk">Group velocity v_g</span><span class="rv" id="rd-vg">—</span></div>
+    <div class="rrow"><span class="rk">Compton λ_c</span><span class="rv2" id="rd-lc">—</span></div>
+    <div class="rrow"><span class="rk">Crest bunching</span><span class="rv2" id="rd-bunch">—</span></div>
+  </div>
+
+  <p class="note">
+    <b>Canonical:</b> □ψ + (ω_c²/c²)ψ + V'ψ = g_m ρ ψ<br>
+    Crests = surfaces of constant phase of ψ.<br>
+    k(r)=k₀√(1−2δC): crests BUNCH near mass (λ shorter).<br>
+    Paraxial approx valid only for b &gt; 8r_s.<br>
+    <b>Provisional:</b> crest count inside r_s. Vortex-like
+    patterns near mass = paraxial breakdown, not physics.
+  </p>
+
+</div>
+
+<div id="vp">
+  <canvas id="cvs"></canvas>
+  <div id="legend">
+    <div class="li"><div class="lc" style="background:linear-gradient(90deg,#4ecdc4,#fff)"></div><span>ψ phase crests</span></div>
+    <div class="li"><div class="lc" style="background:#ffe66d80;height:1px;border-top:1px dashed #ffe66d"></div><span>Wavefront envelope</span></div>
+    <div class="li"><div class="lc" style="background:rgba(100,160,255,0.6)"></div><span>δC field (∝1/r)</span></div>
+    <div class="li"><div class="ld" style="background:#fff"></div><span>Mass source M</span></div>
+    <div class="li"><div class="ld" style="background:rgba(255,107,107,0.2);border:1px solid #ff6b6b80"></div><span>r_s Schwarzschild</span></div>
+  </div>
+</div>
+</div>
+
+<div id="infobar">
+  <span class="eq">□ψ + (ω_c²/c²)ψ = g_m ρ ψ</span>
+  <span class="eqn">canonical EOM (V=0 shown)</span>
+  <span style="color:var(--border)">|</span>
+  <span class="eq">k(r) ≈ √(ω² − ω_c²)/c · (1 + δC)</span>
+  <span class="eqn">local wavenumber in δC background</span>
+  <span style="color:var(--border)">|</span>
+  <span class="eq">λ_crest(r) = 2π/k(r)</span>
+  <span id="fps">— fps</span>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════
+//  TRR-G ψ WAVEFRONT SIMULATOR
+//
+//  Physics basis:
+//    EOM: □ψ + (ω_c²/c²)ψ + V'(|ψ|²)ψ = g_m ρ ψ
+//    In weak-field background with δC(r) = -(rs/2)/r :
+//      Local dispersion: ω² = ω_c² + c²k²(1 − 2δC)   [leading order]
+//      → local k(r) ≈ k_∞ · √(1 + δC·ω_c²/(ω²−ω_c²))
+//    Phase crests = surfaces of const phase of ψ
+//    Crest spacing = 2π/k(r) — SHRINKS near mass (k increases near mass
+//    because δC < 0 deepens potential, modifying local dispersion)
+//
+//  Classification:
+//    CANONICAL: dispersion from EOM, δC sourcing, SVEA limit
+//    PROVISIONAL: crest behavior inside rs (not derived in V22)
+//    SETTLED: ω_c > 1.4e15 rad/s bound (shown as dimensionless ratio)
+// ══════════════════════════════════════════════════════
+
+const cvs = document.getElementById('cvs');
+const ctx = cvs.getContext('2d');
+let W, H, DPR;
+
+const S = {
+  mass:    1.0,
+  wc:      2.0,   // carrier freq (display units; physical: ω_c > 1.4e15)
+  sigma:   1.0,   // envelope width factor
+  gm:      1.0,   // coupling
+  angle:   0,     // injection angle degrees
+  opacity: 0.6,
+  showCrests: 1,
+  speed:   1.0,
+  paused:  false,
+};
+
+// Simulation time
+let t = 0;
+let lastNow = performance.now(), fc = 0, lastFPS = performance.now();
+
+// ── Scene geometry ──────────────────────────────────
+function sceneParams() {
+  const cx = W * 0.46, cy = H * 0.5;
+  const rs = W * 0.045 * S.mass;   // Schwarzschild radius in px
+  return { cx, cy, rs };
+}
+
+// ── δC field ─────────────────────────────────────────
+function deltaC(x, y, cx, cy, rs) {
+  const dx = x-cx, dy = y-cy;
+  const r = Math.sqrt(dx*dx+dy*dy);
+  const rMin = rs * 0.4;
+  return S.gm * (-(rs * 0.5) / Math.max(r, rMin));
+}
+
+// ── Local wavenumber k(r) ────────────────────────────
+// From dispersion: ω² = ω_c² + c²k²(1 − 2δC)
+// → k = √(ω² − ω_c²) / c · 1/√(1−2δC)
+// With ω = wc*f_omega, c=1 (display units)
+// Let ω = S.wc * 1.5 (slightly above carrier so wave propagates)
+function localK(x, y, cx, cy, rs) {
+  const dC = deltaC(x, y, cx, cy, rs);
+  const omega = S.wc * 1.5;
+  const omegaSq = omega * omega;
+  const wcSq    = S.wc * S.wc;
+  if (omegaSq <= wcSq) return 0.01; // evanescent - shouldn't happen with omega=1.5*wc
+  const k0 = Math.sqrt(omegaSq - wcSq); // base k (c=1)
+  // Correct dispersion from metric ds²=-(1+2δC)dt²+(1-2δC)dx²:
+  //   k² = (ω²−ωc²)(1−2δC)  →  k = k0·√(1−2δC)
+  // δC < 0 near mass → (1−2δC) > 1 → k INCREASES → crests BUNCH (λ shorter)
+  // Previous code had 1/sqrt which was inverted — fixed here.
+  const factor = Math.sqrt(Math.max(0.01, 1.0 - 2.0 * dC));
+  return k0 * factor;
+}
+
+// ── Phase field of ψ ─────────────────────────────────
+// ψ = A(x,y) · exp(i φ(x,y,t))
+// Phase φ accumulates along the ray path with local k(r)
+// Approximation: we use a wavefront integral from the left boundary
+// integrating k(x,y) along horizontal slices (paraxial approx)
+// This is honest about being a paraxial/SVEA approximation.
+
+function phaseAt(px, py, cx, cy, rs) {
+  // Integrate k from left edge to px along y=py path
+  // (paraxial; valid for small deflection angles - SVEA domain)
+  const steps = 60;
+  const x0 = 0;
+  let phi = 0;
+  const dx = (px - x0) / steps;
+  for (let i = 0; i < steps; i++) {
+    const xi = x0 + (i + 0.5) * dx;
+    // Injection angle shifts the path slightly
+    const angleRad = S.angle * Math.PI / 180;
+    const yi = py - (px - xi) * Math.tan(angleRad);
+    phi += localK(xi, yi, cx, cy, rs) * dx;
+  }
+  return phi;
+}
+
+// ── Envelope (slowly-varying amplitude) ──────────────
+function envelope(px, py, cx, cy, rs) {
+  // Gaussian beam envelope centered on injection axis
+  const angleRad = S.angle * Math.PI / 180;
+  // Distance from beam axis
+  const beamWidth = H * 0.18 * S.sigma;
+  // Beam axis: y = cy + some offset depending on angle
+  const beamY = cy;
+  const perp = (py - beamY) * Math.cos(angleRad) - (px - W*0.1) * Math.sin(angleRad);
+  const amp = Math.exp(-(perp * perp) / (2 * beamWidth * beamWidth));
+  // Fade at left edge (incoming) and right edge (outgoing)
+  const fadeL = Math.max(0, Math.min(1, (px - 20) / 60));
+  const fadeR = Math.max(0, Math.min(1, (W - 20 - px) / 80));
+  return amp * fadeL * fadeR;
+}
+
+// ── Field canvas (recomputed on param change) ─────────
+let fieldImg = null;
+let fieldDirty = true;
+let crests = []; // precomputed crest lines
+
+function buildFieldAndCrests(cx, cy, rs) {
+  // Field heatmap
+  const scale = 3;
+  const ow = Math.ceil(W/scale), oh = Math.ceil(H/scale);
+  const fc = document.createElement('canvas');
+  fc.width = ow; fc.height = oh;
+  const fctx = fc.getContext('2d');
+  const img = fctx.createImageData(ow, oh);
+  const d = img.data;
+  for (let j = 0; j < oh; j++) {
+    for (let i = 0; i < ow; i++) {
+      const xp = i*scale, yp = j*scale;
+      const dC = deltaC(xp, yp, cx, cy, rs);
+      const v = Math.max(0, Math.min(1, -dC / (rs * 0.5 / (W*0.023))));
+      const idx = (j*ow+i)*4;
+      // Teal-blue gradient for δC
+      d[idx]   = Math.round(15 + 60*v);
+      d[idx+1] = Math.round(50 + 130*v);
+      d[idx+2] = Math.round(120 + 120*v);
+      d[idx+3] = Math.round(200 * v * S.opacity);
+    }
+  }
+  fctx.putImageData(img, 0, 0);
+  fieldImg = { canvas: fc, scale };
+
+  // Precompute phase field on a grid to find crest iso-contours
+  // Crests = lines where phase mod 2π ≈ 0
+  // Store as arrays of points
+  const gs = 6; // grid spacing
+  const gw = Math.ceil(W/gs), gh = Math.ceil(H/gs);
+  const phaseGrid = new Float32Array(gw * gh);
+  for (let j = 0; j < gh; j++) {
+    for (let i = 0; i < gw; i++) {
+      phaseGrid[j*gw+i] = phaseAt(i*gs, j*gs, cx, cy, rs);
+    }
+  }
+  crests = { grid: phaseGrid, gw, gh, gs };
+  fieldDirty = false;
+}
+
+// ── Render ─────────────────────────────────────────────
+function render(cx, cy, rs) {
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#04060c';
+  ctx.fillRect(0, 0, W, H);
+
+  // δC heatmap
+  if (fieldImg) {
+    ctx.save();
+    ctx.globalAlpha = S.opacity;
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(fieldImg.canvas, 0, 0, W, H);
+    ctx.restore();
+  }
+
+  // Faint grid
+  ctx.strokeStyle = 'rgba(255,255,255,0.025)';
+  ctx.lineWidth = 1;
+  for (let gx = 0; gx < W; gx += W/12) { ctx.beginPath(); ctx.moveTo(gx,0); ctx.lineTo(gx,H); ctx.stroke(); }
+  for (let gy = 0; gy < H; gy += H/10) { ctx.beginPath(); ctx.moveTo(0,gy); ctx.lineTo(W,gy); ctx.stroke(); }
+
+  // rs circle
+  ctx.strokeStyle = 'rgba(255,100,100,0.5)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.arc(cx, cy, rs, 0, Math.PI*2); ctx.stroke();
+  ctx.fillStyle = 'rgba(255,80,80,0.1)';
+  ctx.beginPath(); ctx.arc(cx, cy, rs, 0, Math.PI*2); ctx.fill();
+
+  // PHASE CRESTS ───────────────────────────────────────
+  if (S.showCrests && crests.grid) {
+    const { grid, gw, gh, gs } = crests;
+    const omega = S.wc * 1.5;
+    // March through grid looking for phase contours
+    // Render individual crest lines by scanning horizontally
+    ctx.save();
+    for (let j = 0; j < gh - 1; j++) {
+      for (let i = 0; i < gw - 1; i++) {
+        const xp = i * gs, yp = j * gs;
+        // Animated phase: φ(x,y) - ω*t
+        const phi00 = grid[j*gw+i]      - omega * t;
+        const phi10 = grid[j*gw+i+1]    - omega * t;
+        const phi01 = grid[(j+1)*gw+i]  - omega * t;
+
+        // Find crossings of φ mod 2π = 0 (crest) or π (trough)
+        for (let nc = 0; nc < 2; nc++) {
+          const target = nc * Math.PI;
+          const a = ((phi00 - target) % (2*Math.PI) + 2*Math.PI) % (2*Math.PI);
+          const b = ((phi10 - target) % (2*Math.PI) + 2*Math.PI) % (2*Math.PI);
+          const c = ((phi01 - target) % (2*Math.PI) + 2*Math.PI) % (2*Math.PI);
+
+          const crossH = (a < Math.PI) !== (b < Math.PI);
+          const crossV = (a < Math.PI) !== (c < Math.PI);
+
+          if (crossH || crossV) {
+            const env = envelope(xp, yp, cx, cy, rs);
+            if (env < 0.04) continue;
+
+            // Distance from mass for fade
+            const dx = xp-cx, dy = yp-cy;
+            const r = Math.sqrt(dx*dx+dy*dy);
+            const insideRs = r < rs * 1.05;
+
+            let crestColor;
+            if (nc === 0) {
+              // Crest — bright teal-white
+              const brightness = Math.round(180 + 75*env);
+              crestColor = insideRs
+                ? `rgba(255,120,120,${(env*0.4).toFixed(2)})`  // provisional: red inside rs
+                : `rgba(${brightness},255,${brightness},${(env*0.85).toFixed(2)})`;
+            } else {
+              // Trough — dimmer
+              crestColor = insideRs
+                ? `rgba(200,100,100,${(env*0.2).toFixed(2)})`
+                : `rgba(80,200,195,${(env*0.45).toFixed(2)})`;
+            }
+
+            ctx.strokeStyle = crestColor;
+            ctx.lineWidth = nc === 0 ? 1.8 : 0.8;
+
+            if (crossH && crossV) {
+              const tx = xp + gs * (0.5 - a/(b-a+1e-9)) * Math.sign(b-a);
+              const ty = yp + gs * (0.5 - a/(c-a+1e-9)) * Math.sign(c-a);
+              ctx.beginPath(); ctx.moveTo(tx, yp); ctx.lineTo(xp, ty); ctx.stroke();
+            } else if (crossH) {
+              const tx = xp + gs * a / (a - b + 1e-9) * Math.sign(a-b);
+              ctx.beginPath(); ctx.moveTo(tx, yp); ctx.lineTo(tx, yp+gs*0.5); ctx.stroke();
+            } else {
+              const ty = yp + gs * a / (a - c + 1e-9) * Math.sign(a-c);
+              ctx.beginPath(); ctx.moveTo(xp, ty); ctx.lineTo(xp+gs*0.5, ty); ctx.stroke();
+            }
+          }
+        }
+      }
+    }
+    ctx.restore();
+  }
+
+  // Envelope outline (beam boundary)
+  ctx.save();
+  ctx.strokeStyle = 'rgba(255,230,109,0.18)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([5, 8]);
+  const beamW = H * 0.18 * S.sigma;
+  const angleRad = S.angle * Math.PI / 180;
+  const cosA = Math.cos(angleRad), sinA = Math.sin(angleRad);
+  // Draw beam envelope as two lines offset from beam axis
+  for (const sign of [-1, 1]) {
+    ctx.beginPath();
+    for (let xp = 0; xp < W; xp += 4) {
+      const yp = cy + sign * beamW + xp * Math.tan(angleRad);
+      if (xp === 0) ctx.moveTo(xp, yp);
+      else ctx.lineTo(xp, yp);
+    }
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // Mass source
+  const mg = ctx.createRadialGradient(cx, cy, 0, cx, cy, rs*0.75);
+  mg.addColorStop(0, 'rgba(255,255,255,0.98)');
+  mg.addColorStop(0.4, 'rgba(180,200,255,0.7)');
+  mg.addColorStop(1, 'rgba(80,120,255,0)');
+  ctx.fillStyle = mg;
+  ctx.beginPath(); ctx.arc(cx, cy, rs*0.75, 0, Math.PI*2); ctx.fill();
+
+  // Label
+  ctx.fillStyle = 'rgba(255,100,100,0.6)';
+  ctx.font = `${Math.round(10*DPR)}px system-ui`;
+  ctx.fillText('r_s', cx + rs + 4, cy - 4);
+
+  // Crest spacing annotation
+  if (S.showCrests) {
+    // Measure local wavelength at two points: far field and near field
+    const xFar = cx + rs * 4.5, yFar = cy;
+    const xNear = cx + rs * 1.3, yNear = cy;
+    const kFar = localK(xFar, yFar, cx, cy, rs);
+    const kNear = localK(xNear, yNear, cx, cy, rs);
+    const lambdaFar  = kFar  > 0 ? (2*Math.PI/kFar).toFixed(1)  : '—';
+    const lambdaNear = kNear > 0 ? (2*Math.PI/kNear).toFixed(1) : '—';
+
+    // Arrow annotation showing bunching
+    ctx.strokeStyle = 'rgba(255,230,109,0.5)';
+    ctx.lineWidth = 1;
+    ctx.fillStyle = 'rgba(255,230,109,0.7)';
+    ctx.font = `${Math.round(9*DPR)}px system-ui`;
+    ctx.fillText(`λ_far  = ${lambdaFar}px  (k smaller, crests spread)`, xFar + 8, yFar - 20);
+    ctx.fillText(`λ_near = ${lambdaNear}px  (k larger, crests bunch)`, xNear + rs*0.4, yNear - 20);
+
+    // Paraxial validity zone — crests outside this are unreliable
+    const paraxialR = rs * 8.0;
+    ctx.save();
+    ctx.setLineDash([3, 6]);
+    ctx.strokeStyle = 'rgba(255,230,109,0.12)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(cx, cy, paraxialR, 0, Math.PI*2); ctx.stroke();
+    ctx.restore();
+    ctx.fillStyle = 'rgba(255,230,109,0.25)';
+    ctx.font = `${Math.round(8*DPR)}px system-ui`;
+    ctx.fillText('paraxial valid r > 8rₛ', cx + paraxialR * 0.67, cy - paraxialR * 0.75);
+
+    // Update readouts
+    const omega = S.wc * 1.5;
+    const k0 = Math.sqrt(omega*omega - S.wc*S.wc);
+    const vphi = k0 > 0 ? (omega / k0).toFixed(3) : '—';
+    const vgrp = k0 > 0 ? (k0 / omega).toFixed(3) : '—';
+    const lc = S.wc > 0 ? (2*Math.PI / S.wc).toFixed(1) : '—';
+    const bunch = kNear > 0 && kFar > 0 ? (kNear / kFar).toFixed(3) : '—';
+    // kNear > kFar means crests bunch near mass — physically correct with fixed dispersion
+    document.getElementById('rd-vp').textContent = vphi + ' c';
+    document.getElementById('rd-vg').textContent = vgrp + ' c';
+    document.getElementById('rd-lc').textContent = lc + ' px';
+    document.getElementById('rd-bunch').textContent = bunch + ' × k₀';
+  }
+}
+
+// ── Update & animate ───────────────────────────────────
+function update(dt) {
+  t += dt * S.speed;
+}
+
+let animId;
+function animate(now) {
+  const dt = Math.min((now - lastNow) / 1000, 0.05);
+  lastNow = now;
+  fc++;
+  if (now - lastFPS > 900) {
+    document.getElementById('fps').textContent =
+      (fc / ((now-lastFPS)/1000)).toFixed(0) + ' fps';
+    fc = 0; lastFPS = now;
+  }
+
+  if (!S.paused) update(dt);
+
+  const {cx, cy, rs} = sceneParams();
+  if (fieldDirty) buildFieldAndCrests(cx, cy, rs);
+  render(cx, cy, rs);
+  animId = requestAnimationFrame(animate);
+}
+
+// ── Resize ─────────────────────────────────────────────
+function resize() {
+  const vp = document.getElementById('vp');
+  DPR = devicePixelRatio || 1;
+  W = vp.clientWidth  * DPR;
+  H = vp.clientHeight * DPR;
+  cvs.width = W; cvs.height = H;
+  cvs.style.width  = vp.clientWidth  + 'px';
+  cvs.style.height = vp.clientHeight + 'px';
+  fieldDirty = true;
+}
+window.addEventListener('resize', () => { resize(); });
+
+// ── Sliders ────────────────────────────────────────────
+function bind(id, lblId, key, xform, dirty) {
+  const el = document.getElementById(id);
+  el.oninput = () => {
+    const v = xform ? xform(+el.value) : +el.value;
+    S[key] = v;
+    if (lblId) {
+      const lb = document.getElementById(lblId);
+      if (lb) lb.textContent = key === 'angle' ? v + '°' : v.toFixed ? v.toFixed(2) : v;
+    }
+    if (dirty) fieldDirty = true;
+  };
+}
+bind('sl-mass', 'lv-mass', 'mass',   null, true);
+bind('sl-wc',   'lv-wc',   'wc',     null, true);
+bind('sl-sigma','lv-sigma','sigma',   null, true);
+bind('sl-gm',   'lv-gm',   'gm',     null, true);
+bind('sl-ang',  'lv-ang',  'angle',  null, true);
+bind('sl-op',   'lv-op',   'opacity',null, true);
+bind('sl-crests',null,     'showCrests', v=>Math.round(v), false);
+bind('sl-spd',  'lv-spd',  'speed',  null, false);
+
+function togglePause() {
+  S.paused = !S.paused;
+  document.getElementById('btn-pause').textContent = S.paused ? '▶ Play' : '⏸ Pause';
+}
+function resetSim() { t = 0; fieldDirty = true; }
+
+// ── Presets ────────────────────────────────────────────
+const PRESETS = {
+  flat:    { mass: 0.01, wc: 2.0, sigma: 1.0, gm: 0, angle: 0, speed: 1.0 },
+  solar:   { mass: 1.0,  wc: 2.5, sigma: 1.0, gm: 1, angle: 0, speed: 1.2 },
+  compact: { mass: 2.5,  wc: 3.0, sigma: 0.8, gm: 1, angle: 0, speed: 1.5 },
+  grazing: { mass: 2.0,  wc: 2.0, sigma: 0.5, gm: 1, angle: 30, speed: 1.0 },
+};
+function loadPreset(name) {
+  const p = PRESETS[name];
+  Object.entries(p).forEach(([k, v]) => {
+    S[k] = v;
+    const sl = document.getElementById('sl-' + k);
+    if (sl) sl.value = v;
+    const lb = document.getElementById('lv-' + k);
+    if (lb) lb.textContent = k === 'angle' ? v + '°' : v.toFixed ? v.toFixed(2) : v;
+  });
+  fieldDirty = true; t = 0;
+}
+
+// ── Init ───────────────────────────────────────────────
+resize();
+requestAnimationFrame(animate);
+</script>
+</body>
+</html>

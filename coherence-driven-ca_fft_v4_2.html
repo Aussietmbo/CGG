@@ -1,0 +1,451 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Coherence-Driven Cellular Automata v4.2</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=DM+Sans:wght@400;500;700&display=swap');
+:root{--bg:#060a10;--panel:#0b1018;--panel2:#0d1424;--text:#d4dff0;--muted:#6a7d9e;--accent:#3edbc9;--accent2:#5e9dff;--accent3:#f0a944;--danger:#ff4b6e;--border:rgba(255,255,255,0.06);--glow:rgba(62,219,201,0.12);--mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Consolas,monospace;--sans:'DM Sans',system-ui,-apple-system,sans-serif;--radius:10px;--shadow:0 8px 32px rgba(0,0,0,0.5)}
+*{box-sizing:border-box;margin:0;padding:0}html,body{height:100%;overflow:hidden}
+body{background:radial-gradient(ellipse 900px 600px at 20% 8%,rgba(62,219,201,.07),transparent 60%),radial-gradient(ellipse 700px 500px at 85% 85%,rgba(94,157,255,.06),transparent 60%),var(--bg);color:var(--text);font-family:var(--sans);display:flex;flex-direction:column;user-select:none}
+.titlebar{height:50px;display:flex;align-items:center;justify-content:space-between;padding:0 20px;background:linear-gradient(180deg,rgba(255,255,255,.025),transparent);border-bottom:1px solid var(--border);flex-shrink:0}
+.titlebar .title{font-weight:700;font-size:14px;letter-spacing:.3px}.titlebar .title em{font-style:normal;color:var(--accent)}.titlebar .version{font-family:var(--mono);font-size:11px;color:var(--muted)}
+.wrap{flex:1;display:flex;min-height:0}
+.sidebar{width:320px;min-width:320px;background:linear-gradient(180deg,rgba(255,255,255,.02),transparent 40%),var(--panel);border-right:1px solid var(--border);padding:12px;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;gap:10px}
+.sidebar::-webkit-scrollbar{width:6px}.sidebar::-webkit-scrollbar-thumb{background:rgba(255,255,255,.08);border-radius:3px}
+.card{background:linear-gradient(180deg,rgba(255,255,255,.025),transparent 50%),var(--panel2);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;overflow:hidden}
+.card h3{font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+.row{display:flex;align-items:center;justify-content:space-between;gap:8px}.row+.row{margin-top:8px}
+.label{font-size:12px;color:#b8c8e0;white-space:nowrap;min-width:100px}
+.value{font-family:var(--mono);font-size:11px;color:var(--accent);min-width:38px;text-align:right;flex-shrink:0;padding-right:2px}
+input[type=range]{-webkit-appearance:none;flex:1;min-width:0;height:4px;border-radius:2px;background:#151e2e;outline:none;cursor:pointer}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:var(--accent);box-shadow:0 0 6px var(--glow);cursor:pointer}
+input[type=range]::-webkit-slider-thumb:hover{box-shadow:0 0 12px rgba(62,219,201,.35)}
+.seg{display:flex;gap:6px;flex-wrap:wrap}
+.seg button,.tab,.btn{font-family:var(--mono);font-size:11px;padding:6px 10px;border-radius:6px;border:1px solid var(--border);background:rgba(255,255,255,.03);color:var(--text);cursor:pointer;transition:all .15s;white-space:nowrap}
+.seg button:hover,.tab:hover,.btn:hover{border-color:rgba(255,255,255,.12);background:rgba(255,255,255,.06)}
+.seg button.on,.tab.on{border-color:rgba(62,219,201,.5);background:rgba(62,219,201,.12);color:var(--accent);font-weight:600}
+.btn.primary{border-color:rgba(62,219,201,.5);background:rgba(62,219,201,.12);color:var(--accent);font-weight:600}
+.btn.danger{border-color:rgba(255,75,110,.4);color:var(--danger)}.btn.danger:hover{background:rgba(255,75,110,.1)}
+.btnrow{display:flex;gap:8px}
+.note{font-size:10px;color:var(--muted);font-family:var(--mono);line-height:1.5;margin-top:6px}
+.stat-row{display:flex;align-items:center;justify-content:space-between;padding:4px 0;font-size:12px}
+.stat-row+.stat-row{border-top:1px solid rgba(255,255,255,.03)}
+.stat-label{color:#8899b0}.stat-val{font-family:var(--mono);font-size:11px;color:var(--accent);font-weight:600}
+.viewport{flex:1;min-width:0;min-height:0;position:relative;background:linear-gradient(180deg,rgba(255,255,255,.015),transparent 30%)}
+.topbar{position:absolute;top:0;left:0;right:0;z-index:10;display:flex;align-items:flex-start;justify-content:space-between;padding:12px;pointer-events:none}
+.topbar>*{pointer-events:auto}.tabrow{display:flex;gap:6px}.hud{display:flex;gap:8px;align-items:center}
+.pill{font-family:var(--mono);font-size:10px;color:var(--muted);background:rgba(6,10,16,.7);backdrop-filter:blur(6px);border:1px solid var(--border);border-radius:6px;padding:6px 10px}
+.canvasWrap{position:absolute;inset:0;z-index:1;overflow:hidden;cursor:grab}.canvasWrap:active{cursor:grabbing}
+.canvasWrap canvas{image-rendering:pixelated;position:absolute;transform-origin:0 0}
+.panel{position:absolute;left:12px;bottom:12px;z-index:10;width:min(520px,calc(100% - 320px - 24px));background:rgba(8,12,20,.82);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px 8px;backdrop-filter:blur(10px);box-shadow:var(--shadow)}
+.panelHead{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.panelHead .ptitle{font-weight:700;font-size:11px;letter-spacing:.8px;text-transform:uppercase;color:#a0b4d0}
+.panelHead .pmeta{font-family:var(--mono);font-size:10px;color:var(--muted);text-align:right;line-height:1.3}
+.panel canvas{width:100%;height:140px;border-radius:8px;border:1px solid var(--border);background:rgba(0,0,0,.2);display:block}
+.footNote{margin-top:6px;font-family:var(--mono);font-size:10px;color:var(--muted);display:flex;justify-content:space-between;gap:10px}
+#torusWrap{position:absolute;right:12px;bottom:12px;z-index:12;width:280px;height:280px;background:rgba(6,10,16,.85);border:1px solid var(--border);border-radius:var(--radius);backdrop-filter:blur(10px);box-shadow:var(--shadow);overflow:hidden;display:flex;flex-direction:column}
+#torusWrap .torusHead{display:flex;justify-content:space-between;align-items:center;padding:6px 10px;border-bottom:1px solid var(--border);flex-shrink:0}
+#torusWrap .torusHead .ptitle{font-weight:700;font-size:10px;letter-spacing:.6px;text-transform:uppercase;color:#a0b4d0}
+#torusWrap canvas{flex:1;display:block;cursor:grab}#torusWrap canvas:active{cursor:grabbing}
+.infobar{height:30px;display:flex;align-items:center;justify-content:space-between;padding:0 20px;background:var(--panel);border-top:1px solid var(--border);font-family:var(--mono);font-size:10px;color:var(--muted);flex-shrink:0}
+.infobar .eq{color:var(--accent)}
+@media(max-width:768px){.wrap{flex-direction:column-reverse}.sidebar{width:100%;min-width:unset;max-height:38vh;border-right:none;border-top:1px solid var(--border);flex-direction:row;flex-wrap:wrap;gap:8px;padding:10px}.sidebar .card{min-width:45%;flex:1}.panel{width:calc(100% - 24px)}#torusWrap{width:160px;height:160px}}
+</style>
+</head>
+<body>
+<div class="titlebar">
+  <div class="title"><em>Coherence-Driven</em> Cellular Automata</div>
+  <div class="version">v4 &middot; Packet tracker + ImageData + 3D torus &middot; TRR-G</div>
+</div>
+<div class="wrap">
+<aside class="sidebar">
+  <div class="card"><h3>Coherence &rarr; Rule Mapping</h3>
+    <div class="seg" id="mapMode"><button data-mode="trrg" class="on">TRR-G Standard</button><button data-mode="structure">Structure Only</button></div>
+    <div style="height:8px"></div>
+    <div class="seg" id="mapPreset"><button data-preset="vacmass" class="on">Vacuum + Mass</button><button data-preset="full">Full Spectrum</button><button data-preset="custom">Custom</button></div>
+    <div class="note" id="ruleLegend"></div>
+  </div>
+  <div class="card"><h3>Grid</h3>
+    <div class="row"><div class="label">Size</div><input id="size" type="range" min="128" max="512" step="8" value="320"/><div class="value" id="sizeV">320</div></div>
+  </div>
+  <div class="card"><h3>Initial Conditions</h3>
+    <div class="row"><div class="label">Cell Density</div><input id="density" type="range" min="0.01" max="0.50" step="0.01" value="0.15"/><div class="value" id="densityV">0.15</div></div>
+    <div class="row"><div class="label">Init Coherence</div><input id="initC" type="range" min="0.00" max="0.80" step="0.01" value="0.10"/><div class="value" id="initCV">0.10</div></div>
+  </div>
+  <div class="card"><h3>Coherence Dynamics</h3>
+    <div class="row"><div class="label">Growth Rate</div><input id="g" type="range" min="0.00" max="0.20" step="0.005" value="0.10"/><div class="value" id="gV">0.10</div></div>
+    <div class="row"><div class="label">Decay Rate</div><input id="d" type="range" min="0.00" max="0.20" step="0.005" value="0.02"/><div class="value" id="dV">0.02</div></div>
+    <div class="row"><div class="label">Diffusion</div><input id="diff" type="range" min="0.00" max="0.80" step="0.01" value="0.35"/><div class="value" id="diffV">0.35</div></div>
+    <div class="row"><div class="label">Spectral Threshold</div><input id="specT" type="range" min="0.00" max="1.00" step="0.01" value="0.15"/><div class="value" id="specTV">0.15</div></div>
+    <div class="note">Detector: local FFT buckets, debiased score, feedback loop, spectral-gradient coupling.</div>
+  </div>
+  <div class="card"><h3>Playback</h3>
+    <div class="row"><div class="label">Speed</div><input id="speed" type="range" min="1" max="120" step="1" value="50"/><div class="value" id="speedV">50</div></div>
+    <div class="btnrow" style="margin-top:8px"><button class="btn primary" id="playBtn">Play</button><button class="btn" id="stepBtn">Step</button><button class="btn danger" id="resetBtn">Reset</button></div>
+  </div>
+  <div class="card"><h3>Stats</h3>
+    <div class="stat-row"><div class="stat-label">Generation</div><div class="stat-val" id="genV">0</div></div>
+    <div class="stat-row"><div class="stat-label">Population</div><div class="stat-val" id="popV">0</div></div>
+    <div class="stat-row"><div class="stat-label">Cell Density</div><div class="stat-val" id="cdV">0.00</div></div>
+    <div class="stat-row"><div class="stat-label">Avg Coherence</div><div class="stat-val" id="avgCV">0.000</div></div>
+    <div class="stat-row"><div class="stat-label">Active Rule</div><div class="stat-val" id="ruleV">&mdash;</div></div>
+    <div class="stat-row"><div class="stat-label">Spectral Score</div><div class="stat-val" id="specScoreV">0.000</div></div>
+    <div class="stat-row"><div class="stat-label">Status</div><div class="stat-val" id="statusV">OK</div></div>
+  </div>
+  <div class="card"><h3>Packet Tracker</h3>
+    <div class="stat-row"><div class="stat-label">Active Detections</div><div class="stat-val" id="pktActiveV">0</div></div>
+    <div class="stat-row"><div class="stat-label">Valid Packets</div><div class="stat-val" id="pktCountV">0</div></div>
+    <div class="stat-row"><div class="stat-label">Mean Lifetime</div><div class="stat-val" id="pktLifeV">0.0</div></div>
+    <div class="stat-row"><div class="stat-label">Mean |Speed|</div><div class="stat-val" id="pktSpeedV">0.000</div></div>
+    <div class="stat-row"><div class="stat-label">Mean Width</div><div class="stat-val" id="pktWidthV">0.0</div></div>
+    <div class="stat-row"><div class="stat-label">Mean Score</div><div class="stat-val" id="pktScoreV">0.000</div></div>
+    <div class="note" id="pktNote">detector idle</div>
+  </div>
+  <div class="card"><h3>Packet Spectrum</h3>
+    <div class="row"><div class="label">FFT Source</div><select id="specSource"><option value="coh" selected>Coherence</option><option value="cells">Occupancy</option></select><div class="value" id="specSourceV">coh</div></div>
+    <div class="stat-row"><div class="stat-label">Spectrum Samples</div><div class="stat-val" id="specSamplesV">0</div></div>
+    <div class="stat-row"><div class="stat-label">Mean k_peak</div><div class="stat-val" id="specKMeanV">0.00</div></div>
+    <div class="stat-row"><div class="stat-label">Mean λ (cells)</div><div class="stat-val" id="specLambdaV">0.00</div></div>
+    <div class="stat-row"><div class="stat-label">Mean Flatness</div><div class="stat-val" id="specFlatV">0.000</div></div>
+    <div class="stat-row"><div class="stat-label">Mean Peak Ratio</div><div class="stat-val" id="specPeakV">0.000</div></div>
+    <div class="btnrow" style="margin-top:8px"><button class="btn" id="specExportBtn">Export Spectrum CSV</button></div>
+    <div class="note" id="specNote">waiting for tracked spectra</div>
+  </div>
+</aside>
+<main class="viewport" id="viewport">
+  <div class="topbar">
+    <div class="tabrow" id="tabs"><button class="tab on" data-tab="cells">Cells</button><button class="tab" data-tab="coh">Coherence</button><button class="tab" data-tab="rules">Rules</button><button class="tab" data-tab="comp">Composite</button><button class="tab" data-tab="phase">Phase</button></div>
+    <div class="hud"><div class="pill" id="fpsDisplay">0 FPS</div><div class="pill">drag &middot; scroll &middot; dblclick fit</div></div>
+  </div>
+  <div class="canvasWrap" id="canvasWrap"><canvas id="main"></canvas></div>
+  <div class="panel" id="fftPanel">
+    <div class="panelHead"><div class="ptitle">Fourier Spectrum Detector</div><div style="display:flex;align-items:center;gap:8px"><button class="btn" id="fftDecomp" style="padding:3px 8px;font-size:10px;">Decompose</button><div class="pmeta" id="fftMeta">local probe &middot; N=64</div></div></div>
+    <canvas id="fftCanvas"></canvas>
+    <div class="footNote"><div>DC remove &rarr; Hann &rarr; FFT &rarr; peak ratio + spectral flatness</div><div>local spectral structure</div></div>
+  </div>
+  <div class="panel" id="phasePanel" style="display:none;">
+    <div class="panelHead"><div class="ptitle">Phase Portrait</div><div class="pmeta" id="phaseMeta">x=avg coherence &middot; y=spectral score</div></div>
+    <canvas id="phaseCanvas"></canvas>
+    <div class="footNote"><div>Trajectory over time</div><div>parameter sweep &rarr; phase diagram</div></div>
+  </div>
+  <div id="torusWrap">
+    <div class="torusHead"><div class="ptitle">3D Torus Mapping</div><button class="btn" id="torusToggle" style="padding:3px 8px;font-size:10px;">Hide</button></div>
+    <canvas id="torusCanvas"></canvas>
+  </div>
+</main>
+</div>
+<div class="infobar">
+  <div><span class="eq">Rule(x,t) = R[ C(x,t) ] &middot; &sigma;(x,t+1) = Rule(x,t)[ &sigma;(x-1,t), &sigma;(x,t), &sigma;(x+1,t) ]</span> &middot; v4.1</div>
+  <div id="fpsBar">0 FPS</div>
+</div>
+<script>
+(()=>{
+"use strict";
+const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+const lerp=(a,b,t)=>a+(b-a)*t;
+function mulberry32(seed){let a=seed>>>0;return function(){a|=0;a=(a+0x6D2B79F5)|0;let t=Math.imul(a^(a>>>15),1|a);t=(t+Math.imul(t^(t>>>7),61|t))^t;return((t^(t>>>14))>>>0)/4294967296;};}
+function freshSeed(){
+  try{
+    if(window.crypto&&window.crypto.getRandomValues){
+      const a=new Uint32Array(1);
+      window.crypto.getRandomValues(a);
+      return a[0]>>>0;
+    }
+  }catch(err){}
+  return (((Date.now()>>>0)^((Math.random()*0xFFFFFFFF)>>>0))>>>0);
+}
+
+/* ═══ FFT ═══ */
+function fftRadix2(re,im){
+  const n=re.length,levels=Math.log2(n)|0;
+  for(let i=0,j=0;i<n;i++){if(j>i){[re[i],re[j]]=[re[j],re[i]];[im[i],im[j]]=[im[j],im[i]];}let m=n>>1;while(m>=1&&j>=m){j-=m;m>>=1;}j+=m;}
+  for(let size=2;size<=n;size<<=1){const half=size>>1,step=2*Math.PI/size;for(let i=0;i<n;i+=size)for(let j=0;j<half;j++){const k=i+j,l=k+half,ang=-j*step,wr=Math.cos(ang),wi=Math.sin(ang),tr=wr*re[l]-wi*im[l],ti=wr*im[l]+wi*re[l];re[l]=re[k]-tr;im[l]=im[k]-ti;re[k]+=tr;im[k]+=ti;}}
+}
+function spectralMetrics(signal){
+  const N=signal.length,re=new Float32Array(N),im=new Float32Array(N);
+  let mean=0;for(let i=0;i<N;i++)mean+=signal[i];mean/=N;
+  for(let i=0;i<N;i++){re[i]=(signal[i]-mean)*(0.5-0.5*Math.cos(2*Math.PI*i/(N-1)));im[i]=0;}
+  fftRadix2(re,im);
+  const half=N>>1,eps=1e-12;let peak=0,peakIdx=1,sum=0,sumLog=0;
+  for(let k=1;k<half;k++){const p=re[k]*re[k]+im[k]*im[k];sum+=p;sumLog+=Math.log(p+eps);if(p>peak){peak=p;peakIdx=k;}}
+  const avg=sum/Math.max(1,half-1),flatness=Math.exp(sumLog/Math.max(1,half-1))/(avg+eps);
+  const peakRatio=peak/(sum-peak+eps),score=clamp((peakRatio-0.02)*8*(1-flatness),0,1);
+  return{re,im,peakIdx,peakRatio,flatness,energy:avg,score};
+}
+function wrappedIndex(i,N){return((i%N)+N)%N;}
+function sampleSignalAround(centroid,source='coh',windowN=S.fftN){const N=S.size,out=new Float32Array(windowN);const start=Math.round(centroid-windowN/2);for(let j=0;j<windowN;j++){const x=wrappedIndex(start+j,N);if(source==='cells')out[j]=S.row[x]?1:-1;else out[j]=S.coh[x];}return out;}
+function estimateBandwidthBins(re,im,peakIdx){const N=re.length,half=N>>1;const powers=[];let total=0;for(let k=1;k<half;k++){const p=re[k]*re[k]+im[k]*im[k];powers[k]=p;total+=p;}const target=0.5*total;let acc=powers[peakIdx]||0,left=peakIdx,right=peakIdx;while(acc<target&&(left>1||right<half-1)){const lp=left>1?(powers[left-1]||0):-1;const rp=right<half-1?(powers[right+1]||0):-1;if(rp>=lp){right++;acc+=powers[right]||0;}else{left--;acc+=powers[left]||0;}}return right-left+1;}
+function packetSpectrumSample(det,source=S.specSource){const signal=sampleSignalAround(det.centroid,source,S.fftN);const m=spectralMetrics(signal);const phasePeak=Math.atan2(m.im[m.peakIdx],m.re[m.peakIdx]);return{generation:S.gen,packetId:det.trackId||null,source,kPeak:m.peakIdx,lambdaCells:m.peakIdx>0?(S.fftN/m.peakIdx):0,peakRatio:m.peakRatio,flatness:m.flatness,score:m.score,phasePeak,bandwidthBins:estimateBandwidthBins(m.re,m.im,m.peakIdx),centroid:det.centroid,width:det.width};}
+function logPacketSpectra(detections){if(!detections||!detections.length)return;if(S.gen%S.packetSpectrumEvery!==0)return;for(const det of detections){if(!det.trackId)continue;const sample=packetSpectrumSample(det,S.specSource);S.packetSpectrumLog.push(sample);S.packetTracker.addSpectrumSample(det.trackId,sample);}}
+function exportPacketSpectrumCSV(){const rows=['batch_seed,sim_seed,gen,packet_id,source,centroid,width,k_peak,lambda_cells,peak_ratio,flatness,score,phase_peak,bandwidth_bins'];for(const s of S.packetSpectrumLog){rows.push([S.seed,S.seed,s.generation,s.packetId,s.source,s.centroid.toFixed(4),s.width,s.kPeak,s.lambdaCells.toFixed(6),s.peakRatio.toFixed(6),s.flatness.toFixed(6),s.score.toFixed(6),s.phasePeak.toFixed(6),s.bandwidthBins].join(','));}const blob=new Blob([rows.join('\n')],{type:'text/csv'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`packet_spectrum_v42_gen${S.gen}_seed${S.seed}.csv`;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},100);}function mean(arr){if(!arr||!arr.length)return 0;let s=0;for(const v of arr)s+=v;return s/arr.length;}
+function stddev(arr,mu=null){if(!arr||!arr.length)return 0;if(mu===null)mu=mean(arr);let s=0;for(const v of arr)s+=(v-mu)*(v-mu);return Math.sqrt(s/arr.length);}
+function wrapDist(a,b,N){let d=Math.abs(a-b);return Math.min(d,N-d);}
+function wrapCentroid(xs,N){if(!xs.length)return 0;let sx=0,sy=0;for(const x of xs){const ang=2*Math.PI*x/N;sx+=Math.cos(ang);sy+=Math.sin(ang);}let ang=Math.atan2(sy,sx);if(ang<0)ang+=2*Math.PI;return ang/(2*Math.PI)*N;}
+class PacketTracker1D{
+  constructor(size,opts={}){this.size=size;this.opts={cohSigma:0.40,scoreThresh:0.28,continueScoreThresh:0.20,minWidth:2,maxAssocDist:14,maxGap:6,widthRatioMax:5,minLifetime:8,minMeanScore:0.30,requireAliveFraction:0.02,localContrastThresh:0.03,...opts};this.nextId=1;this.active=[];this.finished=[];this.currentDetections=[];}
+  reset(size=null){if(size)this.size=size;this.nextId=1;this.active=[];this.finished=[];this.currentDetections=[];}
+  detectPackets(row,coh,bucketScores,bucketSize,generation,activeRule=null){const N=this.size;const cohArr=Array.from(coh);const mu=mean(cohArr);const sig=Math.max(stddev(cohArr,mu),1e-6);const cohThresh=mu+this.opts.cohSigma*sig;const mask=new Uint8Array(N);for(let i=0;i<N;i++){const b=Math.min(bucketScores.length-1,Math.floor(i/bucketSize));const score=bucketScores[b]||0;const left=coh[(i-1+N)%N],right=coh[(i+1)%N],localBase=.5*(left+right),localContrast=coh[i]-localBase;const cohPass=(coh[i]>=cohThresh)||(localContrast>=this.opts.localContrastThresh);const scorePass=score>=this.opts.scoreThresh;if(cohPass&&scorePass)mask[i]=1;}const segs=[];let start=-1;for(let i=0;i<N;i++){if(mask[i]&&start===-1)start=i;if((!mask[i]||i===N-1)&&start!==-1){const end=(mask[i]&&i===N-1)?i:i-1;segs.push({start,end});start=-1;}}if(segs.length>=2&&segs[0].start===0&&segs[segs.length-1].end===N-1){const first=segs[0],last=segs.pop();segs[0]={start:last.start,end:first.end,wraps:true};}const detections=[];for(const seg of segs){const xs=[];let i=seg.start;while(true){xs.push(i);if(i===seg.end)break;i=(i+1)%N;}if(xs.length<this.opts.minWidth)continue;const cohVals=xs.map(x=>coh[x]);const scoreVals=xs.map(x=>bucketScores[Math.min(bucketScores.length-1,Math.floor(x/bucketSize))]||0);const aliveVals=xs.map(x=>row[x]?1:0);const aliveFrac=mean(aliveVals);if(aliveFrac<this.opts.requireAliveFraction)continue;detections.push({generation,centroid:wrapCentroid(xs,N),width:xs.length,meanCoh:mean(cohVals),maxCoh:Math.max(...cohVals),meanScore:mean(scoreVals),maxScore:Math.max(...scoreVals),aliveFrac,rule:activeRule,cells:xs.slice(),trackId:null});}
+    this.currentDetections=detections;return detections;}
+  associateAndUpdate(detections,generation){const N=this.size;for(const det of detections){let bestTrack=null,bestCost=Infinity;for(const tr of this.active){const gap=generation-tr.lastGeneration;if(gap<1||gap>this.opts.maxGap)continue;const d=wrapDist(det.centroid,tr.lastCentroid,N);if(d>this.opts.maxAssocDist*gap)continue;const wr=Math.max(det.width,tr.lastWidth)/Math.max(1,Math.min(det.width,tr.lastWidth));if(wr>this.opts.widthRatioMax)continue;const scorePenalty=Math.abs(det.meanScore-tr.meanScoreRunning);const cost=d+1.0*scorePenalty+0.15*Math.abs(det.width-tr.lastWidth);if(cost<bestCost){bestCost=cost;bestTrack=tr;}}
+      if(bestTrack){det.trackId=bestTrack.id;bestTrack.history.push({generation:det.generation,centroid:det.centroid,width:det.width,meanCoh:det.meanCoh,maxCoh:det.maxCoh,meanScore:det.meanScore,maxScore:det.maxScore,aliveFrac:det.aliveFrac,rule:det.rule});bestTrack.lastGeneration=det.generation;bestTrack.lastCentroid=det.centroid;bestTrack.lastWidth=det.width;bestTrack.meanScoreRunning=mean(bestTrack.history.map(h=>h.meanScore));}
+      else{const tr={id:this.nextId++,birthGeneration:det.generation,lastGeneration:det.generation,lastCentroid:det.centroid,lastWidth:det.width,meanScoreRunning:det.meanScore,history:[{generation:det.generation,centroid:det.centroid,width:det.width,meanCoh:det.meanCoh,maxCoh:det.maxCoh,meanScore:det.meanScore,maxScore:det.maxScore,aliveFrac:det.aliveFrac,rule:det.rule}],spectrum:[]};det.trackId=tr.id;this.active.push(tr);}}
+    const still=[];for(const tr of this.active){const gap=generation-tr.lastGeneration;if(gap>this.opts.maxGap)this.finished.push(this.summarizeTrack(tr));else still.push(tr);}this.active=still;}
+  addSpectrumSample(trackId,sample){const tr=this.active.find(t=>t.id===trackId);if(tr){if(!tr.spectrum)tr.spectrum=[];tr.spectrum.push(sample);}}
+  summarizeTrack(tr){const hist=tr.history,gens=hist.map(h=>h.generation),xs=hist.map(h=>h.centroid),widths=hist.map(h=>h.width),scores=hist.map(h=>h.meanScore),cohs=hist.map(h=>h.meanCoh);const specs=tr.spectrum||[];const disps=[];for(let i=1;i<xs.length;i++){let dx=xs[i]-xs[i-1];if(dx>this.size/2)dx-=this.size;if(dx<-this.size/2)dx+=this.size;const dt=gens[i]-gens[i-1];disps.push(dx/Math.max(1,dt));}const meanSpeed=mean(disps),absSpeed=mean(disps.map(Math.abs));return{id:tr.id,birthGeneration:tr.birthGeneration,deathGeneration:tr.lastGeneration,lifetime:tr.lastGeneration-tr.birthGeneration+1,meanCentroid:mean(xs),meanWidth:mean(widths),widthStd:stddev(widths),meanScore:mean(scores),meanCoh:mean(cohs),meanSpeed,absSpeed,speedStd:stddev(disps,meanSpeed),startX:xs[0],endX:xs[xs.length-1],spectrumSamples:specs.length,meanK:mean(specs.map(s=>s.kPeak)),stdK:stddev(specs.map(s=>s.kPeak)),meanLambda:mean(specs.map(s=>s.lambdaCells)),meanFlatness:mean(specs.map(s=>s.flatness)),meanPeakRatio:mean(specs.map(s=>s.peakRatio)),meanBandwidth:mean(specs.map(s=>s.bandwidthBins)),history:hist,spectrum:specs};}
+  finalize(){for(const tr of this.active)this.finished.push(this.summarizeTrack(tr));this.active=[];return this.getReport();}
+  getReport(){const packets=this.finished.filter(p=>p.lifetime>=this.opts.minLifetime&&p.meanScore>=this.opts.minMeanScore);return{packets,nPackets:packets.length,meanLifetime:mean(packets.map(p=>p.lifetime)),meanAbsSpeed:mean(packets.map(p=>p.absSpeed)),meanWidth:mean(packets.map(p=>p.meanWidth)),meanScore:mean(packets.map(p=>p.meanScore)),activeDetections:this.currentDetections.length,spectrumSamples:packets.reduce((a,p)=>a+(p.spectrumSamples||0),0),meanK:mean(packets.map(p=>p.meanK)),meanLambda:mean(packets.map(p=>p.meanLambda)),meanFlatness:mean(packets.map(p=>p.meanFlatness)),meanPeakRatio:mean(packets.map(p=>p.meanPeakRatio))};}
+}
+
+/* ═══ RULES ═══ */
+function makeRule(n){const t=new Uint8Array(8);for(let i=0;i<8;i++)t[i]=(n>>i)&1;return t;}
+const RULES={30:makeRule(30),47:makeRule(47),73:makeRule(73),90:makeRule(90),110:makeRule(110),150:makeRule(150)};
+const PRESETS={vacmass:['Low-vacuum(47)','Peak-chaos(30)','Mid-fractal(90)','High-structure(73)'],full:['Laminar(150)','Shear(90)','Turbulent(30)','Fractal(110)','Ordered(73)','Locked(47)'],custom:['Low(30)','Mid(90)','High(110)']};
+
+/* ═══ STATE ═══ */
+const S={size:320,gen:0,playing:false,speed:50,density:0.15,initC:0.10,growth:0.10,decay:0.02,diffusion:0.35,specT:0.15,mapMode:'trrg',preset:'vacmass',seed:1337,rng:null,row:null,coh:null,history:[],cohHistory:[],bucketScores:[],bucketGradients:[],activeRule:47,specScore:0,phaseHist:[],phaseMax:700,status:'OK',bucketSize:16,fftN:64,feedback:0.22,gradCoupling:0.18,_fft:null,packetTracker:null,packetReport:null,currentPackets:[],specSource:'coh',packetSpectrumLog:[],packetSpectrumEvery:4};
+
+/* ═══ DOM ═══ */
+const el=id=>document.getElementById(id);
+const ui={size:el('size'),sizeV:el('sizeV'),density:el('density'),densityV:el('densityV'),initC:el('initC'),initCV:el('initCV'),g:el('g'),gV:el('gV'),d:el('d'),dV:el('dV'),diff:el('diff'),diffV:el('diffV'),specT:el('specT'),specTV:el('specTV'),speed:el('speed'),speedV:el('speedV'),playBtn:el('playBtn'),stepBtn:el('stepBtn'),resetBtn:el('resetBtn'),tabs:el('tabs'),ruleLegend:el('ruleLegend'),genV:el('genV'),popV:el('popV'),cdV:el('cdV'),avgCV:el('avgCV'),ruleV:el('ruleV'),specScoreV:el('specScoreV'),statusV:el('statusV'),pktActiveV:el('pktActiveV'),pktCountV:el('pktCountV'),pktLifeV:el('pktLifeV'),pktSpeedV:el('pktSpeedV'),pktWidthV:el('pktWidthV'),pktScoreV:el('pktScoreV'),pktNote:el('pktNote'),fftMeta:el('fftMeta'),phaseMeta:el('phaseMeta'),mapMode:el('mapMode'),mapPreset:el('mapPreset'),fpsDisplay:el('fpsDisplay'),fpsBar:el('fpsBar'),specSource:el('specSource'),specSourceV:el('specSourceV'),specSamplesV:el('specSamplesV'),specKMeanV:el('specKMeanV'),specLambdaV:el('specLambdaV'),specFlatV:el('specFlatV'),specPeakV:el('specPeakV'),specNote:el('specNote'),specExportBtn:el('specExportBtn')};
+const mainCanvas=el('main'),fftCanvas=el('fftCanvas'),phaseCanvas=el('phaseCanvas');
+const canvasWrap=el('canvasWrap'),viewport=el('viewport');
+const fftPanel=el('fftPanel'),phasePanel=el('phasePanel');
+const ctx=mainCanvas.getContext('2d',{alpha:false}),fctx=fftCanvas.getContext('2d'),pctx=phaseCanvas.getContext('2d');
+let currentTab='cells';
+
+/* ═══ COLORMAP LUT ═══ */
+const COLOR_LUT=new Uint8Array(256*3);
+(function(){const a=[10,32,72],b=[0,182,180],c=[255,170,50];for(let i=0;i<256;i++){const v=i/255;let r,g,bl;if(v<.55){const t=v/.55;r=lerp(a[0],b[0],t);g=lerp(a[1],b[1],t);bl=lerp(a[2],b[2],t);}else{const t=(v-.55)/.45;r=lerp(b[0],c[0],t);g=lerp(b[1],c[1],t);bl=lerp(b[2],c[2],t);}COLOR_LUT[i*3]=Math.round(r);COLOR_LUT[i*3+1]=Math.round(g);COLOR_LUT[i*3+2]=Math.round(bl);}})();
+function colorIdx(v){return clamp(Math.round(v*255),0,255)*3;}
+const RULE_COLOR_MAP={47:0.1,30:0.35,73:0.6,90:0.9,110:0.75,150:0.2};
+
+/* ═══ SLIDERS ═══ */
+function bindRange(inp,out,fmt){const up=()=>out.textContent=fmt?fmt(parseFloat(inp.value)):inp.value;inp.addEventListener('input',up);up();}
+bindRange(ui.size,ui.sizeV,v=>String(v|0));bindRange(ui.density,ui.densityV,v=>v.toFixed(2));bindRange(ui.initC,ui.initCV,v=>v.toFixed(2));bindRange(ui.g,ui.gV,v=>v.toFixed(2));bindRange(ui.d,ui.dV,v=>v.toFixed(2));bindRange(ui.diff,ui.diffV,v=>v.toFixed(2));bindRange(ui.specT,ui.specTV,v=>v.toFixed(2));bindRange(ui.speed,ui.speedV,v=>String(v|0));
+ui.size.addEventListener('change',reset);ui.density.addEventListener('change',reset);ui.initC.addEventListener('change',reset);
+
+/* ═══ ZOOM/PAN ═══ */
+const V={zoom:1,panX:0,panY:0,dragging:false,lx:0,ly:0};
+function applyTransform(){mainCanvas.style.transform=`translate(${V.panX}px,${V.panY}px) scale(${V.zoom})`;}
+function fitView(){const r=canvasWrap.getBoundingClientRect();if(!r.width||!r.height)return;const t=Math.min(r.width/S.size,r.height/S.size)*.92;V.zoom=clamp(t,.15,20);V.panX=(r.width-S.size*V.zoom)/2;V.panY=(r.height-S.size*V.zoom)/2;applyTransform();}
+function zoomAt(cx,cy,f){const old=V.zoom;V.zoom=clamp(V.zoom*f,.15,64);const r=V.zoom/old;V.panX=cx-r*(cx-V.panX);V.panY=cy-r*(cy-V.panY);applyTransform();}
+canvasWrap.addEventListener('wheel',e=>{e.preventDefault();const r=canvasWrap.getBoundingClientRect();zoomAt(e.clientX-r.left,e.clientY-r.top,Math.exp(-e.deltaY*.0015));},{passive:false});
+canvasWrap.addEventListener('dblclick',fitView);
+canvasWrap.addEventListener('mousedown',e=>{if(e.button!==0)return;V.dragging=true;V.lx=e.clientX;V.ly=e.clientY;});
+window.addEventListener('mouseup',()=>{V.dragging=false;});
+window.addEventListener('mousemove',e=>{if(!V.dragging)return;V.panX+=e.clientX-V.lx;V.panY+=e.clientY-V.ly;V.lx=e.clientX;V.ly=e.clientY;applyTransform();});
+window.addEventListener('resize',fitView);
+
+/* ═══ PHYSICS (all V2 formulas, exact) ═══ */
+function buildLegend(){ui.ruleLegend.textContent=(PRESETS[S.preset]||[]).join('  \u2022  ');}
+function computeLocalSpectral(row){const N=S.size,bc=Math.ceil(N/S.bucketSize);const scores=new Float32Array(bc),grads=new Float32Array(bc);let cm=null;for(let b=0;b<bc;b++){const center=Math.min(N-1,b*S.bucketSize+Math.floor(S.bucketSize/2));const sig=new Float32Array(S.fftN);for(let i=0;i<S.fftN;i++){const ci=(center-Math.floor(S.fftN/2)+i+N)%N;sig[i]=row[ci]?1:-1;}const m=spectralMetrics(sig);scores[b]=m.score;if(b===Math.floor(bc/2))cm=m;}for(let b=0;b<bc;b++)grads[b]=(scores[Math.min(bc-1,b+1)]-scores[Math.max(0,b-1)])*.5;S._fft=cm||spectralMetrics(new Float32Array(S.fftN).fill(0));S.bucketScores=scores;S.bucketGradients=grads;let avg=0;for(let i=0;i<bc;i++)avg+=scores[i];S.specScore=avg/bc;}
+function ruleFromCoherence(c,score){if(S.mapMode==='structure'){if(score<.25)return 47;if(score<.5)return 30;if(score<.75)return 73;return 90;}if(c<.25)return 47;if(c<.5)return 30;if(c<.75)return 73;return 90;}
+function stepCoherence(prevC,prevRow){computeLocalSpectral(prevRow);const N=S.size,next=new Float32Array(N),bc=S.bucketScores.length;for(let i=0;i<N;i++){const l=prevC[(i-1+N)%N],m=prevC[i],r=prevC[(i+1)%N],lap=l+r-2*m;const b=Math.min(bc-1,Math.floor(i/S.bucketSize)),score=S.bucketScores[b],grad=S.bucketGradients[b],alive=prevRow[i]?1:0;let c=m;c+=S.diffusion*lap;c+=S.growth*score;c-=S.decay*(1-score);c+=S.feedback*(alive?1:-1)*.10;c+=S.gradCoupling*grad;c+=(S.rng()-.5)*.015;if(S.mapMode==='structure'){c*=.85+.45*score;if(score<S.specT)c*=.72;}next[i]=clamp(c,0,1);}return next;}
+function stepCA(prevRow,coh){const N=S.size,out=new Uint8Array(N),counts={47:0,30:0,73:0,90:0};for(let i=0;i<N;i++){const L=prevRow[(i-1+N)%N],C=prevRow[i],R=prevRow[(i+1)%N],pattern=(L<<2)|(C<<1)|R;const b=Math.min(S.bucketScores.length-1,Math.floor(i/S.bucketSize)),rule=ruleFromCoherence(coh[i],S.bucketScores[b]);out[i]=RULES[rule][pattern];if(counts[rule]!==undefined)counts[rule]++;}let best=47,max=-1;for(const k of[47,30,73,90])if(counts[k]>max){max=counts[k];best=k;}S.activeRule=best;return out;}
+function step(){const nextC=stepCoherence(S.coh,S.row),nextRow=stepCA(S.row,nextC);S.row=nextRow;S.coh=nextC;computeLocalSpectral(S.row);if(S.history.length>=S.size){S.history.shift();S.cohHistory.shift();}S.history.push(nextRow.slice());S.cohHistory.push(nextC.slice());const detections=S.packetTracker.detectPackets(S.row,S.coh,S.bucketScores,S.bucketSize,S.gen,S.activeRule);S.packetTracker.associateAndUpdate(detections,S.gen);logPacketSpectra(detections);S.currentPackets=detections.slice();S.packetReport=S.packetTracker.getReport();let avg=0;for(let i=0;i<S.size;i++)avg+=nextC[i];avg/=S.size;S.phaseHist.push([avg,S.specScore]);if(S.phaseHist.length>S.phaseMax)S.phaseHist.shift();S.gen++;}
+
+/* ═══ RENDER — ImageData path ═══ */
+let offCanvas=null,offCtx=null,offImgData=null,offPixels=null;
+function ensureOff(w,h){if(!offCanvas||offCanvas.width!==w||offCanvas.height!==h){offCanvas=document.createElement('canvas');offCanvas.width=w;offCanvas.height=h;offCtx=offCanvas.getContext('2d',{alpha:false});offImgData=offCtx.createImageData(w,h);offPixels=offImgData.data;}}
+function renderMain(){
+  const rows=S.history.length,w=S.size,aH=S.size;
+  if(mainCanvas.width!==w||mainCanvas.height!==aH){mainCanvas.width=w;mainCanvas.height=aH;}
+  ensureOff(w,aH);const data=offPixels;
+  for(let y=rows;y<aH;y++){const o=y*w*4;for(let x=0;x<w;x++){const p=o+x*4;data[p]=8;data[p+1]=10;data[p+2]=14;data[p+3]=255;}}
+  for(let y=0;y<rows;y++){const row=S.history[y],coh=S.cohHistory[y];if(!row||!coh)continue;const o=y*w*4;
+    for(let x=0;x<w;x++){const p=o+x*4;
+      if(currentTab==='coh'){const ci=colorIdx(coh[x]);data[p]=COLOR_LUT[ci];data[p+1]=COLOR_LUT[ci+1];data[p+2]=COLOR_LUT[ci+2];data[p+3]=255;}
+      else if(currentTab==='rules'){const b=Math.min(S.bucketScores.length-1,Math.floor(x/S.bucketSize)),rv=RULE_COLOR_MAP[ruleFromCoherence(coh[x],S.bucketScores[b])]||.5,ci=colorIdx(rv);data[p]=COLOR_LUT[ci];data[p+1]=COLOR_LUT[ci+1];data[p+2]=COLOR_LUT[ci+2];data[p+3]=255;}
+      else if(currentTab==='comp'){if(row[x]){const ci=colorIdx(coh[x]);data[p]=COLOR_LUT[ci];data[p+1]=COLOR_LUT[ci+1];data[p+2]=COLOR_LUT[ci+2];}else{data[p]=6;data[p+1]=8;data[p+2]=14;}data[p+3]=255;}
+      else{if(row[x]){const ci=colorIdx(coh[x]);data[p]=COLOR_LUT[ci];data[p+1]=COLOR_LUT[ci+1];data[p+2]=COLOR_LUT[ci+2];}else{data[p]=10;data[p+1]=13;data[p+2]=20;}data[p+3]=255;}
+    }
+  }
+  if(rows>1&&rows<S.size){const sy=(rows-1)*w*4;for(let x=0;x<w;x++){const p=sy+x*4;data[p]=Math.min(255,data[p]+30);data[p+1]=Math.min(255,data[p+1]+30);data[p+2]=Math.min(255,data[p+2]+30);}}
+  const markerY=Math.max(0,rows-1);
+  if(S.currentPackets&&S.currentPackets.length){for(const det of S.currentPackets){const cx=Math.round(det.centroid)%w;for(let dx=-1;dx<=1;dx++){const x=(cx+dx+w)%w;const p=(markerY*w+x)*4;data[p]=255;data[p+1]=220;data[p+2]=120;data[p+3]=255;}const l=(Math.round(det.centroid-det.width/2)+w)%w,r=(Math.round(det.centroid+det.width/2)+w)%w;for(const x of [l,r]){const p=(markerY*w+x)*4;data[p]=120;data[p+1]=240;data[p+2]=255;data[p+3]=255;}}}
+  offCtx.putImageData(offImgData,0,0);ctx.drawImage(offCanvas,0,0);applyTransform();
+}
+function resizeAC(c){const r=c.getBoundingClientRect(),d=Math.max(1,window.devicePixelRatio||1);c.width=Math.max(1,Math.floor(r.width*d));c.height=Math.max(1,Math.floor(r.height*d));return d;}
+function renderFFT(){resizeAC(fftCanvas);const W=fftCanvas.width,H=fftCanvas.height;fctx.setTransform(1,0,0,1,0,0);fctx.clearRect(0,0,W,H);fctx.fillStyle='rgba(0,0,0,.15)';fctx.fillRect(0,0,W,H);const m=S._fft;if(!m||!m.re)return;const N=m.re.length,half=N>>1,mags=new Float32Array(half);let mx=1e-6;for(let k=1;k<half;k++){mags[k]=Math.hypot(m.re[k],m.im[k]);if(mags[k]>mx)mx=mags[k];}const pL=36,pR=10,pT=12,pB=20,pW=W-pL-pR,pH=H-pT-pB;fctx.strokeStyle='rgba(255,255,255,.12)';fctx.lineWidth=1;fctx.beginPath();fctx.moveTo(pL,pT);fctx.lineTo(pL,pT+pH);fctx.lineTo(pL+pW,pT+pH);fctx.stroke();fctx.strokeStyle='rgba(255,255,255,.04)';for(let i=1;i<4;i++){const y=pT+pH*i/4;fctx.beginPath();fctx.moveTo(pL,y);fctx.lineTo(pL+pW,y);fctx.stroke();}fctx.strokeStyle='rgba(62,219,201,.9)';fctx.lineWidth=2;fctx.beginPath();for(let k=1;k<half;k++){const x=pL+(k/(half-1))*pW,y=pT+pH*(1-mags[k]/mx);if(k===1)fctx.moveTo(x,y);else fctx.lineTo(x,y);}fctx.stroke();fctx.lineTo(pL+pW,pT+pH);fctx.lineTo(pL+(1/(half-1))*pW,pT+pH);fctx.closePath();fctx.fillStyle='rgba(62,219,201,.06)';fctx.fill();const px=pL+(m.peakIdx/(half-1))*pW;fctx.strokeStyle='rgba(94,157,255,.8)';fctx.lineWidth=1;fctx.setLineDash([4,3]);fctx.beginPath();fctx.moveTo(px,pT);fctx.lineTo(px,pT+pH);fctx.stroke();fctx.setLineDash([]);const py=pT+pH*(1-mags[m.peakIdx]/mx);fctx.fillStyle='rgba(240,169,68,.9)';fctx.beginPath();fctx.arc(px,py,4,0,Math.PI*2);fctx.fill();ui.fftMeta.innerHTML=`local probe \u2022 N=${N}<br/>peak=${m.peakRatio.toFixed(3)} \u2022 flat=${m.flatness.toFixed(3)} \u2022 score=${m.score.toFixed(3)}`;}
+function renderPhase(){resizeAC(phaseCanvas);const W=phaseCanvas.width,H=phaseCanvas.height;pctx.setTransform(1,0,0,1,0,0);pctx.clearRect(0,0,W,H);pctx.fillStyle='rgba(0,0,0,.15)';pctx.fillRect(0,0,W,H);const pad=20,pW=W-2*pad,pH=H-2*pad;pctx.strokeStyle='rgba(255,255,255,.06)';pctx.lineWidth=1;for(let i=0;i<=4;i++){const x=pad+pW*i/4,y=pad+pH*i/4;pctx.beginPath();pctx.moveTo(x,pad);pctx.lineTo(x,pad+pH);pctx.stroke();pctx.beginPath();pctx.moveTo(pad,y);pctx.lineTo(pad+pW,y);pctx.stroke();}pctx.strokeStyle='rgba(255,255,255,.12)';pctx.beginPath();pctx.moveTo(pad,pad);pctx.lineTo(pad,pad+pH);pctx.lineTo(pad+pW,pad+pH);pctx.stroke();const hist=S.phaseHist;if(hist.length<2)return;for(let i=1;i<hist.length;i++){const alpha=.15+.85*(i/hist.length);pctx.strokeStyle=`rgba(62,219,201,${(alpha*.7).toFixed(2)})`;pctx.lineWidth=1+alpha;pctx.beginPath();const p0=hist[i-1],p1=hist[i];pctx.moveTo(pad+p0[0]*pW,pad+pH-p0[1]*pH);pctx.lineTo(pad+p1[0]*pW,pad+pH-p1[1]*pH);pctx.stroke();}const last=hist[hist.length-1];pctx.fillStyle='rgba(240,169,68,.95)';pctx.beginPath();pctx.arc(pad+last[0]*pW,pad+pH-last[1]*pH,5,0,Math.PI*2);pctx.fill();pctx.fillStyle='rgba(240,169,68,.15)';pctx.beginPath();pctx.arc(pad+last[0]*pW,pad+pH-last[1]*pH,12,0,Math.PI*2);pctx.fill();ui.phaseMeta.innerHTML=`x=avg coherence \u2022 y=spectral score<br/>samples=${hist.length}`;}
+function updateStats(){let pop=0,avg=0;for(let i=0;i<S.size;i++){pop+=S.row[i];avg+=S.coh[i];}avg/=S.size;ui.genV.textContent=String(S.gen);ui.popV.textContent=String(pop);ui.cdV.textContent=(pop/S.size).toFixed(2);ui.avgCV.textContent=avg.toFixed(3);ui.ruleV.textContent=String(S.activeRule);ui.specScoreV.textContent=S.specScore.toFixed(3);ui.statusV.textContent=S.status;const pr=S.packetReport||{nPackets:0,meanLifetime:0,meanAbsSpeed:0,meanWidth:0,meanScore:0,activeDetections:(S.currentPackets||[]).length,spectrumSamples:0,meanK:0,meanLambda:0,meanFlatness:0,meanPeakRatio:0};ui.pktActiveV.textContent=String(pr.activeDetections||0);ui.pktCountV.textContent=String(pr.nPackets||0);ui.pktLifeV.textContent=(pr.meanLifetime||0).toFixed(1);ui.pktSpeedV.textContent=(pr.meanAbsSpeed||0).toFixed(3);ui.pktWidthV.textContent=(pr.meanWidth||0).toFixed(1);ui.pktScoreV.textContent=(pr.meanScore||0).toFixed(3);const dets=S.currentPackets||[];ui.pktNote.textContent=dets.length?dets.slice(0,3).map(d=>`#${d.trackId||'?'} x=${d.centroid.toFixed(1)} w=${d.width}`).join(' • '):'no active packet detections';if(ui.specSource){ui.specSourceV.textContent=S.specSource;}ui.specSamplesV.textContent=String(pr.spectrumSamples||0);ui.specKMeanV.textContent=(pr.meanK||0).toFixed(2);ui.specLambdaV.textContent=(pr.meanLambda||0).toFixed(2);ui.specFlatV.textContent=(pr.meanFlatness||0).toFixed(3);ui.specPeakV.textContent=(pr.meanPeakRatio||0).toFixed(3);const act=S.packetTracker?S.packetTracker.active.filter(t=>(t.spectrum||[]).length>0):[];ui.specNote.textContent=act.length?act.slice(0,3).map(t=>`#${t.id} k≈${mean((t.spectrum||[]).map(s=>s.kPeak)).toFixed(1)} λ≈${mean((t.spectrum||[]).map(s=>s.lambdaCells)).toFixed(1)}`).join(' • '):'waiting for tracked spectra';}
+function render(){renderMain();if(currentTab==='phase'){fftPanel.style.display='none';phasePanel.style.display='block';renderPhase();}else{phasePanel.style.display='none';fftPanel.style.display='block';renderFFT();}updateStats();}
+
+/* ═══ 3D TORUS — Three.js PiP ═══
+   x-axis of texture = spatial (wraps around tube circumference)
+   y-axis of texture = time/generations (wraps around ring circumference)
+   Mouse drag orbits camera. Scroll zooms. */
+const torusCanvas=el('torusCanvas'),torusWrap=el('torusWrap');
+let torusVisible=true;
+let tScene,tCamera,tRenderer,tMesh,tTexCanvas,tTexCtx,tTex;
+const TTEX=256,TR=2.0,Tr=0.8;
+const tOrbit={dragging:false,lx:0,ly:0,rotX:-0.3,rotY:0.4};
+
+function initTorus(){
+  tScene=new THREE.Scene();
+  tCamera=new THREE.PerspectiveCamera(45,1,0.1,100);
+  tCamera.position.set(0,2,5);tCamera.lookAt(0,0,0);
+  tRenderer=new THREE.WebGLRenderer({canvas:torusCanvas,antialias:true,alpha:true});
+  tRenderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+  tRenderer.setClearColor(0x000000,0);
+
+  const dir=new THREE.DirectionalLight(0xffffff,0.8);dir.position.set(3,5,4);tScene.add(dir);
+  tScene.add(new THREE.AmbientLight(0x405060,0.6));
+  const acc=new THREE.PointLight(0x3edbc9,0.4,20);acc.position.set(-3,-2,2);tScene.add(acc);
+
+  tTexCanvas=document.createElement('canvas');tTexCanvas.width=TTEX;tTexCanvas.height=TTEX;
+  tTexCtx=tTexCanvas.getContext('2d');tTexCtx.fillStyle='#080a10';tTexCtx.fillRect(0,0,TTEX,TTEX);
+  tTex=new THREE.CanvasTexture(tTexCanvas);
+  tTex.wrapS=THREE.RepeatWrapping;tTex.wrapT=THREE.RepeatWrapping;
+  tTex.magFilter=THREE.NearestFilter;tTex.minFilter=THREE.LinearFilter;
+
+  const geo=new THREE.TorusGeometry(TR,Tr,64,128);
+  const mat=new THREE.MeshStandardMaterial({map:tTex,roughness:0.55,metalness:0.15,emissiveMap:tTex,emissive:new THREE.Color(0x111111),emissiveIntensity:0.5});
+  tMesh=new THREE.Mesh(geo,mat);tScene.add(tMesh);
+
+  torusCanvas.addEventListener('mousedown',e=>{e.stopPropagation();tOrbit.dragging=true;tOrbit.lx=e.clientX;tOrbit.ly=e.clientY;});
+  torusCanvas.addEventListener('mousemove',e=>{if(!tOrbit.dragging)return;e.stopPropagation();tOrbit.rotY+=(e.clientX-tOrbit.lx)*.008;tOrbit.rotX+=(e.clientY-tOrbit.ly)*.008;tOrbit.rotX=clamp(tOrbit.rotX,-Math.PI/2,Math.PI/2);tOrbit.lx=e.clientX;tOrbit.ly=e.clientY;});
+  torusCanvas.addEventListener('mouseup',()=>tOrbit.dragging=false);
+  torusCanvas.addEventListener('mouseleave',()=>tOrbit.dragging=false);
+  torusCanvas.addEventListener('wheel',e=>{e.preventDefault();e.stopPropagation();const d=tCamera.position.length();const nd=clamp(d+e.deltaY*.005,2.5,12);tCamera.position.normalize().multiplyScalar(nd);},{passive:false});
+}
+
+function updateTorusTex(){
+  const W=TTEX,H=TTEX,imgData=tTexCtx.createImageData(W,H),data=imgData.data;
+  const rows=S.history.length,N=S.size;
+  for(let ty=0;ty<H;ty++){
+    const hi=Math.min(rows-1,Math.floor((ty/H)*rows));
+    const row=S.history[hi],coh=S.cohHistory[hi];
+    if(!row||!coh)continue;
+    for(let tx=0;tx<W;tx++){
+      const sx=Math.floor((tx/W)*N),p=(ty*W+tx)*4;
+      if(row[sx]){const ci=colorIdx(coh[sx]);data[p]=COLOR_LUT[ci];data[p+1]=COLOR_LUT[ci+1];data[p+2]=COLOR_LUT[ci+2];}
+      else{data[p]=8;data[p+1]=10;data[p+2]=16;}
+      data[p+3]=255;
+    }
+  }
+  tTexCtx.putImageData(imgData,0,0);tTex.needsUpdate=true;
+}
+
+function renderTorus(){
+  if(!torusVisible||!tRenderer)return;
+  const rect=torusCanvas.getBoundingClientRect();
+  if(rect.width<10||rect.height<10)return;
+  tRenderer.setSize(rect.width,rect.height,false);
+  tCamera.aspect=rect.width/rect.height;tCamera.updateProjectionMatrix();
+  const d=tCamera.position.length();
+  tCamera.position.set(d*Math.sin(tOrbit.rotY)*Math.cos(tOrbit.rotX),d*Math.sin(tOrbit.rotX),d*Math.cos(tOrbit.rotY)*Math.cos(tOrbit.rotX));
+  tCamera.lookAt(0,0,0);
+  tMesh.rotation.y+=0.003;
+  updateTorusTex();tRenderer.render(tScene,tCamera);
+}
+
+el('torusToggle').addEventListener('click',()=>{torusVisible=!torusVisible;el('torusToggle').textContent=torusVisible?'Hide':'Show';torusWrap.style.display=torusVisible?'flex':'none';});
+
+/* ═══ FFT DECOMPOSITION POPUP ═══ */
+el('fftDecomp').addEventListener('click',()=>{
+  const m=S._fft;if(!m||!m.re)return;
+  const N=m.re.length,half=N>>1;
+  // Build frequency decomposition table
+  const bins=[];
+  let totalPower=0;
+  for(let k=1;k<half;k++){
+    const mag=Math.hypot(m.re[k],m.im[k]);
+    const power=mag*mag;
+    const phase=Math.atan2(m.im[k],m.re[k]);
+    totalPower+=power;
+    bins.push({k,freq:k,mag,power,phase});
+  }
+  // Sort by power descending
+  bins.sort((a,b)=>b.power-a.power);
+
+  // Build the HTML content
+  let html=`<!doctype html><html><head><meta charset="utf-8"><title>FFT Decomposition — Gen ${S.gen}</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0a0e14;color:#d4dff0;font-family:'IBM Plex Mono',ui-monospace,Consolas,monospace;padding:20px;font-size:13px}
+h1{font-size:16px;color:#3edbc9;margin-bottom:4px}
+.sub{color:#6a7d9e;font-size:11px;margin-bottom:16px}
+.summary{background:#0d1424;border:1px solid rgba(255,255,255,.06);border-radius:8px;padding:12px;margin-bottom:16px}
+.summary .row{display:flex;justify-content:space-between;padding:3px 0}
+.summary .lbl{color:#8899b0}.summary .val{color:#3edbc9;font-weight:600}
+table{width:100%;border-collapse:collapse;margin-bottom:16px}
+th{text-align:left;padding:6px 8px;border-bottom:2px solid rgba(255,255,255,.1);color:#8899b0;font-size:11px;text-transform:uppercase;letter-spacing:.5px}
+td{padding:5px 8px;border-bottom:1px solid rgba(255,255,255,.04)}
+tr:hover td{background:rgba(62,219,201,.04)}
+.bar{display:inline-block;height:10px;border-radius:2px;vertical-align:middle;margin-right:6px}
+.peak{color:#f0a944;font-weight:700}
+.formula{background:#0d1424;border:1px solid rgba(255,255,255,.06);border-radius:8px;padding:12px;margin-top:12px;line-height:1.8}
+.formula .term{color:#3edbc9}.formula .plus{color:#6a7d9e;margin:0 4px}
+.note{color:#6a7d9e;font-size:11px;margin-top:12px}
+</style></head><body>
+<h1>Fourier Spectrum Decomposition</h1>
+<div class="sub">Generation ${S.gen} &middot; Grid size ${S.size} &middot; FFT window N=${N} &middot; ${half-1} frequency bins</div>
+
+<div class="summary">
+<div class="row"><span class="lbl">Total spectral power</span><span class="val">${totalPower.toFixed(4)}</span></div>
+<div class="row"><span class="lbl">Peak bin</span><span class="val">k=${m.peakIdx} (${(m.peakIdx/N*100).toFixed(1)} cycles/window)</span></div>
+<div class="row"><span class="lbl">Peak ratio</span><span class="val">${m.peakRatio.toFixed(4)}</span></div>
+<div class="row"><span class="lbl">Spectral flatness</span><span class="val">${m.flatness.toFixed(4)}</span></div>
+<div class="row"><span class="lbl">Composite score</span><span class="val">${m.score.toFixed(4)}</span></div>
+</div>
+
+<table><thead><tr><th>#</th><th>Bin k</th><th>Freq (cycles/window)</th><th>Magnitude</th><th>Power</th><th>% Total</th><th>Phase (rad)</th><th>Power distribution</th></tr></thead><tbody>`;
+
+  for(let i=0;i<bins.length;i++){
+    const b=bins[i];
+    const pct=totalPower>0?(b.power/totalPower*100):0;
+    const barW=Math.max(1,Math.round(pct*2.5));
+    const isPeak=b.k===m.peakIdx;
+    const cls=isPeak?' class="peak"':'';
+    html+=`<tr${cls}><td>${i+1}</td><td>${b.k}</td><td>${(b.k/N).toFixed(4)}</td>`;
+    html+=`<td>${b.mag.toFixed(4)}</td><td>${b.power.toFixed(4)}</td>`;
+    html+=`<td>${pct.toFixed(1)}%</td><td>${b.phase.toFixed(4)}</td>`;
+    html+=`<td><span class="bar" style="width:${barW}px;background:${isPeak?'#f0a944':'#3edbc9'}"></span>${pct.toFixed(1)}%</td></tr>`;
+  }
+
+  html+=`</tbody></table>`;
+
+  // Reconstruction formula — top 5 components
+  const top5=bins.slice(0,Math.min(5,bins.length));
+  html+=`<div class="formula"><strong>Signal reconstruction (top ${top5.length} components):</strong><br/>f(x) = `;
+  top5.forEach((b,i)=>{
+    if(i>0)html+=`<span class="plus">+</span>`;
+    html+=`<span class="term">${b.mag.toFixed(3)} &middot; cos(2&pi; &middot; ${b.k}x/${N} ${b.phase>=0?'+':''}${b.phase.toFixed(3)})</span>`;
+  });
+  html+=`</div>`;
+  html+=`<div class="note">Bins sorted by power (descending). Frequency in cycles per FFT window (${N} cells). Phase relative to window center after Hann windowing and DC removal.</div>`;
+  html+=`</body></html>`;
+
+  const w=window.open('','_blank','width=860,height=640,scrollbars=yes');
+  if(w){w.document.write(html);w.document.close();}
+});
+
+/* ═══ RESET ═══ */
+function reset(){try{S.status='OK';S.seed=freshSeed();S.rng=mulberry32(S.seed);S.gen=0;S.size=parseInt(ui.size.value,10);S.density=parseFloat(ui.density.value);S.initC=parseFloat(ui.initC.value);S.growth=parseFloat(ui.g.value);S.decay=parseFloat(ui.d.value);S.diffusion=parseFloat(ui.diff.value);S.specT=parseFloat(ui.specT.value);S.speed=parseInt(ui.speed.value,10);S.row=new Uint8Array(S.size);S.coh=new Float32Array(S.size);for(let i=0;i<S.size;i++){S.row[i]=S.rng()<S.density?1:0;S.coh[i]=clamp(S.initC+(S.rng()-.5)*.05,0,1);}S.history=[S.row.slice()];S.cohHistory=[S.coh.slice()];S.phaseHist=[];S.packetTracker=new PacketTracker1D(S.size);S.currentPackets=[];S.packetReport=null;offCanvas=null;computeLocalSpectral(S.row);const detections=S.packetTracker.detectPackets(S.row,S.coh,S.bucketScores,S.bucketSize,S.gen,S.activeRule);S.packetTracker.associateAndUpdate(detections,S.gen);logPacketSpectra(detections);S.currentPackets=detections.slice();S.packetReport=S.packetTracker.getReport();buildLegend();fitView();render();}catch(err){S.status='ERR';console.error(err);}}
+
+/* ═══ LOOP ═══ */
+let lastT=performance.now(),playAcc=0,frameCount=0,fpsTime=0;
+function loop(now){
+  const dt=Math.min(.1,Math.max(0,(now-lastT)/1000));lastT=now;
+  frameCount++;fpsTime+=dt;if(fpsTime>=1){const f=frameCount+' FPS';ui.fpsDisplay.textContent=f;ui.fpsBar.textContent=f;frameCount=0;fpsTime=0;}
+  if(S.playing){playAcc+=dt*S.speed;let steps=Math.floor(playAcc);if(steps>0){playAcc-=steps;if(steps>20){steps=20;playAcc=0;}try{for(let i=0;i<steps;i++)step();S.status='OK';}catch(err){S.status='ERR';S.playing=false;ui.playBtn.textContent='Play';console.error(err);}}}else{playAcc=0;}
+  render();renderTorus();requestAnimationFrame(loop);
+}
+
+/* ═══ EVENTS ═══ */
+ui.playBtn.addEventListener('click',()=>{S.playing=!S.playing;ui.playBtn.textContent=S.playing?'Pause':'Play';ui.playBtn.classList.toggle('primary',S.playing);});
+ui.stepBtn.addEventListener('click',()=>{try{step();S.status='OK';}catch(err){S.status='ERR';console.error(err);}render();});
+ui.resetBtn.addEventListener('click',reset);
+ui.tabs.addEventListener('click',e=>{const b=e.target.closest('button[data-tab]');if(!b)return;currentTab=b.dataset.tab;[...ui.tabs.querySelectorAll('.tab')].forEach(t=>t.classList.toggle('on',t===b));render();});
+ui.mapMode.addEventListener('click',e=>{const b=e.target.closest('button[data-mode]');if(!b)return;S.mapMode=b.dataset.mode;[...ui.mapMode.querySelectorAll('button')].forEach(x=>x.classList.toggle('on',x===b));render();});
+ui.mapPreset.addEventListener('click',e=>{const b=e.target.closest('button[data-preset]');if(!b)return;S.preset=b.dataset.preset;[...ui.mapPreset.querySelectorAll('button')].forEach(x=>x.classList.toggle('on',x===b));buildLegend();render();});
+
+/* ═══ BOOT ═══ */
+initTorus();reset();requestAnimationFrame(loop);
+})();
+</script>
+</body></html>

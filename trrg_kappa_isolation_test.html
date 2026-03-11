@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TRR-G κ Isolation Test — Mismatch Diagnostics</title>
+<style>
+:root {
+  --bg: #0a0a0f;
+  --panel: rgba(15,18,25,0.97);
+  --text: #e6eef7;
+  --muted: #7a8a9a;
+  --accent: #4ecdc4;
+  --accent2: #ff6b6b;
+  --accent3: #f7c948;
+  --accent4: #a8e6cf;
+  --border: rgba(255,255,255,0.08);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: 'Courier New', monospace; font-size: 13px; }
+
+.title-bar {
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 16px;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+.title-bar h1 { font-size: 15px; color: var(--accent); letter-spacing: 0.05em; }
+.title-bar span { font-size: 11px; color: var(--muted); }
+
+.main-layout {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  height: calc(100vh - 42px);
+}
+
+.controls {
+  background: var(--panel);
+  border-right: 1px solid var(--border);
+  padding: 12px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.section-label {
+  font-size: 10px;
+  color: var(--accent);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 4px;
+}
+
+.row {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.row label { font-size: 11px; color: var(--muted); display: flex; justify-content: space-between; }
+.row label span { color: var(--text); }
+input[type=range] {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 5px;
+  border-radius: 3px;
+  background: #1a2030;
+  outline: none;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+}
+
+.btn {
+  background: rgba(78,205,196,0.12);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  padding: 7px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  transition: background 0.2s;
+  width: 100%;
+  text-align: center;
+}
+.btn:hover { background: rgba(78,205,196,0.25); }
+.btn.active { background: rgba(78,205,196,0.35); }
+
+.diagnostic-box {
+  background: rgba(0,0,0,0.4);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 8px;
+  font-size: 11px;
+  line-height: 1.7;
+}
+.diagnostic-box .label { color: var(--muted); }
+.diagnostic-box .value { color: var(--text); float: right; }
+.diagnostic-box .verdict { color: var(--accent3); font-weight: bold; }
+.diagnostic-box .bad { color: var(--accent2); }
+.diagnostic-box .good { color: var(--accent4); }
+
+.viewport {
+  display: grid;
+  grid-template-rows: 1fr 1fr;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  background: var(--border);
+  padding: 1px;
+}
+
+.panel {
+  background: var(--bg);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+.panel-title {
+  position: absolute;
+  top: 6px; left: 8px;
+  font-size: 10px;
+  color: var(--muted);
+  z-index: 10;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+.panel-title .sub { color: var(--accent); font-size: 9px; display: block; margin-top: 2px; }
+canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.info-bar {
+  grid-column: 1 / -1;
+  background: var(--panel);
+  border-top: 1px solid var(--border);
+  padding: 6px 16px;
+  display: flex;
+  gap: 24px;
+  align-items: center;
+  font-size: 11px;
+  color: var(--muted);
+  flex-wrap: wrap;
+}
+.info-bar span { color: var(--text); }
+.info-eq { color: var(--accent); font-style: italic; }
+</style>
+</head>
+<body>
+
+<div class="title-bar">
+  <h1>TRR-G κ Isolation Test</h1>
+  <span>Diagnosing 28× vs predicted 4× mismatch | Point source ∇²κ = 4πGρ/c²</span>
+</div>
+
+<div class="main-layout">
+
+  <!-- Controls -->
+  <div class="controls">
+
+    <div class="section-label">Source Parameters</div>
+    <div class="row">
+      <label>Source amplitude M <span id="lbl-mass">1.0</span></label>
+      <input type="range" id="sl-mass" min="0.1" max="5" step="0.1" value="1.0">
+    </div>
+    <div class="row">
+      <label>Source width σ (grid) <span id="lbl-sigma">3.0</span></label>
+      <input type="range" id="sl-sigma" min="1" max="10" step="0.5" value="3.0">
+    </div>
+
+    <div class="section-label">Coherence Length</div>
+    <div class="row">
+      <label>L₀ (grid units) <span id="lbl-L0">∞</span></label>
+      <input type="range" id="sl-L0" min="0" max="1" step="0.01" value="0">
+      <small style="color:var(--muted);font-size:10px">0 = no decay (GR limit)</small>
+    </div>
+
+    <div class="section-label">Grid</div>
+    <div class="row">
+      <label>Grid N <span id="lbl-N">128</span></label>
+      <input type="range" id="sl-N" min="64" max="256" step="64" value="128">
+    </div>
+
+    <div class="section-label">Measurement Probe</div>
+    <div class="row">
+      <label>Sample radius r₁ <span id="lbl-r1">20</span></label>
+      <input type="range" id="sl-r1" min="5" max="60" step="1" value="20">
+    </div>
+    <div class="row">
+      <label>Sample radius r₂ <span id="lbl-r2">40</span></label>
+      <input type="range" id="sl-r2" min="10" max="100" step="1" value="40">
+    </div>
+
+    <button class="btn" id="btn-run" onclick="runSolver()">▶ RUN ISOLATION TEST</button>
+    <button class="btn" id="btn-reset" onclick="resetAll()">↺ RESET</button>
+
+    <div class="section-label">Diagnostic Results</div>
+    <div class="diagnostic-box" id="diag-box">
+      <div><span class="label">Status:</span> <span class="value">— awaiting run —</span></div>
+    </div>
+
+    <div class="section-label">Candidate Analysis</div>
+    <div class="diagnostic-box" id="candidate-box">
+      <div style="color:var(--muted);font-size:10px;line-height:1.6">
+        Run the test to identify the dominant error source among:<br>
+        <br>
+        A: 2D boundary reflection<br>
+        B: κ time-averaging error<br>
+        C: Coefficient error (missing 4π)<br>
+        D: 2D vs 3D Green's function
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Viewport: 4 panels -->
+  <div style="display:flex;flex-direction:column;overflow:hidden;">
+    <div class="viewport" style="flex:1;">
+
+      <!-- Panel 1: 2D numerical κ field -->
+      <div class="panel" id="panel-2d-num">
+        <div class="panel-title">2D NUMERICAL κ
+          <span class="sub">∇²κ = 4πGρ/c² (finite diff)</span>
+        </div>
+        <canvas id="canvas-2d-num"></canvas>
+      </div>
+
+      <!-- Panel 2: 2D analytic κ (ln(r) Green's function) -->
+      <div class="panel" id="panel-2d-ana">
+        <div class="panel-title">2D ANALYTIC κ
+          <span class="sub">κ ~ -M·ln(r)/2π (2D Green's fn)</span>
+        </div>
+        <canvas id="canvas-2d-ana"></canvas>
+      </div>
+
+      <!-- Panel 3: 3D analytic κ (1/r Green's function) -->
+      <div class="panel" id="panel-3d-ana">
+        <div class="panel-title">3D ANALYTIC κ
+          <span class="sub">κ ~ M/4πr (3D Green's fn)</span>
+        </div>
+        <canvas id="canvas-3d-ana"></canvas>
+      </div>
+
+      <!-- Panel 4: Radial profile comparison -->
+      <div class="panel" id="panel-radial">
+        <div class="panel-title">RADIAL PROFILE κ(r)
+          <span class="sub">2D-num | 2D-ana | 3D-ana | TRR-G predicted</span>
+        </div>
+        <canvas id="canvas-radial"></canvas>
+      </div>
+
+    </div>
+
+    <div class="info-bar">
+      <span class="info-eq">∇²κ = 4πGρ/c²</span>
+      <span>|</span>
+      <span>2D Green: <span id="info-2d-green">κ ~ -M ln(r)/2π</span></span>
+      <span>|</span>
+      <span>3D Green: <span id="info-3d-green">κ ~ M/4πr</span></span>
+      <span>|</span>
+      <span>Ratio κ(r₁)/κ(r₂): <span id="info-ratio-num">—</span> (2D num) | <span id="info-ratio-3d">—</span> (3D ana) | predicted: <span id="info-ratio-pred">—</span></span>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ─── State ─────────────────────────────────────────────────────────────────
+const state = {
+  mass: 1.0,
+  sigma: 3.0,
+  L0_inv: 0,   // 0 = infinite coherence length
+  N: 128,
+  r1: 20,
+  r2: 40,
+};
+
+let kappa2d = null;
+let kappa2d_ana = null;
+let kappa3d_ana = null;
+let solved = false;
+
+// ─── Slider bindings ───────────────────────────────────────────────────────
+function bind(sliderId, lblId, key, fmt) {
+  const sl = document.getElementById(sliderId);
+  const lbl = document.getElementById(lblId);
+  if (!sl || !lbl) { console.error('Missing element:', sliderId, lblId); return; }
+  sl.addEventListener('input', () => {
+    state[key] = parseFloat(sl.value);
+    lbl.textContent = fmt ? fmt(state[key]) : state[key];
+    if (solved) runSolver();
+  });
+}
+bind('sl-mass',  'lbl-mass',  'mass');
+bind('sl-sigma', 'lbl-sigma', 'sigma');
+bind('sl-L0',    'lbl-L0',    'L0_inv', v => v === 0 ? '∞' : (1/v).toFixed(1));
+bind('sl-N',     'lbl-N',     'N',      v => Math.round(v));
+bind('sl-r1',    'lbl-r1',    'r1');
+bind('sl-r2',    'lbl-r2',    'r2');
+
+// ─── Core Solver: 2D Poisson via Gauss-Seidel ─────────────────────────────
+function solvePoisson2D(N, sigma, mass, L0_inv) {
+  // Build source term: Gaussian density profile
+  // ∇²κ = 4π * source (normalized G/c² = 1 for this diagnostic)
+  const kappa = new Float64Array(N * N);
+  const rho = new Float64Array(N * N);
+  const cx = N / 2, cy = N / 2;
+  const norm_factor = 4 * Math.PI;   // 4πG/c² coefficient — THIS IS WHAT WE'RE TESTING
+
+  // Build density: Gaussian point mass
+  let total_rho = 0;
+  for (let j = 0; j < N; j++) {
+    for (let i = 0; i < N; i++) {
+      const dx = i - cx, dy = j - cy;
+      const r2 = dx*dx + dy*dy;
+      rho[j*N+i] = mass * Math.exp(-r2 / (2*sigma*sigma));
+      total_rho += rho[j*N+i];
+    }
+  }
+  // Normalize so total mass = mass
+  for (let idx = 0; idx < N*N; idx++) rho[idx] *= mass / total_rho;
+
+  // Gauss-Seidel iterations: ∇²κ = norm_factor * rho
+  // (κ[i+1,j] + κ[i-1,j] + κ[i,j+1] + κ[i,j-1] - 4κ[i,j])/h² = norm_factor * rho
+  // with h=1, periodic → Dirichlet BC: κ = 0 at boundary
+  const iters = 3000;
+  const omega = 1.85; // SOR relaxation
+  for (let it = 0; it < iters; it++) {
+    for (let j = 1; j < N-1; j++) {
+      for (let i = 1; i < N-1; i++) {
+        const idx = j*N+i;
+        const kNew = 0.25 * (
+          kappa[j*N+(i+1)] + kappa[j*N+(i-1)] +
+          kappa[(j+1)*N+i] + kappa[(j-1)*N+i] -
+          norm_factor * rho[idx]
+        );
+        kappa[idx] = (1-omega)*kappa[idx] + omega*kNew;
+      }
+    }
+  }
+
+  // Apply coherence decay if L0_inv > 0
+  if (L0_inv > 0) {
+    for (let j = 0; j < N; j++) {
+      for (let i = 0; i < N; i++) {
+        const dx = i - cx, dy = j - cy;
+        const r = Math.sqrt(dx*dx + dy*dy);
+        kappa[j*N+i] *= Math.exp(-L0_inv * r);
+      }
+    }
+  }
+
+  return kappa;
+}
+
+// ─── 2D Analytic Green's Function ─────────────────────────────────────────
+// In 2D: ∇²κ = 4π*ρ → κ(r) = -2*M*ln(r)/(2π) = -M*ln(r)/π (for point source)
+// We use the Gaussian-smeared version
+function analytic2D(N, sigma, mass, L0_inv) {
+  const kappa = new Float64Array(N * N);
+  const cx = N/2, cy = N/2;
+  const epsilon = sigma; // regularize at small r
+  for (let j = 0; j < N; j++) {
+    for (let i = 0; i < N; i++) {
+      const dx = i - cx, dy = j - cy;
+      const r = Math.sqrt(dx*dx + dy*dy);
+      const r_eff = Math.sqrt(r*r + epsilon*epsilon);
+      // 2D Green's function: κ ~ -M * ln(r) / π (unnormalized for comparison)
+      kappa[j*N+i] = -mass * Math.log(r_eff) / Math.PI;
+      if (L0_inv > 0) kappa[j*N+i] *= Math.exp(-L0_inv * r);
+    }
+  }
+  return kappa;
+}
+
+// ─── 3D Analytic Green's Function ─────────────────────────────────────────
+// In 3D: ∇²κ = 4πGρ/c² → κ(r) = M/r (point source, G/c²=1)
+// Gaussian-smeared: κ(r) = M * erf(r/σ√2) / r
+function analytic3D(N, sigma, mass, L0_inv) {
+  const kappa = new Float64Array(N * N);
+  const cx = N/2, cy = N/2;
+  const epsilon = 0.5;
+  for (let j = 0; j < N; j++) {
+    for (let i = 0; i < N; i++) {
+      const dx = i - cx, dy = j - cy;
+      const r = Math.sqrt(dx*dx + dy*dy);
+      const r_eff = Math.max(r, epsilon);
+      // 3D Newtonian: κ ~ M/r (this is what TRR-G predicts)
+      const erf_val = erf(r_eff / (sigma * Math.SQRT2));
+      kappa[j*N+i] = mass * erf_val / r_eff;
+      if (L0_inv > 0) kappa[j*N+i] *= Math.exp(-L0_inv * r);
+    }
+  }
+  return kappa;
+}
+
+// Simple erf approximation
+function erf(x) {
+  const t = 1/(1 + 0.3275911*x);
+  const poly = t*(0.254829592 + t*(-0.284496736 + t*(1.421413741 + t*(-1.453152027 + t*1.061405429))));
+  return 1 - poly * Math.exp(-x*x);
+}
+
+// ─── Sample κ along radial profile ────────────────────────────────────────
+function sampleRadial(kappa, N, r) {
+  const cx = N/2, cy = N/2;
+  const samples = 36;
+  let total = 0, count = 0;
+  for (let a = 0; a < samples; a++) {
+    const angle = (2*Math.PI * a) / samples;
+    const x = Math.round(cx + r * Math.cos(angle));
+    const y = Math.round(cy + r * Math.sin(angle));
+    if (x>=0 && x<N && y>=0 && y<N) {
+      total += kappa[y*N+x];
+      count++;
+    }
+  }
+  return count > 0 ? total/count : 0;
+}
+
+// ─── Main runner ───────────────────────────────────────────────────────────
+function runSolver() {
+  const N = Math.round(state.N);
+  const sigma = state.sigma;
+  const mass = state.mass;
+  const L0_inv = state.L0_inv;
+  const r1 = state.r1, r2 = state.r2;
+
+  document.getElementById('btn-run').textContent = '⟳ COMPUTING...';
+
+  setTimeout(() => {
+    kappa2d = solvePoisson2D(N, sigma, mass, L0_inv);
+    kappa2d_ana = analytic2D(N, sigma, mass, L0_inv);
+    kappa3d_ana = analytic3D(N, sigma, mass, L0_inv);
+
+    // Measure ratios
+    const k2d_r1 = sampleRadial(kappa2d, N, r1);
+    const k2d_r2 = sampleRadial(kappa2d, N, r2);
+    const k2da_r1 = sampleRadial(kappa2d_ana, N, r1);
+    const k2da_r2 = sampleRadial(kappa2d_ana, N, r2);
+    const k3d_r1 = sampleRadial(kappa3d_ana, N, r1);
+    const k3d_r2 = sampleRadial(kappa3d_ana, N, r2);
+
+    // Predicted ratio for 3D: κ ~ 1/r → ratio = r2/r1
+    const predicted_ratio_3D = r2 / r1;
+    // Predicted ratio for 2D: κ ~ ln(r) → ratio = ln(r2)/ln(r1) (relative to some ref)
+    const predicted_ratio_2D = Math.log(r2) / Math.log(r1);
+
+    const ratio_num = Math.abs(k2d_r1 / k2d_r2);
+    const ratio_2d_ana = Math.abs(k2da_r1 / k2da_r2);
+    const ratio_3d_ana = Math.abs(k3d_r1 / k3d_r2);
+
+    // Diagnose
+    const matches_2D = Math.abs(ratio_num / ratio_2d_ana - 1) < 0.15;
+    const matches_3D = Math.abs(ratio_num / predicted_ratio_3D - 1) < 0.15;
+
+    let diagnosis = '';
+    let candidateHTML = '';
+
+    if (matches_2D && !matches_3D) {
+      diagnosis = 'D: 2D vs 3D Green\'s function';
+      candidateHTML = buildCandidateHTML('D', ratio_num, predicted_ratio_3D, ratio_2d_ana);
+    } else if (!matches_2D && !matches_3D && ratio_num > predicted_ratio_3D * 3) {
+      diagnosis = 'A: Boundary reflection contamination';
+      candidateHTML = buildCandidateHTML('A', ratio_num, predicted_ratio_3D, ratio_2d_ana);
+    } else if (matches_3D) {
+      diagnosis = 'C: Coefficient normalization (code matches 3D!)';
+      candidateHTML = buildCandidateHTML('C', ratio_num, predicted_ratio_3D, ratio_2d_ana);
+    } else {
+      diagnosis = 'MIXED — multiple effects present';
+      candidateHTML = buildCandidateHTML('?', ratio_num, predicted_ratio_3D, ratio_2d_ana);
+    }
+
+    // Update diagnostics
+    document.getElementById('diag-box').innerHTML = `
+      <div><span class="label">2D num κ(r₁)/κ(r₂):</span> <span class="value">${ratio_num.toFixed(3)}</span></div>
+      <div><span class="label">2D ana κ(r₁)/κ(r₂):</span> <span class="value">${ratio_2d_ana.toFixed(3)}</span></div>
+      <div><span class="label">3D ana κ(r₁)/κ(r₂):</span> <span class="value">${ratio_3d_ana.toFixed(3)}</span></div>
+      <div><span class="label">Predicted (3D, r₂/r₁):</span> <span class="value">${predicted_ratio_3D.toFixed(3)}</span></div>
+      <div style="margin-top:6px;border-top:1px solid var(--border);padding-top:6px">
+        <span class="label">Dominant cause:</span><br>
+        <span class="verdict">${diagnosis}</span>
+      </div>
+    `;
+
+    document.getElementById('candidate-box').innerHTML = candidateHTML;
+
+    // Update info bar
+    document.getElementById('info-ratio-num').textContent = ratio_num.toFixed(2) + 'x';
+    document.getElementById('info-ratio-3d').textContent = ratio_3d_ana.toFixed(2) + 'x';
+    document.getElementById('info-ratio-pred').textContent = predicted_ratio_3D.toFixed(2) + 'x';
+
+    solved = true;
+
+    // Render
+    renderField('canvas-2d-num', kappa2d, N, 'viridis');
+    renderField('canvas-2d-ana', kappa2d_ana, N, 'viridis');
+    renderField('canvas-3d-ana', kappa3d_ana, N, 'viridis');
+    renderRadial('canvas-radial', kappa2d, kappa2d_ana, kappa3d_ana, N);
+
+    document.getElementById('btn-run').textContent = '▶ RUN ISOLATION TEST';
+  }, 50);
+}
+
+function buildCandidateHTML(winner, ratio_num, ratio_3d, ratio_2d) {
+  const candidates = [
+    { id:'A', label:'Boundary reflection', test:'ratio_num >> ratio_3d AND ratio_num ~ ratio_2d' },
+    { id:'B', label:'Time-averaging error', test:'Check if κ values near-zero far from source' },
+    { id:'C', label:'Missing 4π coefficient', test:'ratio_num matches 3D if multiply rhs by 4π' },
+    { id:'D', label:'2D vs 3D Green\'s fn', test:'ratio_num matches 2D analytic' },
+  ];
+  return candidates.map(c => {
+    const active = c.id === winner;
+    return `<div style="margin-bottom:5px;padding:4px;border-radius:3px;background:${active?'rgba(247,201,72,0.1)':'transparent'};border:1px solid ${active?'var(--accent3)':'var(--border)'}">
+      <span style="color:${active?'var(--accent3)':'var(--muted)'}">${c.id}: ${c.label}</span>
+      <div style="font-size:10px;color:var(--muted)">${c.test}</div>
+    </div>`;
+  }).join('');
+}
+
+// ─── Field renderer ────────────────────────────────────────────────────────
+function renderField(canvasId, kappa, N, cmap) {
+  const canvas = document.getElementById(canvasId);
+  const parent = canvas.parentElement;
+  const W = parent.clientWidth;
+  const H = parent.clientHeight;
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext('2d');
+
+  // Find range
+  let minK = Infinity, maxK = -Infinity;
+  for (let i = 0; i < kappa.length; i++) {
+    if (isFinite(kappa[i])) { minK = Math.min(minK, kappa[i]); maxK = Math.max(maxK, kappa[i]); }
+  }
+  const range = maxK - minK || 1;
+
+  const imageData = ctx.createImageData(W, H);
+  const data = imageData.data;
+  const scaleX = N / W, scaleY = N / H;
+
+  for (let py = 0; py < H; py++) {
+    for (let px = 0; px < W; px++) {
+      const xi = Math.min(N-1, Math.floor(px * scaleX));
+      const yi = Math.min(N-1, Math.floor(py * scaleY));
+      const v = (kappa[yi*N+xi] - minK) / range;
+      const [r,g,b] = viridis(v);
+      const idx = (py*W+px)*4;
+      data[idx]=r; data[idx+1]=g; data[idx+2]=b; data[idx+3]=255;
+    }
+  }
+  ctx.putImageData(imageData, 0, 0);
+
+  // Draw probe rings
+  const cx = W/2, cy = H/2;
+  const scaleR = W / N;
+  ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([3,3]);
+  ctx.beginPath();
+  ctx.arc(cx, cy, state.r1 * scaleR, 0, 2*Math.PI);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(cx, cy, state.r2 * scaleR, 0, 2*Math.PI);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Label rings
+  ctx.fillStyle = 'rgba(255,255,255,0.6)';
+  ctx.font = '9px Courier New';
+  ctx.fillText('r₁', cx + state.r1*scaleR + 3, cy - 3);
+  ctx.fillText('r₂', cx + state.r2*scaleR + 3, cy - 3);
+
+  // Source center marker
+  ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(cx-6, cy); ctx.lineTo(cx+6, cy);
+  ctx.moveTo(cx, cy-6); ctx.lineTo(cx, cy+6);
+  ctx.stroke();
+}
+
+// ─── Radial profile chart ──────────────────────────────────────────────────
+function renderRadial(canvasId, k2d, k2d_ana, k3d_ana, N) {
+  const canvas = document.getElementById(canvasId);
+  const parent = canvas.parentElement;
+  const W = parent.clientWidth;
+  const H = parent.clientHeight;
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+
+  const pad = { top: 32, right: 16, bottom: 32, left: 52 };
+  const plotW = W - pad.left - pad.right;
+  const plotH = H - pad.top - pad.bottom;
+
+  const maxR = Math.floor(N * 0.4);
+  const rValues = Array.from({length: maxR}, (_, i) => i + 1);
+
+  // Sample all three fields
+  const s2d = rValues.map(r => Math.abs(sampleRadial(k2d, N, r)));
+  const s2da = rValues.map(r => Math.abs(sampleRadial(k2d_ana, N, r)));
+  const s3d = rValues.map(r => Math.abs(sampleRadial(k3d_ana, N, r)));
+
+  // Normalize to r=5 value of 3D analytic (the TRR-G reference)
+  const ref_r = 5;
+  const ref_val = s3d[ref_r] || 1;
+  const n2d = s2d.map(v => v / ref_val);
+  const n2da = s2da.map(v => v / ref_val);
+  const n3d = s3d.map(v => v / ref_val);
+
+  const allVals = [...n2d, ...n2da, ...n3d].filter(isFinite);
+  const maxV = Math.min(Math.max(...allVals), 50);
+  const minV = 0;
+
+  function xPos(r) { return pad.left + (r / maxR) * plotW; }
+  function yPos(v) { return pad.top + (1 - Math.min(v, maxV) / maxV) * plotH; }
+
+  // Grid
+  ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 5; i++) {
+    const y = pad.top + (i/5)*plotH;
+    ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(pad.left+plotW, y); ctx.stroke();
+    const v = (1 - i/5) * maxV;
+    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    ctx.font = '9px Courier New';
+    ctx.fillText(v.toFixed(1), 4, y + 3);
+  }
+
+  // Probe lines
+  ctx.setLineDash([4,4]);
+  ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+  ctx.lineWidth = 1;
+  [state.r1, state.r2].forEach(r => {
+    const x = xPos(r);
+    ctx.beginPath(); ctx.moveTo(x, pad.top); ctx.lineTo(x, pad.top+plotH); ctx.stroke();
+  });
+  ctx.setLineDash([]);
+
+  // Draw curves
+  const curves = [
+    { data: n2d, color: '#ff6b6b', label: '2D numerical' },
+    { data: n2da, color: '#f7c948', label: '2D analytic ln(r)' },
+    { data: n3d, color: '#4ecdc4', label: '3D analytic 1/r (TRR-G)' },
+  ];
+
+  curves.forEach(({ data, color }) => {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    let started = false;
+    for (let i = 0; i < data.length; i++) {
+      const x = xPos(rValues[i]);
+      const y = yPos(data[i]);
+      if (!isFinite(y)) continue;
+      if (!started) { ctx.moveTo(x, y); started = true; }
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  });
+
+  // Legend
+  curves.forEach(({ color, label }, i) => {
+    ctx.fillStyle = color;
+    ctx.fillRect(pad.left + 4, pad.top + 6 + i*14, 14, 3);
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    ctx.font = '9px Courier New';
+    ctx.fillText(label, pad.left + 22, pad.top + 9 + i*14);
+  });
+
+  // Axes
+  ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(pad.left, pad.top);
+  ctx.lineTo(pad.left, pad.top+plotH);
+  ctx.lineTo(pad.left+plotW, pad.top+plotH);
+  ctx.stroke();
+
+  ctx.fillStyle = 'rgba(255,255,255,0.4)';
+  ctx.font = '9px Courier New';
+  ctx.fillText('r (grid units)', pad.left + plotW/2 - 30, H - 4);
+  ctx.save();
+  ctx.translate(10, pad.top + plotH/2);
+  ctx.rotate(-Math.PI/2);
+  ctx.fillText('κ (normalized)', -20, 0);
+  ctx.restore();
+
+  // Title
+  ctx.fillStyle = 'rgba(255,255,255,0.5)';
+  ctx.font = '9px Courier New';
+  ctx.fillText('Normalized to 3D analytic at r=5', pad.left + plotW/2 - 80, pad.top - 4);
+
+  // Ratio boxes at probe radii
+  if (n2d[state.r1] && n3d[state.r1]) {
+    const rat = (n2d[state.r1] / n3d[state.r1]).toFixed(2);
+    const x = xPos(state.r1);
+    ctx.fillStyle = 'rgba(255,107,107,0.8)';
+    ctx.font = '9px Courier New';
+    ctx.fillText(`×${rat}`, x + 2, pad.top + 14);
+  }
+}
+
+// ─── Viridis colormap ──────────────────────────────────────────────────────
+function viridis(v) {
+  v = Math.max(0, Math.min(1, v));
+  const r = Math.round(Math.min(255, 68 + 187*v*(1 - v*0.4)));
+  const g = Math.round(1 + 253*v);
+  const b = Math.round(84 + 170*(1-v));
+  return [r, g, b];
+}
+
+// ─── Reset ─────────────────────────────────────────────────────────────────
+function resetAll() {
+  solved = false;
+  ['canvas-2d-num','canvas-2d-ana','canvas-3d-ana','canvas-radial'].forEach(id => {
+    const c = document.getElementById(id);
+    const parent = c.parentElement;
+    c.width = parent.clientWidth;
+    c.height = parent.clientHeight;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#0a0a0f';
+    ctx.fillRect(0,0,c.width,c.height);
+  });
+  document.getElementById('diag-box').innerHTML = '<div><span class="label">Status:</span> <span class="value">— awaiting run —</span></div>';
+  document.getElementById('info-ratio-num').textContent = '—';
+  document.getElementById('info-ratio-3d').textContent = '—';
+  document.getElementById('info-ratio-pred').textContent = '—';
+}
+
+// ─── Init ──────────────────────────────────────────────────────────────────
+window.addEventListener('load', () => {
+  resetAll();
+});
+window.addEventListener('resize', () => {
+  if (solved) runSolver();
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,1093 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>TRR Wave Tank (GPU) – Dot-Product Coherence</title>
+  <style>
+    :root{
+      --bg:#0b1020;
+      --panel:rgba(20,28,52,.78);
+      --line:rgba(255,255,255,.12);
+      --text:#e8eefc;
+      --muted:rgba(232,238,252,.72);
+      --accent:#7aa7ff;
+      --good:#5eead4;
+      --warn:#fbbf24;
+      --bad:#fb7185;
+      --radius:14px;
+    }
+    html,body{ margin:0; height:100%; overflow:hidden; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif; }
+    #app{ position:fixed; inset:0; }
+    canvas{ display:block; width:100%; height:100%; }
+    #ui{
+      position:fixed; left:14px; top:14px; width:340px;
+      background:var(--panel);
+      border:1px solid var(--line);
+      border-radius:var(--radius);
+      padding:14px 14px 12px;
+      box-shadow:0 18px 45px rgba(0,0,0,.35);
+      backdrop-filter: blur(8px);
+      user-select:none;
+    }
+    #presets{
+      position:fixed; right:14px; top:14px; width:200px;
+      background:var(--panel);
+      border:1px solid var(--line);
+      border-radius:var(--radius);
+      padding:14px;
+      box-shadow:0 18px 45px rgba(0,0,0,.35);
+      backdrop-filter: blur(8px);
+      user-select:none;
+      max-height:calc(100vh - 28px);
+      overflow-y:auto;
+    }
+    #presets h3{
+      margin:0 0 12px;
+      font-size:13px;
+      font-weight:650;
+      letter-spacing:.2px;
+    }
+    .preset-btn{
+      width:100%;
+      border:1px solid var(--line);
+      border-radius:10px;
+      padding:10px 12px;
+      background:rgba(255,255,255,.06);
+      color:var(--text);
+      cursor:pointer;
+      font-weight:500;
+      font-size:12px;
+      margin-bottom:8px;
+      text-align:left;
+      transition: background 0.2s;
+    }
+    .preset-btn:hover{
+      background:rgba(255,255,255,.12);
+    }
+    .preset-name{
+      font-weight:600;
+      margin-bottom:4px;
+    }
+    .preset-desc{
+      font-size:10px;
+      color:var(--muted);
+      line-height:1.3;
+    }
+    #title{ font-weight:650; letter-spacing:.2px; margin:0 0 8px; font-size:14px; }
+    #subtitle{ margin:0 0 12px; color:var(--muted); font-size:12px; line-height:1.35; }
+    .row{ display:flex; gap:10px; align-items:center; margin:10px 0; }
+    .row.tight{ margin:8px 0; }
+    .label{ width:120px; font-size:12px; color:var(--muted); }
+    select,input[type="range"]{ flex:1; }
+    input[type="range"]{ accent-color: var(--accent); }
+    select{
+      background:rgba(255,255,255,.06);
+      border:1px solid var(--line);
+      color:var(--text);
+      border-radius:10px;
+      padding:8px 10px;
+      outline:none;
+    }
+    option{ background:#101833; }
+    .val{ width:64px; text-align:right; font-variant-numeric: tabular-nums; color:var(--text); font-size:12px; }
+    .btnbar{ display:flex; gap:10px; margin-top:12px; }
+    button{
+      flex:1;
+      border:1px solid var(--line);
+      border-radius:12px;
+      padding:10px 10px;
+      background:rgba(255,255,255,.06);
+      color:var(--text);
+      cursor:pointer;
+      font-weight:600;
+    }
+    button:hover{ background:rgba(255,255,255,.10); }
+    #hint{
+      margin-top:10px;
+      color:var(--muted);
+      font-size:12px;
+      line-height:1.35;
+    }
+    #status{
+      margin-top:10px;
+      padding:10px 10px;
+      border-radius:12px;
+      border:1px solid var(--line);
+      background:rgba(0,0,0,.22);
+      font-size:12px;
+      color:var(--muted);
+      font-variant-numeric: tabular-nums;
+      line-height:1.35;
+    }
+    kbd{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size:11px;
+      padding:2px 6px;
+      border-radius:8px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.06);
+      color:var(--text);
+    }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+
+  <div id="ui">
+    <p id="title">TRR Wave Tank (GPU): Wave / Energy / Coherence</p>
+    <p id="subtitle">Two emitters interfere in a bounded room. Coherence view uses dot products of local phase vectors.</p>
+
+    <div class="row">
+      <div class="label">View</div>
+      <select id="view">
+        <option value="0">Wave</option>
+        <option value="1">Energy</option>
+        <option value="2" selected>Coherence</option>
+      </select>
+      <div class="val" id="viewVal">Coherence</div>
+    </div>
+
+    <div class="row tight">
+      <div class="label">Drive</div>
+      <select id="drive">
+        <option value="0" selected>Continuous</option>
+        <option value="1">Burst</option>
+      </select>
+      <div class="val" id="driveVal">Continuous</div>
+    </div>
+
+    <div class="row">
+      <div class="label">Geometry</div>
+      <select id="geom">
+        <option value="room">Room</option>
+        <option value="box">Box</option>
+        <option value="rectangle">Rectangle</option>
+        <option value="square">Square</option>
+        <option value="circle" selected>Circle</option>
+        <option value="octagon">Octagon</option>
+        <option value="open">Open</option>
+      </select>
+      <div class="val" id="geomVal">Circle</div>
+    </div>
+
+    <div class="row">
+      <div class="label">Frequency</div>
+      <input id="freq" type="range" min="0.05" max="15.0" step="0.01" value="1.01"/>
+      <div class="val" id="freqVal">1.01</div>
+    </div>
+
+    <div class="row">
+      <div class="label">Wave speed c</div>
+      <input id="c" type="range" min="0.1" max="30.0" step="0.1" value="1.6"/>
+      <div class="val" id="cVal">1.6</div>
+    </div>
+
+    <div class="row">
+      <div class="label">Amplitude</div>
+      <input id="amp" type="range" min="0.1" max="60.0" step="0.1" value="1.6"/>
+      <div class="val" id="ampVal">1.6</div>
+    </div>
+
+    <div class="row">
+      <div class="label">Damping</div>
+      <input id="damp" type="range" min="0.970" max="1.000" step="0.001" value="0.999"/>
+      <div class="val" id="dampVal">0.999</div>
+    </div>
+
+    <div class="row">
+      <div class="label">Steps/frame</div>
+      <input id="steps" type="range" min="1" max="80" step="1" value="1"/>
+      <div class="val" id="stepsVal">1</div>
+    </div>
+
+    <div class="row">
+      <div class="label">Src radius px</div>
+      <input id="sr" type="range" min="1" max="18" step="1" value="1"/>
+      <div class="val" id="srVal">1</div>
+    </div>
+
+    <div class="row">
+      <div class="label">Phase A (deg)</div>
+      <input id="phaseA" type="range" min="0" max="360" step="1" value="0"/>
+      <div class="val" id="phaseAVal">0</div>
+    </div>
+
+    <div class="row">
+      <div class="label">Phase B (deg)</div>
+      <input id="phaseB" type="range" min="0" max="360" step="1" value="90"/>
+      <div class="val" id="phaseBVal">90</div>
+    </div>
+
+    <div class="row">
+      <div class="label">Coherence rad</div>
+      <input id="cr" type="range" min="1" max="8" step="1" value="2"/>
+      <div class="val" id="crVal">2</div>
+    </div>
+
+    <div class="row">
+      <div class="label">Visual gain</div>
+      <input id="gain" type="range" min="0.5" max="25.0" step="0.1" value="0.5"/>
+      <div class="val" id="gainVal">0.5</div>
+    </div>
+
+    <div class="btnbar">
+      <button id="pause">Pause</button>
+      <button id="burst">Burst now</button>
+      <button id="clear">Clear</button>
+    </div>
+
+    <div id="hint">
+      Click = move Source A. <kbd>Shift</kbd>+Click = move Source B.<br/>
+      Phase A/B control relative phase (0°=in-phase, 90°=quadrature, 180°=anti-phase).<br/>
+      For coherence zones: Drive=Continuous, View=Coherence, low Frequency.
+    </div>
+
+    <div id="status"></div>
+  </div>
+
+  <div id="presets">
+    <h3>Presets</h3>
+    <button class="preset-btn" data-preset="diamond">
+      <div class="preset-name">Diamond X</div>
+      <div class="preset-desc">Circle • Edge sources • 7.53 Hz</div>
+    </button>
+    <button class="preset-btn" data-preset="octagon-web">
+      <div class="preset-name">Octagon Web</div>
+      <div class="preset-desc">Octagon • 8-fold lines • 7.53 Hz</div>
+    </button>
+    <button class="preset-btn" data-preset="rect-tiles">
+      <div class="preset-name">Tiled X</div>
+      <div class="preset-desc">Rectangle • Repeating • 7.53 Hz</div>
+    </button>
+    <button class="preset-btn" data-preset="sunburst">
+      <div class="preset-name">Sunburst</div>
+      <div class="preset-desc">Circle • Radial spokes • 2.5 Hz</div>
+    </button>
+    <button class="preset-btn" data-preset="cells">
+      <div class="preset-name">Organic Cells</div>
+      <div class="preset-desc">Octagon • Cellular • 10.49 Hz</div>
+    </button>
+    <button class="preset-btn" data-preset="spiral">
+      <div class="preset-name">Spiral Vortex</div>
+      <div class="preset-desc">Octagon • Turbulent • 6.88 Hz</div>
+    </button>
+    <button class="preset-btn" data-preset="bullseye">
+      <div class="preset-name">Bullseye</div>
+      <div class="preset-desc">Circle • Concentric • 3.79 Hz</div>
+    </button>
+  </div>
+
+<script type="module">
+import * as THREE from "https://unpkg.com/three@0.160.0/build/three.module.js";
+
+const W = 512;    // simulation resolution (increase later)
+const H = 256;
+
+const DX = 1.0;
+const DT = 0.1;
+
+const app = document.getElementById('app');
+
+// -------------------------
+// Renderer (WebGL2 strongly preferred)
+// -------------------------
+// Create an explicit WebGL2 context (your browser reports WebGL2=true, WebGL1=false)
+const canvas = document.createElement('canvas');
+canvas.style.width = '100%';
+canvas.style.height = '100%';
+app.appendChild(canvas);
+
+const context = canvas.getContext('webgl2', {
+  alpha: false,
+  antialias: false,
+  depth: false,
+  stencil: false,
+  premultipliedAlpha: false,
+  preserveDrawingBuffer: false,
+  powerPreference: 'high-performance'
+});
+if(!context){
+  throw new Error('WebGL2 context could not be created (required).');
+}
+
+const renderer = new THREE.WebGLRenderer({ canvas, context, antialias:false, powerPreference:'high-performance' });
+renderer.debug.checkShaderErrors = true;
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+app.appendChild(renderer.domElement);
+
+const gl = renderer.getContext();
+const isWebGL2 = (typeof WebGL2RenderingContext !== 'undefined') && (gl instanceof WebGL2RenderingContext);
+
+console.log('WebGL2 support:', isWebGL2);
+console.log('Renderer context:', gl.constructor.name);
+
+// -------------------------
+// RenderTarget capability check (avoid black screen on browsers without float RT support)
+// If we cannot render to half-float/float targets, we fall back to RGBA8 "packed" encoding.
+// -------------------------
+let PACKED = 0;                 // 0 = float RT, 1 = packed RGBA8
+let U_RANGE = 30.0;             // displacement range for packed encoding (tune if you crank amp)
+let RT_TYPE = THREE.HalfFloatType;
+
+function rtSupported(type){
+  try{
+    const rt = new THREE.WebGLRenderTarget(W, H, {
+      format: THREE.RGBAFormat,
+      type,
+      depthBuffer:false,
+      stencilBuffer:false
+    });
+    rt.texture.magFilter = THREE.NearestFilter;
+    rt.texture.minFilter = THREE.NearestFilter;
+    renderer.setRenderTarget(rt);
+    const status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+    renderer.setRenderTarget(null);
+    rt.dispose();
+    return status === gl.FRAMEBUFFER_COMPLETE;
+  }catch(e){
+    return false;
+  }
+}
+
+// WebGL1 is very often unable to render to half-float targets -> packed fallback
+if(!isWebGL2){
+  PACKED = 1;
+  RT_TYPE = THREE.UnsignedByteType;
+}else{
+  // Prefer HalfFloat. If not supported, try Float. If neither, packed.
+  if(rtSupported(THREE.HalfFloatType)){
+    RT_TYPE = THREE.HalfFloatType;
+  }else if(rtSupported(THREE.FloatType)){
+    RT_TYPE = THREE.FloatType;
+  }else{
+    PACKED = 1;
+    RT_TYPE = THREE.UnsignedByteType;
+  }
+}
+
+console.log('===== GPU Setup =====');
+console.log('PACKED mode:', PACKED, '(0=float, 1=RGBA8)');
+console.log('U_RANGE:', U_RANGE);
+console.log('RT_TYPE:', RT_TYPE === THREE.HalfFloatType ? 'HalfFloat' : RT_TYPE === THREE.FloatType ? 'Float' : 'UnsignedByte');
+
+// -------------------------
+// Scenes: sim pass + display pass
+// -------------------------
+const orthoCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+const quadGeo = new THREE.PlaneGeometry(2,2);
+
+const simScene = new THREE.Scene();
+const outScene = new THREE.Scene();
+
+// -------------------------
+// Mask texture (geometry)
+// -------------------------
+function buildMask(kind){
+  const data = new Uint8Array(W*H);
+  data.fill(255); // 255=free
+  const thick = 10;
+  const cx = (W/2)|0, cy = (H/2)|0;
+
+  if(kind === 'open'){
+    // all free
+  } else if(kind === 'box'){
+    for(let y=0; y<H; y++){
+      for(let x=0; x<W; x++){
+        const isWall = (x < thick || x >= W-thick || y < thick || y >= H-thick);
+        data[y*W+x] = isWall ? 0 : 255;
+      }
+    }
+  } else if(kind === 'room'){
+    // hollow rectangle (original)
+    const roomW = (W*0.45)|0, roomH = (H*0.45)|0;
+    for(let y=0; y<H; y++){
+      for(let x=0; x<W; x++){
+        const inOuter = (x >= cx-roomW && x < cx+roomW && y >= cy-roomH && y < cy+roomH);
+        const inInner = (x >= cx-roomW+thick && x < cx+roomW-thick && y >= cy-roomH+thick && y < cy+roomH-thick);
+        const isWall = inOuter && !inInner;
+        data[y*W+x] = isWall ? 0 : 255;
+      }
+    }
+  } else if(kind === 'rectangle'){
+    // Wide hollow rectangle
+    const rectW = (W*0.48)|0, rectH = (H*0.35)|0;
+    for(let y=0; y<H; y++){
+      for(let x=0; x<W; x++){
+        const inOuter = (x >= cx-rectW && x < cx+rectW && y >= cy-rectH && y < cy+rectH);
+        const inInner = (x >= cx-rectW+thick && x < cx+rectW-thick && y >= cy-rectH+thick && y < cy+rectH-thick);
+        const isWall = inOuter && !inInner;
+        data[y*W+x] = isWall ? 0 : 255;
+      }
+    }
+  } else if(kind === 'square'){
+    // Equal sides hollow square
+    const side = (Math.min(W, H)*0.4)|0;
+    for(let y=0; y<H; y++){
+      for(let x=0; x<W; x++){
+        const inOuter = (x >= cx-side && x < cx+side && y >= cy-side && y < cy+side);
+        const inInner = (x >= cx-side+thick && x < cx+side-thick && y >= cy-side+thick && y < cy+side-thick);
+        const isWall = inOuter && !inInner;
+        data[y*W+x] = isWall ? 0 : 255;
+      }
+    }
+  } else if(kind === 'circle'){
+    // Hollow circle
+    const outerRadius = Math.min(W, H) * 0.42;
+    const innerRadius = outerRadius - thick;
+    for(let y=0; y<H; y++){
+      for(let x=0; x<W; x++){
+        const dx = x - cx;
+        const dy = y - cy;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        const isWall = (dist >= innerRadius && dist < outerRadius);
+        data[y*W+x] = isWall ? 0 : 255;
+      }
+    }
+  } else if(kind === 'octagon'){
+    // Hollow octagon
+    const radius = Math.min(W, H) * 0.42;
+    const innerRadius = radius - thick;
+    const cos45 = 0.7071; // cos(45°)
+    
+    for(let y=0; y<H; y++){
+      for(let x=0; x<W; x++){
+        const dx = Math.abs(x - cx);
+        const dy = Math.abs(y - cy);
+        
+        // Octagon distance (max of axis-aligned and diagonal distances)
+        const distAxis = Math.max(dx, dy);
+        const distDiag = (dx + dy) * cos45;
+        const dist = Math.max(distAxis, distDiag);
+        
+        const isWall = (dist >= innerRadius && dist < radius);
+        data[y*W+x] = isWall ? 0 : 255;
+      }
+    }
+  }
+
+  const tex = new THREE.DataTexture(data, W, H, THREE.RedFormat);
+  tex.needsUpdate = true;
+  tex.magFilter = THREE.NearestFilter;
+  tex.minFilter = THREE.NearestFilter;
+  tex.wrapS = THREE.ClampToEdgeWrapping;
+  tex.wrapT = THREE.ClampToEdgeWrapping;
+  tex.flipY = false;
+  return tex;
+}
+
+let maskTex = buildMask('circle');
+
+// -------------------------
+// Render targets (ping-pong)
+// We store (u, uPrev, 0, 1) in RGBA half float.
+// -------------------------
+function makeRT(){
+  const rt = new THREE.WebGLRenderTarget(W, H, {
+    format: THREE.RGBAFormat,
+    type: RT_TYPE,      // selected by capability check
+    depthBuffer:false,
+    stencilBuffer:false
+  });
+  rt.texture.magFilter = THREE.NearestFilter;
+  rt.texture.minFilter = THREE.NearestFilter;
+  rt.texture.wrapS = THREE.ClampToEdgeWrapping;
+  rt.texture.wrapT = THREE.ClampToEdgeWrapping;
+  rt.texture.generateMipmaps = false;
+  return rt;
+}
+
+let rtA = makeRT();
+let rtB = makeRT();
+
+// init state: if packed, zero is encoded as 0.5; otherwise clear to 0.
+if(PACKED){
+  renderer.setClearColor(new THREE.Color(0.5, 0.5, 0.0), 1);
+}else{
+  renderer.setClearColor(0x000000, 1);
+}
+renderer.setRenderTarget(rtA); renderer.clear(true, true, true);
+renderer.setRenderTarget(rtB); renderer.clear(true, true, true);
+renderer.setRenderTarget(null);
+
+// -------------------------
+// Shaders
+// -------------------------
+const vtx = `
+precision highp float;
+
+in vec3 position;
+in vec2 uv;
+out vec2 vUv;
+
+void main(){
+  vUv = uv;
+  gl_Position = vec4(position.xy, 0.0, 1.0);
+}
+`;
+
+const simFrag = `
+precision highp float;
+  in vec2 vUv;
+out vec4 outColor;
+
+  uniform sampler2D stateTex;
+  uniform sampler2D maskTex;
+
+  uniform vec2 texel;
+  uniform float c;
+  uniform float dt;
+  uniform float dx;
+  uniform float damp;
+
+  uniform vec2 srcA;
+  uniform vec2 srcB;
+  uniform float freq;
+  uniform float amp;
+  uniform float time;
+  uniform int driveMode;
+  uniform float srcRadiusPx;
+  uniform float phaseA;
+  uniform float phaseB;
+
+  uniform int isPacked;
+  uniform float uRange;
+
+  vec2 decodeState(vec4 st){
+    if(isPacked==1){
+      float u = (st.r - 0.5) * 2.0 * uRange;
+      float up = (st.g - 0.5) * 2.0 * uRange;
+      return vec2(u, up);
+    }
+    return st.rg;
+  }
+
+  vec2 encodeState(float uNext, float uNow){
+    if(isPacked==1){
+      float a = clamp(uNext/(2.0*uRange) + 0.5, 0.0, 1.0);
+      float b = clamp(uNow /(2.0*uRange) + 0.5, 0.0, 1.0);
+      return vec2(a,b);
+    }
+    return vec2(uNext, uNow);
+  }
+
+  float sampleU(vec2 uv){
+    return decodeState(texture(stateTex, uv)).x;
+  }
+
+  uniform float burstGate; // 0..1 for burst window if needed
+
+  float laplacian(vec2 uv){
+    float uC = sampleU(uv);
+    float uT = sampleU(uv + vec2(0.0,  texel.y));
+    float uB = sampleU(uv + vec2(0.0, -texel.y));
+    float uL = sampleU(uv + vec2(-texel.x, 0.0));
+    float uR = sampleU(uv + vec2( texel.x, 0.0));
+    return (uT + uB + uL + uR - 4.0*uC) / (dx*dx);
+  }
+
+  float blob(vec2 uv, vec2 p, float radiusPx){
+    float sigma = max(1.0, radiusPx) * max(texel.x, texel.y);
+    vec2 d = uv - p;
+    float d2 = dot(d,d);
+    return exp(-d2 / (2.0*sigma*sigma));
+  }
+
+  void main(){
+    vec4 st = texture(stateTex, vUv);
+    vec2 uu = decodeState(st);
+    float u = uu.x;
+    float uPrev = uu.y;
+
+    float m = texture(maskTex, vUv).r; // 0..1
+
+    // clamp for stability
+    float safeC = min(c, 0.7 * dx / dt);
+
+    // source injection
+    float wA = blob(vUv, srcA, srcRadiusPx);
+    float wB = blob(vUv, srcB, srcRadiusPx);
+
+    float driveA = sin(6.2831853 * freq * time + phaseA);
+    float driveB = sin(6.2831853 * freq * time + phaseB);
+
+    float src = 0.0;
+    if(driveMode == 0){
+      src = amp * (driveA*wA + driveB*wB);
+    } else {
+      // simple burst gate (0..1) and one-cycle sin
+      src = amp * burstGate * (driveA*wA + driveB*wB);
+    }
+
+    float lap = laplacian(vUv);
+    float acc = (safeC*safeC) * lap;
+    float uNext = (2.0*u - uPrev + acc*(dt*dt));
+
+    uNext = (uNext * damp + src) * m;
+
+    vec2 enc = encodeState(uNext, u);
+    outColor = vec4(enc.x, enc.y, 0.0, 1.0);
+  }
+
+`;
+
+const outFrag = `
+precision highp float;
+  in vec2 vUv;
+out vec4 outColor;
+
+  uniform sampler2D stateTex;
+  uniform sampler2D maskTex;
+  uniform vec2 texel;
+  uniform float dt;
+
+  uniform int viewMode;     // 0 wave, 1 energy, 2 coherence
+  uniform float gain;
+  uniform int crad;
+
+  uniform int isPacked;
+  uniform float uRange;
+
+  vec2 decodeState(vec4 st){
+    if(isPacked==1){
+      float u = (st.r - 0.5) * 2.0 * uRange;
+      float up = (st.g - 0.5) * 2.0 * uRange;
+      return vec2(u, up);
+    }
+    return st.rg;
+  }
+
+  vec3 waveColor(float t){
+    t = clamp(t, -1.0, 1.0);
+    float a = abs(t);
+    if(t >= 0.0) return mix(vec3(1.0), vec3(1.0,0.25,0.25), a);
+    return mix(vec3(1.0), vec3(0.25,0.45,1.0), a);
+  }
+
+  vec3 purpleGradient(float t){
+    t = clamp(t, 0.0, 1.0);
+    // Dark purple to bright purple/magenta
+    vec3 dark = vec3(0.1, 0.0, 0.2);
+    vec3 bright = vec3(0.9, 0.3, 1.0);
+    return mix(dark, bright, t);
+  }
+
+  vec3 orangeGradient(float t){
+    t = clamp(t, 0.0, 1.0);
+    // Dark orange/red to bright orange/yellow
+    vec3 dark = vec3(0.2, 0.05, 0.0);
+    vec3 bright = vec3(1.0, 0.65, 0.2);
+    return mix(dark, bright, t);
+  }
+
+  vec2 phaseVec(vec2 uv){
+    vec4 st = texture(stateTex, uv);
+    vec2 uu = decodeState(st);
+    float u = uu.x;
+    float uPrev = uu.y;
+    float v = (u - uPrev) / dt;
+    vec2 p = vec2(u, v);
+    float n = length(p) + 1e-6;
+    return p / n;
+  }
+
+  float coherenceAt(vec2 uv, int r){
+    vec2 p0 = phaseVec(uv);
+    float sum = 0.0;
+    float count = 0.0;
+
+    // Fixed bounds for WebGL compilers; r <= 8 from UI
+    for(int oy=-8; oy<=8; oy++){
+      for(int ox=-8; ox<=8; ox++){
+        if(ox==0 && oy==0) continue;
+        if(abs(ox) > r || abs(oy) > r) continue;
+        vec2 duv = vec2(float(ox)*texel.x, float(oy)*texel.y);
+        vec2 pj = phaseVec(uv + duv);
+        float d = dot(p0, pj); // [-1,1]
+        sum += max(0.0, d);
+        count += 1.0;
+      }
+    }
+    return (count > 0.0) ? (sum / count) : 0.0;
+  }
+
+  void main(){
+    vec4 st = texture(stateTex, vUv);
+    vec2 uu = decodeState(st);
+    float u = uu.x;
+    float uPrev = uu.y;
+    float v = (u - uPrev) / dt;
+
+    float m = texture(maskTex, vUv).r;
+    if(m < 0.5){
+      // walls
+      outColor = vec4(0.0, 0.0, 0.0, 1.0);
+      return;
+    }
+
+    if(viewMode == 0){
+      float t = u * gain;
+      outColor = vec4(waveColor(t), 1.0);
+      return;
+    }
+
+    if(viewMode == 1){
+      float e = u*u + 0.15*v*v;
+      float t = clamp(e * gain, 0.0, 1.0);
+      outColor = vec4(purpleGradient(t), 1.0);
+      return;
+    }
+
+    float coh = coherenceAt(vUv, crad);
+    // make decoherence visually obvious: slight curve
+    coh = pow(coh, 0.85);
+    outColor = vec4(orangeGradient(coh), 1.0);
+  }
+
+`;
+
+// ===== Manual shader compilation test =====
+console.log('===== Testing Shader Compilation =====');
+const testVS = gl.createShader(gl.VERTEX_SHADER);
+gl.shaderSource(testVS, vtx);
+gl.compileShader(testVS);
+if(!gl.getShaderParameter(testVS, gl.COMPILE_STATUS)){
+  console.error('VERTEX SHADER ERROR:', gl.getShaderInfoLog(testVS));
+}else{
+  console.log('✓ Vertex shader compiled');
+}
+
+const testFS = gl.createShader(gl.FRAGMENT_SHADER);
+gl.shaderSource(testFS, simFrag);
+gl.compileShader(testFS);
+if(!gl.getShaderParameter(testFS, gl.COMPILE_STATUS)){
+  console.error('FRAGMENT SHADER ERROR:', gl.getShaderInfoLog(testFS));
+}else{
+  console.log('✓ Fragment shader (sim) compiled');
+}
+
+const testFS2 = gl.createShader(gl.FRAGMENT_SHADER);
+gl.shaderSource(testFS2, outFrag);
+gl.compileShader(testFS2);
+if(!gl.getShaderParameter(testFS2, gl.COMPILE_STATUS)){
+  console.error('FRAGMENT SHADER 2 ERROR:', gl.getShaderInfoLog(testFS2));
+}else{
+  console.log('✓ Fragment shader (out) compiled');
+}
+
+// Materials
+const simMat = new THREE.RawShaderMaterial({
+  glslVersion: THREE.GLSL3,
+  vertexShader: vtx,
+  fragmentShader: simFrag,
+  uniforms: {
+    stateTex: { value: rtA.texture },
+    maskTex:  { value: maskTex },
+    texel:    { value: new THREE.Vector2(1/W, 1/H) },
+    c:        { value: 1.6 },
+    dt:       { value: DT },
+    dx:       { value: DX },
+    damp:     { value: 0.999 },
+
+    srcA:     { value: new THREE.Vector2(0.35, 0.5) },
+    srcB:     { value: new THREE.Vector2(0.65, 0.5) },
+    freq:     { value: 1.01 },
+    amp:      { value: 1.6 },
+    time:     { value: 0.0 },
+    driveMode:{ value: 0 },
+    srcRadiusPx:{ value: 1.0 },
+    phaseA:   { value: 0.0 },
+    phaseB:   { value: 1.5707963 },
+    burstGate: { value: 0.0 },
+    isPacked: { value: PACKED },
+    uRange: { value: U_RANGE },
+  }
+});
+
+// Force compilation and capture errors
+simMat.needsUpdate = true;
+const simProg = renderer.compile(simScene, orthoCam);
+if(gl.isContextLost()) console.error('WebGL context lost!');
+
+
+const outMat = new THREE.RawShaderMaterial({
+  glslVersion: THREE.GLSL3,
+  vertexShader: vtx,
+  fragmentShader: outFrag,
+  uniforms: {
+    stateTex: { value: rtA.texture },
+    maskTex:  { value: maskTex },
+    texel:    { value: new THREE.Vector2(1/W, 1/H) },
+    dt:       { value: DT },
+    viewMode: { value: 2 },
+    gain:     { value: 0.5 },
+    crad:     { value: 2 },
+    isPacked: { value: PACKED },
+    uRange: { value: U_RANGE },
+  }
+});
+
+const simQuad = new THREE.Mesh(quadGeo, simMat);
+simScene.add(simQuad);
+
+const outQuad = new THREE.Mesh(quadGeo, outMat);
+outScene.add(outQuad);
+
+console.log('===== Material Uniforms =====');
+console.log('simMat.uniforms.isPacked:', simMat.uniforms.isPacked?.value);
+console.log('simMat.uniforms.uRange:', simMat.uniforms.uRange?.value);
+console.log('outMat.uniforms.isPacked:', outMat.uniforms.isPacked?.value);
+console.log('outMat.uniforms.uRange:', outMat.uniforms.uRange?.value);
+
+// -------------------------
+// UI Wiring
+// -------------------------
+const el = (id)=>document.getElementById(id);
+const ui = {
+  view: el('view'), drive: el('drive'), geom: el('geom'),
+  freq: el('freq'), c: el('c'), amp: el('amp'), damp: el('damp'),
+  steps: el('steps'), sr: el('sr'), phaseA: el('phaseA'), phaseB: el('phaseB'), 
+  cr: el('cr'), gain: el('gain'),
+  pause: el('pause'), burst: el('burst'), clear: el('clear'),
+  status: el('status'),
+  viewVal: el('viewVal'), driveVal: el('driveVal'), geomVal: el('geomVal'),
+  freqVal: el('freqVal'), cVal: el('cVal'), ampVal: el('ampVal'), dampVal: el('dampVal'),
+  stepsVal: el('stepsVal'), srVal: el('srVal'), phaseAVal: el('phaseAVal'), 
+  phaseBVal: el('phaseBVal'), crVal: el('crVal'), gainVal: el('gainVal')
+};
+
+function setValText(){
+  ui.viewVal.textContent = ui.view.options[ui.view.selectedIndex].text;
+  ui.driveVal.textContent = ui.drive.options[ui.drive.selectedIndex].text;
+  ui.geomVal.textContent = ui.geom.options[ui.geom.selectedIndex].text;
+
+  ui.freqVal.textContent = (+ui.freq.value).toFixed(2);
+  ui.cVal.textContent = (+ui.c.value).toFixed(1);
+  ui.ampVal.textContent = (+ui.amp.value).toFixed(1);
+  ui.dampVal.textContent = (+ui.damp.value).toFixed(3);
+  ui.stepsVal.textContent = ui.steps.value;
+  ui.srVal.textContent = ui.sr.value;
+  ui.phaseAVal.textContent = ui.phaseA.value;
+  ui.phaseBVal.textContent = ui.phaseB.value;
+  ui.crVal.textContent = ui.cr.value;
+  ui.gainVal.textContent = (+ui.gain.value).toFixed(1);
+}
+setValText();
+
+ui.view.addEventListener('change', ()=>{
+  outMat.uniforms.viewMode.value = parseInt(ui.view.value, 10);
+  setValText();
+});
+ui.drive.addEventListener('change', ()=>{
+  simMat.uniforms.driveMode.value = parseInt(ui.drive.value, 10);
+  setValText();
+});
+ui.geom.addEventListener('change', ()=>{
+  const kind = ui.geom.value;
+  maskTex.dispose?.();
+  maskTex = buildMask(kind);
+  simMat.uniforms.maskTex.value = maskTex;
+  outMat.uniforms.maskTex.value = maskTex;
+  setValText();
+});
+ui.freq.addEventListener('input', ()=>{ simMat.uniforms.freq.value = parseFloat(ui.freq.value); setValText(); });
+ui.c.addEventListener('input', ()=>{ simMat.uniforms.c.value = parseFloat(ui.c.value); setValText(); });
+ui.amp.addEventListener('input', ()=>{ simMat.uniforms.amp.value = parseFloat(ui.amp.value); setValText(); });
+ui.damp.addEventListener('input', ()=>{ simMat.uniforms.damp.value = parseFloat(ui.damp.value); setValText(); });
+ui.steps.addEventListener('input', ()=>{ setValText(); });
+ui.sr.addEventListener('input', ()=>{ simMat.uniforms.srcRadiusPx.value = parseFloat(ui.sr.value); setValText(); });
+ui.phaseA.addEventListener('input', ()=>{ 
+  const radians = parseFloat(ui.phaseA.value) * Math.PI / 180.0;
+  simMat.uniforms.phaseA.value = radians; 
+  setValText(); 
+});
+ui.phaseB.addEventListener('input', ()=>{ 
+  const radians = parseFloat(ui.phaseB.value) * Math.PI / 180.0;
+  simMat.uniforms.phaseB.value = radians; 
+  setValText(); 
+});
+ui.cr.addEventListener('input', ()=>{ outMat.uniforms.crad.value = parseInt(ui.cr.value,10); setValText(); });
+ui.gain.addEventListener('input', ()=>{ outMat.uniforms.gain.value = parseFloat(ui.gain.value); setValText(); });
+
+let paused = false;
+ui.pause.addEventListener('click', ()=>{
+  paused = !paused;
+  ui.pause.textContent = paused ? 'Play' : 'Pause';
+});
+
+function clearState(){
+  renderer.setRenderTarget(rtA); renderer.clear();
+  renderer.setRenderTarget(rtB); renderer.clear();
+  renderer.setRenderTarget(null);
+}
+ui.clear.addEventListener('click', clearState);
+
+// Burst: enable a short gate for ~one cycle
+let burstTime = 0.0;
+ui.burst.addEventListener('click', ()=>{
+  burstTime = 0.0;
+});
+
+// -------------------------
+// Presets
+// -------------------------
+const presets = {
+  'diamond': {
+    view: 1, geom: 'circle', freq: 7.53, c: 30.0, amp: 10.4, 
+    srcA: [0.35, 0.5], srcB: [0.65, 0.5], phaseA: 0, phaseB: 90, gain: 0.5
+  },
+  'octagon-web': {
+    view: 1, geom: 'octagon', freq: 7.53, c: 30.0, amp: 10.4,
+    srcA: [0.35, 0.5], srcB: [0.65, 0.5], phaseA: 0, phaseB: 90, gain: 0.5
+  },
+  'rect-tiles': {
+    view: 1, geom: 'rectangle', freq: 7.53, c: 30.0, amp: 10.9,
+    srcA: [0.2, 0.5], srcB: [0.8, 0.5], phaseA: 0, phaseB: 90, gain: 0.5
+  },
+  'sunburst': {
+    view: 1, geom: 'circle', freq: 2.5, c: 30.0, amp: 10.4,
+    srcA: [0.35, 0.5], srcB: [0.65, 0.5], phaseA: 0, phaseB: 90, gain: 0.5
+  },
+  'cells': {
+    view: 1, geom: 'octagon', freq: 10.49, c: 30.0, amp: 0.6,
+    srcA: [0.35, 0.5], srcB: [0.65, 0.5], phaseA: 0, phaseB: 90, gain: 0.5
+  },
+  'spiral': {
+    view: 1, geom: 'octagon', freq: 6.88, c: 30.0, amp: 22.3,
+    srcA: [0.35, 0.5], srcB: [0.65, 0.5], phaseA: 0, phaseB: 90, gain: 0.5
+  },
+  'bullseye': {
+    view: 1, geom: 'circle', freq: 3.79, c: 30.0, amp: 22.3,
+    srcA: [0.5, 0.5], srcB: [0.5, 0.5], phaseA: 0, phaseB: 90, gain: 0.5
+  }
+};
+
+function loadPreset(name){
+  const p = presets[name];
+  if(!p) return;
+  
+  // Clear state first
+  clearState();
+  
+  // Set UI values
+  ui.view.value = p.view;
+  ui.freq.value = p.freq;
+  ui.c.value = p.c;
+  ui.amp.value = p.amp;
+  ui.gain.value = p.gain;
+  ui.phaseA.value = p.phaseA;
+  ui.phaseB.value = p.phaseB;
+  
+  // Update geometry
+  if(ui.geom.value !== p.geom){
+    ui.geom.value = p.geom;
+    maskTex.dispose?.();
+    maskTex = buildMask(p.geom);
+    simMat.uniforms.maskTex.value = maskTex;
+    outMat.uniforms.maskTex.value = maskTex;
+  }
+  
+  // Update uniforms
+  outMat.uniforms.viewMode.value = p.view;
+  simMat.uniforms.freq.value = p.freq;
+  simMat.uniforms.c.value = p.c;
+  simMat.uniforms.amp.value = p.amp;
+  outMat.uniforms.gain.value = p.gain;
+  simMat.uniforms.phaseA.value = p.phaseA * Math.PI / 180.0;
+  simMat.uniforms.phaseB.value = p.phaseB * Math.PI / 180.0;
+  simMat.uniforms.srcA.value.set(p.srcA[0], p.srcA[1]);
+  simMat.uniforms.srcB.value.set(p.srcB[0], p.srcB[1]);
+  
+  setValText();
+}
+
+// Add event listeners to preset buttons
+document.querySelectorAll('.preset-btn').forEach(btn => {
+  btn.addEventListener('click', ()=>{
+    const preset = btn.getAttribute('data-preset');
+    loadPreset(preset);
+  });
+});
+
+// -------------------------
+// Pointer to set source positions
+// -------------------------
+function setSourceFromPointer(clientX, clientY, which){
+  const rect = renderer.domElement.getBoundingClientRect();
+  const x = (clientX - rect.left) / rect.width;
+  const y = 1.0 - (clientY - rect.top) / rect.height;
+
+  if(which === 'A') simMat.uniforms.srcA.value.set(x, y);
+  else simMat.uniforms.srcB.value.set(x, y);
+}
+
+renderer.domElement.addEventListener('pointerdown', (e)=>{
+  if(e.button !== 0) return;
+  const which = e.shiftKey ? 'B' : 'A';
+  setSourceFromPointer(e.clientX, e.clientY, which);
+});
+
+// -------------------------
+// Animation loop
+// -------------------------
+let t = 0.0;
+function tick(){
+  requestAnimationFrame(tick);
+
+  // update UI-dependent uniforms
+  const steps = parseInt(ui.steps.value, 10);
+
+  // burst gate logic
+  let gate = 0.0;
+  if(simMat.uniforms.driveMode.value === 1){
+    if(burstTime < (1.0 / Math.max(0.05, simMat.uniforms.freq.value))){ gate = 1.0; }
+    burstTime += DT * steps;
+  } else {
+    burstTime = 999.0;
+  }
+  simMat.uniforms.burstGate.value = gate;
+
+  if(!paused){
+    for(let i=0; i<steps; i++){
+      simMat.uniforms.time.value = t;
+
+      // sim pass: A -> B
+      simMat.uniforms.stateTex.value = rtA.texture;
+      renderer.setRenderTarget(rtB);
+      renderer.render(simScene, orthoCam);
+
+      // swap
+      const tmp = rtA; rtA = rtB; rtB = tmp;
+
+      t += DT;
+    }
+  }
+
+  // display pass
+  outMat.uniforms.stateTex.value = rtA.texture;
+  renderer.setRenderTarget(null);
+  renderer.render(outScene, orthoCam);
+
+  // status
+  const a = simMat.uniforms.srcA.value;
+  const b = simMat.uniforms.srcB.value;
+  ui.status.textContent =
+    `WebGL2: ${isWebGL2 ? 'yes' : 'no'}  |  Sim: ${W}×${H}\n` +
+    `SrcA UV: ${a.x.toFixed(3)}, ${a.y.toFixed(3)}\n` +
+    `SrcB UV: ${b.x.toFixed(3)}, ${b.y.toFixed(3)}\n` +
+    `Tip: lower Frequency -> larger λ = c/f (room-scale interference)`;
+}
+
+tick();
+
+// -------------------------
+// Resize
+// -------------------------
+window.addEventListener('resize', ()=>{
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+});
+</script>
+</body>
+</html>

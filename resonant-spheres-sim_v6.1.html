@@ -1,0 +1,1042 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Resonant Spheres — Interference Focus (v4.3)</title>
+<style>:root{--bg:#0b0e12;--panel:rgba(20,24,30,.92);--text:#e6eef7;--muted:#98a6b3;--accent:#4ecdc4}
+html,body{height:100%}body{margin:0;overflow:hidden;background:radial-gradient(1200px 800px at 70% 20%,#121826 0%,#0b0e12 60%);color:var(--text);font:13px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+#controls{position:absolute;top:10px;left:10px;width:520px;max-height:calc(100% - 20px);overflow:auto;padding:12px 12px 16px;border-radius:10px;background:var(--panel);backdrop-filter:blur(6px);box-shadow:0 8px 24px rgba(0,0,0,.35)}
+#controls h2{margin:0 0 6px 0;font-size:16px;font-weight:700;letter-spacing:.2px}
+#controls h3{margin:12px 0 6px 0;font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px}
+.row{display:flex;align-items:center;gap:8px;margin:6px 0}.row label{flex:1 1 auto;color:var(--muted)}
+.row input[type=range]{width:210px}.row input[type=number]{width:90px;padding:3px 6px;background:#0f141d;border:1px solid #1f2937;color:var(--text);border-radius:6px}
+.value{min-width:56px;text-align:right;color:#c6d1de}.pill{display:inline-block;padding:2px 8px;border-radius:999px;background:#0f141d;border:1px solid #1f2937;color:#bcd0e7}
+.sphere-card{border:1px solid #253244;border-radius:10px;padding:8px;margin:8px 0;background:#0f141d}
+.sphere-card h4{margin:0 0 6px 0;font-size:13px;display:flex;align-items:center;gap:8px}.dot{width:10px;height:10px;border-radius:50%;display:inline-block;border:1px solid #0003}
+select,button{padding:6px 10px;border-radius:8px;border:1px solid #2a3a52;background:#121a27;color:var(--text);cursor:pointer}button:hover{border-color:#3a5074}
+.hr{height:1px;background:#1e2a3d;margin:10px 0;border-radius:1px}.subtle{color:#9fb2c8;font-size:12px}
+#info{position:absolute;left:10px;bottom:10px;background:var(--panel);padding:10px 14px;border-radius:8px;color:var(--text);box-shadow:0 8px 24px rgba(0,0,0,.35);min-width:200px}
+#info .label{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:0.5px}
+#info .big{font-size:22px;font-weight:600;color:var(--accent)}
+#help{position:absolute;right:10px;top:10px;text-align:right;color:#b5c3d6;opacity:.85;background:var(--panel);padding:8px 10px;border-radius:8px;max-width:560px}
+#phaseVelocity{position:absolute;left:10px;bottom:100px;background:var(--panel);padding:8px 10px;border-radius:8px;color:var(--text);box-shadow:0 8px 24px rgba(0,0,0,.35);font-size:12px;font-family:monospace;line-height:1.6;min-width:180px}
+#interferenceStats{position:absolute;left:540px;top:10px;background:var(--panel);padding:10px 14px;border-radius:8px;color:var(--text);box-shadow:0 8px 24px rgba(0,0,0,.35);min-width:220px;font-size:12px}
+#interferenceStats h4{margin:0 0 8px 0;color:var(--accent);font-size:13px}
+#interferenceStats .stat-row{display:flex;justify-content:space-between;margin:4px 0;padding:2px 0;border-bottom:1px solid #1e2a3d}
+#interferenceStats .stat-label{color:var(--muted)}
+#interferenceStats .stat-value{color:#fff;font-family:monospace}
+.highlight{color:#ff6b6b !important}
+#perfStats{position:absolute;left:540px;top:220px;background:var(--panel);padding:8px 12px;border-radius:8px;color:var(--muted);font-size:11px;font-family:monospace}
+</style></head>
+<body>
+<div id="controls">
+  <h2>Resonant Spheres v4.3</h2>
+  <div class="row"><label>Sphere Count</label><input id="sphereCount" type="range" min="2" max="6" value="2"/><span id="sphereCountVal" class="value">2</span></div>
+  <div class="row" style="gap:6px;justify-content:flex-start;"><button id="pauseBtn">Pause</button><button id="resumeBtn">Resume</button><button id="resetViewBtn">Reset View</button><span class="value pill" id="runState">running</span></div>
+  <div class="row"><label>Amplitude</label><input id="amp" type="range" min="0" max="1" step="0.005" value="0.52"/><span id="ampVal" class="value">0.52</span></div>
+  <div class="row"><label>Time Scale</label><input id="speed" type="range" min="0.1" max="2" step="0.1" value="1.0"/><span id="speedVal" class="value">1.0×</span></div>
+  <div class="row"><label>Opacity</label><input id="opacity" type="range" min="0.05" max="1" step="0.05" value="0.45"/><span id="opacityVal" class="value">0.45</span></div>
+  <div class="row"><label>Wireframe</label><input id="wireframe" type="checkbox"/><span class="value pill">mesh</span></div>
+
+  <div class="hr"></div><h3>Interference (Between Spheres)</h3>
+  <div class="row"><label>Show Interference</label><input id="showInterference" type="checkbox" checked/><span class="value pill">tessellated</span></div>
+  <div class="row"><label>Interference Mode</label><select id="interfMode"><option value="add" selected>Superposition (a+b)</option><option value="mult">Product (a×b)</option><option value="both">Combined</option></select></div>
+  <div class="row"><label>GPU Interference</label><input id="gpuInterf" type="checkbox"/><span class="value pill">off</span></div>
+  <div class="row"><label>Interference Detail</label><input id="detail" type="range" min="16" max="72" step="2" value="40"/><span id="detailVal" class="value">40</span></div>
+  <div class="row"><label>Smoothing Strength</label><input id="smoothing" type="range" min="0" max="1" step="0.05" value="0.5"/><span id="smoothingVal" class="value">0.50</span></div>
+  <div class="row"><label>Smoothing Passes</label><input id="smoothPasses" type="range" min="0" max="4" step="1" value="2"/><span id="smoothPassesVal" class="value">2</span></div>
+  <div class="row"><label>Interference Update (ms)</label><input id="updateMs" type="range" min="50" max="500" step="10" value="100"/><span id="updateMsVal" class="value">100</span></div>
+  <div class="row"><label>Threshold τ</label><input id="intThresh" type="range" min="0" max="0.5" step="0.001" value="0.035"/><span id="intThreshVal" class="value">0.035</span></div>
+  <div class="row"><label>Threshold Metric</label><select id="threshBasis"><option value="energy" selected>Energy (u²)</option><option value="amp">Amplitude (|u|)</option><option value="coh">Pair Coherence (R<sub>ij</sub>)</option></select></div>
+  <div class="row"><label>Edge Threshold (coh)</label><input id="edgeThresh" type="range" min="0" max="1" step="0.01" value="0.10"/><span id="edgeThreshVal" class="value">0.10</span></div>
+
+  <div class="hr"></div><h3>Clipping Plane (Sections)</h3>
+  <div class="row"><label>Enable Clipping</label><input id="enableClip" type="checkbox"/><span class="value pill">sections</span></div>
+  <div class="row"><label>Clip Axis</label><select id="clipAxis"><option value="x">X-axis</option><option value="y">Y-axis</option><option value="z" selected>Z-axis</option></select></div>
+  <div class="row"><label>Clip Position</label><input id="clipPos" type="range" min="-8" max="8" step="0.1" value="0"/><span id="clipPosVal" class="value">0.0</span></div>
+  <div class="row"><label>Show Clip Plane</label><input id="showClipPlane" type="checkbox" checked/><span class="value pill">helper</span></div>
+
+  <div class="hr"></div><h3>Coherence</h3>
+  <div class="row"><label>Coupling K</label><input id="coupling" type="range" min="0" max="20" step="0.1" value="0.5"/><span id="couplingVal" class="value">0.5</span></div>
+  <div class="row"><label>Damping γ</label><input id="damping" type="range" min="0" max="20" step="0.1" value="8.0"/><span id="dampingVal" class="value">8.0</span></div>
+  <div class="row"><label>Color Mode</label><select id="colorMode"><option value="base">Base</option><option value="amp">Interference: Amplitude</option><option value="coh">Interference: Coherence</option><option value="energy" selected>Interference: Energy</option><option value="phase">Interference: Phase</option></select></div>
+  <div class="row"><label>Show Coherence Edges</label><input id="showEdges" type="checkbox" checked/><span class="value pill">pairs</span></div>
+
+  <div class="hr"></div><h3>Frequency & Pattern Basis</h3>
+  <div class="row"><label>Frequencies are real Hz</label><span class="value pill">15 Hz = 15 cycles/sec</span></div>
+  <div class="row"><label>Pattern Basis</label><select id="basis"><option value="kappa">Legacy κ (v2.6 style)</option><option value="ylm" selected>Spherical Harmonics (ℓ,m)</option></select></div>
+  <div class="row" id="kappaRow" style="display:none;"><label>Spatial Complexity κ</label><input id="spatialK" type="range" min="1" max="12" step="1" value="6"/><span id="spatialKVal" class="value">6</span></div>
+  <div id="ylmBlock">
+    <div class="row subtle">Chladni presets set (ℓ,m) per sphere; Hz untouched.</div>
+    <div class="row" style="gap:6px;"><button id="presetZonal">Zonal</button><button id="presetSectoral">Sectoral</button><button id="presetTesseral">Tesseral</button><button id="presetMixed">Mixed</button></div>
+  </div>
+
+  <div class="hr"></div><h3>Phase Multiplier</h3>
+  <div class="row"><label>Enable</label><input id="srcEmission" type="checkbox" checked/><span class="value pill">centered</span></div>
+  <div class="row"><label>Wave Speed c (units/s)</label><input id="waveSpeed" type="range" min="0.5" max="15" step="0.5" value="5"/><span id="waveSpeedVal" class="value">5</span></div>
+
+  <div class="hr"></div><h3>Physics Extensions</h3>
+  <div class="row"><label>Viscosity η (approx.)</label><input id="viscosity" type="range" min="0" max="0.2" step="0.005" value="0.00"/><span id="viscosityVal" class="value">0.00</span></div>
+
+  <div class="hr"></div><div id="sphereCards"></div>
+</div>
+
+<div id="interferenceStats">
+  <h4>⚡ Interference Analysis</h4>
+  <div class="stat-row"><span class="stat-label">Active Voxels</span><span id="statVoxels" class="stat-value">0</span></div>
+  <div class="stat-row"><span class="stat-label">Peak Energy</span><span id="statPeakE" class="stat-value">0.00</span></div>
+  <div class="stat-row"><span class="stat-label">Avg Energy</span><span id="statAvgE" class="stat-value">0.00</span></div>
+  <div class="stat-row"><span class="stat-label">Constructive %</span><span id="statConstr" class="stat-value">0%</span></div>
+  <div class="stat-row"><span class="stat-label">Destructive %</span><span id="statDestr" class="stat-value">0%</span></div>
+  <div class="stat-row"><span class="stat-label">Beat Freq</span><span id="statBeat" class="stat-value">0.0 Hz</span></div>
+  <div class="stat-row"><span class="stat-label">Phase Δ</span><span id="statPhaseDelta" class="stat-value">0.0°</span></div>
+</div>
+
+<div id="perfStats">FPS: -- | Build: --ms | Mem: --</div>
+
+<div id="help"><strong>Camera:</strong> drag = rotate, right-drag = pan, wheel = zoom.<br/><strong>v4.3:</strong> Real Hz, memory-optimized. 15 Hz = 15 cycles/sec.</div>
+<div id="info"><div class="label">Coherence Order</div><div id="Rvalue" class="big">R = 0.00</div><div id="runIndicator" style="color:var(--muted);font-size:11px;margin-top:4px;">running</div></div>
+<div id="phaseVelocity"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+if (typeof THREE === 'undefined') {
+  document.body.innerHTML = '<div style="color:white;padding:40px;font-family:Arial;background:#1a1a2e;min-height:100vh;"><h1 style="color:#ff6b6b;">⚠️ Three.js Not Loaded</h1><p>Press F5 to refresh.</p></div>';
+  throw new Error('THREE not defined');
+}
+
+// ============== MEMORY MANAGEMENT ==============
+// Fixed-size vector pool with periodic cleanup
+const VecPool = {
+  pool: new Array(200),
+  idx: 0,
+  init() {
+    for(let i = 0; i < 200; i++) this.pool[i] = new THREE.Vector3();
+  },
+  get() {
+    if(this.idx >= 200) this.idx = 0; // Wrap around instead of growing
+    return this.pool[this.idx++].set(0,0,0);
+  },
+  reset() { this.idx = 0; }
+};
+VecPool.init();
+
+// Pre-allocated working vectors (never reallocated)
+const _v1 = new THREE.Vector3(), _v2 = new THREE.Vector3(), _v3 = new THREE.Vector3();
+const _sph = new THREE.Spherical();
+
+// Frame timing
+let lastFrameTime = performance.now(), frameCount = 0, fps = 60, lastBuildTime = 0;
+let totalFrames = 0;
+
+function byId(id){return document.getElementById(id)}
+const scene=new THREE.Scene();scene.background=null;
+const camera=new THREE.PerspectiveCamera(55,innerWidth/innerHeight,0.1,100);
+let cameraTarget=new THREE.Vector3(0,0,0),cameraDistance=13;camera.position.set(0,2,cameraDistance);
+const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});renderer.setClearColor(0x000000,0);renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,2));document.body.appendChild(renderer.domElement);
+renderer.localClippingEnabled = true;
+const hemi=new THREE.HemisphereLight(0xffffff,0x223344,.7);scene.add(hemi);const dir=new THREE.DirectionalLight(0xffffff,.8);dir.position.set(5,4,6);scene.add(dir);
+const grid=new THREE.GridHelper(60,60,0x213047,0x182235);grid.position.y=-3.1;grid.material.opacity=.35;grid.material.transparent=true;scene.add(grid);
+
+const clipPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+const clipPlaneHelper = new THREE.PlaneHelper(clipPlane, 10, 0x3388ff);
+clipPlaneHelper.visible = false;
+scene.add(clipPlaneHelper);
+
+function updateClipPlane(){
+  const enabled = ui.enableClip.checked;
+  const axis = ui.clipAxis.value;
+  const pos = +ui.clipPos.value;
+  if(axis === 'x') clipPlane.normal.set(1, 0, 0);
+  else if(axis === 'y') clipPlane.normal.set(0, 1, 0);
+  else clipPlane.normal.set(0, 0, 1);
+  clipPlane.constant = -pos;
+  clipPlaneHelper.visible = enabled && ui.showClipPlane.checked;
+  spheres.forEach(s => { s.material.clippingPlanes = enabled ? [clipPlane] : []; s.material.needsUpdate = true; });
+  interferenceGroup.children.forEach(child => { if(child.material){ child.material.clippingPlanes = enabled ? [clipPlane] : []; child.material.needsUpdate = true; }});
+}
+
+const DUMMY_TEX=new THREE.DataTexture(new Uint8Array([128,128,128,255]),1,1,THREE.RGBAFormat); DUMMY_TEX.needsUpdate=true;
+
+// UI map
+const ui={count:byId('sphereCount'),countVal:byId('sphereCountVal'),amp:byId('amp'),ampVal:byId('ampVal'),speed:byId('speed'),speedVal:byId('speedVal'),opacity:byId('opacity'),opacityVal:byId('opacityVal'),wire:byId('wireframe'),showInt:byId('showInterference'),interfMode:byId('interfMode'),detail:byId('detail'),detailVal:byId('detailVal'),smoothing:byId('smoothing'),smoothingVal:byId('smoothingVal'),smoothPasses:byId('smoothPasses'),smoothPassesVal:byId('smoothPassesVal'),updateMs:byId('updateMs'),updateMsVal:byId('updateMsVal'),intThresh:byId('intThresh'),intThreshVal:byId('intThreshVal'),threshBasis:byId('threshBasis'),gpuInterf:byId('gpuInterf'),edgeThresh:byId('edgeThresh'),edgeThreshVal:byId('edgeThreshVal'),coupling:byId('coupling'),couplingVal:byId('couplingVal'),damping:byId('damping'),dampingVal:byId('dampingVal'),colorMode:byId('colorMode'),showEdges:byId('showEdges'),cards:byId('sphereCards'),info:byId('info'),pauseBtn:byId('pauseBtn'),resumeBtn:byId('resumeBtn'),resetViewBtn:byId('resetViewBtn'),runState:byId('runState'),basis:byId('basis'),kappaRow:byId('kappaRow'),spatialK:byId('spatialK'),spatialKVal:byId('spatialKVal'),ylmBlock:byId('ylmBlock'),presetZonal:byId('presetZonal'),presetSectoral:byId('presetSectoral'),presetTesseral:byId('presetTesseral'),presetMixed:byId('presetMixed'),srcEmission:byId('srcEmission'),waveSpeed:byId('waveSpeed'),waveSpeedVal:byId('waveSpeedVal'),viscosity:byId('viscosity'),viscosityVal:byId('viscosityVal'),enableClip:byId('enableClip'),clipAxis:byId('clipAxis'),clipPos:byId('clipPos'),clipPosVal:byId('clipPosVal'),showClipPlane:byId('showClipPlane')};
+function syncRange(r,l,fmt=(x)=>x){const f=()=>l.textContent=fmt(r.value);r.addEventListener('input',f);f();}
+syncRange(ui.count,ui.countVal);syncRange(ui.amp,ui.ampVal,v=>(+v).toFixed(2));syncRange(ui.speed,ui.speedVal,v=>(+v).toFixed(1)+'×');
+syncRange(ui.opacity,ui.opacityVal,v=>(+v).toFixed(2));syncRange(ui.detail,ui.detailVal);syncRange(ui.smoothing,ui.smoothingVal,v=>(+v).toFixed(2));syncRange(ui.smoothPasses,ui.smoothPassesVal);syncRange(ui.updateMs,ui.updateMsVal);syncRange(ui.intThresh,ui.intThreshVal,v=>(+v).toFixed(3));
+syncRange(ui.edgeThresh,ui.edgeThreshVal,v=>(+v).toFixed(2));syncRange(ui.coupling,ui.couplingVal,v=>(+v).toFixed(1));syncRange(ui.damping,ui.dampingVal,v=>(+v).toFixed(1));
+syncRange(ui.spatialK,ui.spatialKVal);syncRange(ui.waveSpeed,ui.waveSpeedVal,v=>(+v).toFixed(1));
+syncRange(ui.viscosity,ui.viscosityVal,v=>(+v).toFixed(3));
+syncRange(ui.clipPos,ui.clipPosVal,v=>(+v).toFixed(1));
+
+ui.enableClip.addEventListener('change', updateClipPlane);
+ui.clipAxis.addEventListener('change', updateClipPlane);
+ui.clipPos.addEventListener('input', updateClipPlane);
+ui.showClipPlane.addEventListener('change', updateClipPlane);
+
+// ============== MATH FUNCTIONS (OPTIMIZED WITH BOUNDED CACHE) ==============
+// LRU-style cache with max size and cleanup
+const BESSEL_CACHE = new Map();
+const BESSEL_CACHE_MAX = 2000;
+
+function sphericalBesselJ_stable(l, x){
+  x = Math.max(1e-12, Math.abs(x));
+  if (l === 0) return Math.sin(x)/x;
+  if (l === 1) return (Math.sin(x)/(x*x)) - (Math.cos(x)/x);
+  
+  const cacheKey = (l << 16) | ((x*50)|0); // Compact key
+  const cached = BESSEL_CACHE.get(cacheKey);
+  if(cached !== undefined) return cached;
+  
+  const N = Math.max(l + 25, (x|0) + 50);
+  let jp1 = 0.0, jcur = 1.0;
+  const vals = new Array(N+1);
+  vals[N] = jcur; vals[N-1] = ((2*N+1)/x)*jcur - jp1;
+  for (let n = N-1; n > 0; --n) vals[n-1] = ((2*n+1)/x)*vals[n] - vals[n+1];
+  const result = vals[l] * (Math.sin(x)/x) / vals[0];
+  
+  // Bounded cache with cleanup
+  if(BESSEL_CACHE.size >= BESSEL_CACHE_MAX) {
+    // Remove oldest 25%
+    const keysToDelete = Array.from(BESSEL_CACHE.keys()).slice(0, BESSEL_CACHE_MAX / 4);
+    keysToDelete.forEach(k => BESSEL_CACHE.delete(k));
+  }
+  BESSEL_CACHE.set(cacheKey, result);
+  return result;
+}
+
+function associatedLegendreP(l, m, x) {
+  m = Math.abs(m);
+  if (l < m) return 0;
+  let pmm = 1.0;
+  if (m > 0) {
+    const somx2 = Math.sqrt(Math.max(0, 1 - x * x));
+    let fact = 1.0;
+    for (let i = 1; i <= m; i++) { pmm *= -fact * somx2; fact += 2.0; }
+  }
+  if (l === m) return pmm;
+  let pmmp1 = x * (2 * m + 1) * pmm;
+  if (l === m + 1) return pmmp1;
+  let pll = 0;
+  for (let ll = m + 2; ll <= l; ll++) { pll = ((2 * ll - 1) * x * pmmp1 - (ll + m - 1) * pmm) / (ll - m); pmm = pmmp1; pmmp1 = pll; }
+  return pll;
+}
+
+const SQRT2 = Math.sqrt(2);
+function realYlm(l, m, theta, phi) {
+  const x = Math.cos(theta);
+  const Plm = associatedLegendreP(l, Math.abs(m), x);
+  if (m === 0) return Plm;
+  if (m > 0) return SQRT2 * Plm * Math.cos(m * phi);
+  return SQRT2 * Plm * Math.sin(-m * phi);
+}
+
+const ZEROS_CACHE = new Map();
+function j_l(l, x){ return sphericalBesselJ_stable(l, x); }
+function besselZero_l_n(l, n){
+  const key = `${l}_${n}`; if (ZEROS_CACHE.has(key)) return ZEROS_CACHE.get(key);
+  const pi = Math.PI; let center = (n + 0.5*l) * pi;
+  let a = Math.max(1e-6, center - pi*0.8), b = center + pi*0.8;
+  let fa = j_l(l, a), fb = j_l(l, b), tries = 0;
+  while (fa*fb > 0 && tries < 12){ a -= pi*0.5; b += pi*0.5; fa = j_l(l, a); fb = j_l(l, b); tries++; }
+  for (let k=0;k<40;k++){ const mid = 0.5*(a+b); const fm = j_l(l, mid);
+    if (Math.abs(fm) < 1e-10 || Math.abs(b-a) < 1e-8){ ZEROS_CACHE.set(key, mid); return mid; }
+    if (fa*fm <= 0){ b = mid; fb = fm; } else { a = mid; fa = fm; } }
+  const root = 0.5*(a+b); ZEROS_CACHE.set(key, root); return root;
+}
+const SPHERICAL_BESSEL_FIRST_ROOTS = {0: Math.PI, 1: 4.493409457909064, 2: 5.763456834, 3: 7.095515, 4: 8.417244, 5: 9.761023, 6: 11.064719, 7: 12.529, 8: 13.808};
+
+const COLORS=[0xff6b6b,0x4ecdc4,0x45b7d1,0xfeca57,0xff9ff3,0x54a0ff];
+const CHLADNI={zonal:[[2,0],[3,0],[4,0],[5,0],[6,0],[7,0]],sectoral:[[1,1],[2,2],[3,3],[4,4],[5,5],[6,6]],tesseral:[[3,1],[4,1],[4,2],[5,2],[5,3],[6,2]],mixed:[[2,0],[3,2],[4,1],[5,3],[6,0],[6,4]]};
+let patternBasis='ylm';
+
+let interfStats = {voxels:0, peakE:0, avgE:0, constructive:0, destructive:0};
+
+// ============== RESONANT SPHERE CLASS ==============
+class ResonantSphere{
+  constructor(i,color,pos){
+    this.index=i;this.radius=1.5;this.color=color;
+    this.frequencyHz=5; // Real Hz - at timeScale=1, this is actual cycles per second
+    this.phase=0;
+    this.omega=2*Math.PI*this.frequencyHz;
+    this.visible=true;this.spatialK=+ui.spatialK.value||6;this.l=2;this.m=0;
+    this.radialN=1;
+    this.px = pos.x; this.py = pos.y; this.pz = pos.z;
+    this._cachedK = 0; this._cachedAlpha = 0; this._cacheValid = false;
+    
+    this.geometry=new THREE.SphereGeometry(this.radius,48,48);
+    this.material=new THREE.MeshPhongMaterial({color,transparent:true,opacity:.45,shininess:80,specular:0xccccee,side:THREE.DoubleSide,wireframe:false});
+    this.mesh=new THREE.Mesh(this.geometry,this.material);this.mesh.position.copy(pos);this.mesh.visible=this.visible;scene.add(this.mesh);
+    
+    const posAttr=this.geometry.attributes.position;
+    this.vertCount = posAttr.count;
+    this.vertTheta = new Float32Array(this.vertCount);
+    this.vertPhi = new Float32Array(this.vertCount);
+    this.vertDirX = new Float32Array(this.vertCount);
+    this.vertDirY = new Float32Array(this.vertCount);
+    this.vertDirZ = new Float32Array(this.vertCount);
+    
+    for(let k=0;k<this.vertCount;k++){
+      const x = posAttr.getX(k), y = posAttr.getY(k), z = posAttr.getZ(k);
+      const len = Math.sqrt(x*x + y*y + z*z) || 1;
+      const dx = x/len, dy = y/len, dz = z/len;
+      this.vertDirX[k] = dx; this.vertDirY[k] = dy; this.vertDirZ[k] = dz;
+      this.vertTheta[k] = Math.acos(Math.min(1,Math.max(-1,dy)));
+      this.vertPhi[k] = Math.atan2(dz, dx);
+    }
+  }
+  
+  updateCache(){
+    const c = +ui.waveSpeed.value;
+    this._cachedK = Math.max(1e-6, this.omega / c);
+    this._cachedAlpha = (+ui.viscosity.value) * this.omega / Math.max(1e-6, c*c);
+    this._cacheValid = true;
+  }
+  
+  setMode(l,m){this.l=Math.max(0,l|0); this.m=(m|0); if(Math.abs(this.m)>this.l)this.m=Math.sign(this.m)*this.l; this.updateEigenFrequency(); this._cacheValid=false;}
+  setRadialN(n){ this.radialN = Math.max(1, Math.floor(n)); this.updateEigenFrequency(); this._cacheValid=false;}
+  updateEigenFrequency(){
+    const c = +ui.waveSpeed.value, R = Math.max(1e-4, this.radius);
+    let x = this.radialN === 1 && SPHERICAL_BESSEL_FIRST_ROOTS[this.l] ? SPHERICAL_BESSEL_FIRST_ROOTS[this.l] : besselZero_l_n(this.l, this.radialN);
+    const f_est = Math.max(0.1, Math.min(60, (c * x) / (2 * Math.PI * R)));
+    this.setFrequencyHz(f_est);
+  }
+  setSpatialK(k){this.spatialK=Math.max(1,Math.floor(k))}
+  setFrequencyHz(hz){ this.frequencyHz = Math.max(0.1, Math.min(60, hz)); this.omega = 2*Math.PI*this.frequencyHz; this._cacheValid=false;}
+  setOpacity(a){this.material.opacity=a}
+  setWireframe(w){this.material.wireframe=!!w}
+  setVisible(v){this.visible=!!v;this.mesh.visible=this.visible}
+  setRadius(R){this.radius=Math.max(0.3,Math.min(5,R)); this._cacheValid=false;}
+  
+  // Phase update: omega is in rad/s, so at timeScale=1 and dt=1/60, 15 Hz gives 15 cycles/sec
+  updatePhase(dt, cpl, gamma, timeScale){
+    // Real Hz: phase velocity = omega (rad/s) * timeScale
+    // Coupling and damping also scaled
+    this.phase += (this.omega * timeScale + cpl * timeScale - gamma * timeScale * 0.1) * dt;
+  }
+  
+  syncPosition(){
+    this.px = this.mesh.position.x;
+    this.py = this.mesh.position.y;
+    this.pz = this.mesh.position.z;
+  }
+
+  updateSurface(amp){
+    if(!this._cacheValid) this.updateCache();
+    const posAttr=this.geometry.attributes.position;
+    const R=this.radius, l=this.l, m=this.m, ph=this.phase;
+    const k=this._cachedK, alpha=this._cachedAlpha;
+    const sinPh = Math.sin(ph);
+    const expAlphaR = Math.exp(-alpha * R);
+    const useYlm = patternBasis==='ylm';
+    const spatK = this.spatialK;
+    
+    for(let i=0;i<this.vertCount;i++){
+      const th = this.vertTheta[i], az = this.vertPhi[i];
+      const dx = this.vertDirX[i], dy = this.vertDirY[i], dz = this.vertDirZ[i];
+      
+      let Ym;
+      if(useYlm) {
+        Ym = realYlm(l, m, th, az);
+      } else {
+        Ym = Math.sin(spatK*th+ph)+0.5*Math.sin(2*spatK*az+0.7*ph)+0.3*Math.cos((spatK+1)*(th+az)-0.5*ph);
+      }
+      const disp = amp * Ym * sinPh * expAlphaR;
+      const newR = R + disp;
+      posAttr.setXYZ(i, dx*newR, dy*newR, dz*newR);
+    }
+    posAttr.needsUpdate=true;
+    this.geometry.computeVertexNormals();
+  }
+  
+  fieldAtFast(px, py, pz, amp){
+    const lpx = px - this.px, lpy = py - this.py, lpz = pz - this.pz;
+    const r = Math.sqrt(lpx*lpx + lpy*lpy + lpz*lpz);
+    const R = this.radius;
+    if(r > R * 2.0) return 0;
+    
+    if(!this._cacheValid) this.updateCache();
+    const k = this._cachedK, alpha = this._cachedAlpha;
+    
+    let field;
+    if(patternBasis==='kappa'){
+      const invR = 1/Math.max(r, 1e-6);
+      const dx = lpx*invR, dy = lpy*invR, dz = lpz*invR;
+      const theta = Math.atan2(dz, dx);
+      const phi = Math.acos(Math.min(1,Math.max(-1,dy)));
+      const kp = this.spatialK, ph = this.phase;
+      field = amp*(Math.sin(kp*phi+ph)+0.5*Math.sin(2*kp*theta+0.7*ph)+0.3*Math.cos((kp+1)*(phi+theta)-0.5*ph));
+    } else {
+      const invR = 1/Math.max(r, 1e-6);
+      const dx = lpx*invR, dy = lpy*invR, dz = lpz*invR;
+      const theta = Math.acos(Math.min(1,Math.max(-1,dy)));
+      const phi = Math.atan2(dz, dx);
+      const radial = sphericalBesselJ_stable(this.l, k * Math.max(1e-6, r)) * Math.exp(-alpha * r);
+      const Ym = realYlm(this.l, this.m, theta, phi);
+      field = amp * Ym * radial * Math.sin(this.phase);
+    }
+    
+    if(ui.srcEmission.checked){
+      field += 0.25 * amp * Math.sin(k * r + this.phase) / (1 + r);
+    }
+    
+    const atten = Math.max(0, 1 - Math.abs(r - R) / (R * 1.2));
+    return field * atten;
+  }
+  
+  // Cleanup method
+  dispose(){
+    this.geometry.dispose();
+    this.material.dispose();
+    this.vertTheta = null;
+    this.vertPhi = null;
+    this.vertDirX = null;
+    this.vertDirY = null;
+    this.vertDirZ = null;
+  }
+}
+
+// ============== GROUPS AND HELPERS ==============
+let spheres=[],edgesGroup=new THREE.Group(),interferenceGroup=new THREE.Group();
+scene.add(edgesGroup);scene.add(interferenceGroup);
+const cohEMA=new Map();
+function pairKey(i,j){return i<j?`${i}-${j}`:`${j}-${i}`}
+function layoutPositions(n){const rad=4.2,pts=[];for(let i=0;i<n;i++){const a=(i/n)*Math.PI*2;pts.push(new THREE.Vector3(Math.cos(a)*rad,0,Math.sin(a)*rad));}return pts}
+
+// Improved cleanup - ensures complete disposal
+function clearGroup(g){
+  while(g.children.length > 0){
+    const o = g.children[0];
+    if(o.geometry){
+      o.geometry.dispose();
+      o.geometry = null;
+    }
+    if(o.material){
+      if(Array.isArray(o.material)){
+        o.material.forEach(m => { m.dispose(); });
+      } else {
+        o.material.dispose();
+      }
+      o.material = null;
+    }
+    g.remove(o);
+  }
+}
+
+function rebuildSpheres(n){
+  // Properly dispose old spheres
+  spheres.forEach(s => {
+    scene.remove(s.mesh);
+    s.dispose();
+  });
+  spheres = [];
+  clearGroup(edgesGroup);
+  clearGroup(interferenceGroup);
+  cohEMA.clear();
+  
+  const pos=layoutPositions(n);
+  for(let i=0;i<n;i++){
+    const s=new ResonantSphere(i,COLORS[i%COLORS.length],pos[i]);
+    s.setFrequencyHz(5 + i * 3); // Spread: 5 Hz, 8 Hz, 11 Hz, etc.
+    s.setSpatialK(+ui.spatialK.value||6);
+    s.setOpacity(+ui.opacity.value);
+    s.setWireframe(ui.wire.checked);
+    s.updateSurface(+ui.amp.value);
+    spheres.push(s);
+  }
+  buildSphereCards();
+  if(patternBasis==='ylm')applyPreset('mixed');
+}
+
+function buildSphereCards(){
+  ui.cards.innerHTML="";spheres.forEach((s,idx)=>{
+    const hex="#"+("000000"+s.color.toString(16)).slice(-6);
+    const div=document.createElement('div');div.className="sphere-card";
+    div.innerHTML=`<h4><span class="dot" style="background:${hex}"></span> Sphere ${idx+1}</h4>
+      <div class="row"><label>Visible</label><input id="vis_${idx}" type="checkbox" ${s.visible?"checked":""}/></div>
+      <div class="row"><label>Radius R</label><input id="r_${idx}" type="range" min="0.5" max="3.5" step="0.1" value="${s.radius.toFixed(1)}"/><span id="rv_${idx}" class="value">${s.radius.toFixed(1)}</span></div>
+      <div class="row"><label>Radial Index n</label><input id="n_${idx}" type="number" min="1" max="9" step="1" value="${s.radialN}"/></div>
+      <div class="row"><label>Frequency (Hz)</label><input id="f_${idx}" type="number" min="0.1" max="60" step="0.1" value="${s.frequencyHz.toFixed(1)}"/></div>
+      <div class="row" id="modeRow_${idx}"><label>Mode (ℓ,m)</label>
+        <input id="l_${idx}" type="number" min="0" max="12" step="1" value="${s.l}"/>
+        <input id="m_${idx}" type="number" min="-12" max="12" step="1" value="${s.m}"/>
+      </div>
+      <div class="row"><label>Position X</label><input id="x_${idx}" type="range" min="-8" max="8" step="0.1" value="${s.mesh.position.x.toFixed(1)}"/><span id="xv_${idx}" class="value">${s.mesh.position.x.toFixed(1)}</span></div>
+      <div class="row"><label>Position Y</label><input id="y_${idx}" type="range" min="-3" max="5" step="0.1" value="${s.mesh.position.y.toFixed(1)}"/><span id="yv_${idx}" class="value">${s.mesh.position.y.toFixed(1)}</span></div>
+      <div class="row"><label>Position Z</label><input id="z_${idx}" type="range" min="-8" max="8" step="0.1" value="${s.mesh.position.z.toFixed(1)}"/><span id="zv_${idx}" class="value">${s.mesh.position.z.toFixed(1)}</span></div>`;
+    ui.cards.appendChild(div);
+    byId(`vis_${idx}`).addEventListener('change',e=>s.setVisible(e.target.checked));
+    byId(`f_${idx}`).addEventListener('change',e=>s.setFrequencyHz(parseFloat(e.target.value)||s.frequencyHz));
+    byId(`n_${idx}`).addEventListener('change',e=>{const nv = Math.max(1, parseInt(e.target.value||s.radialN,10)); s.setRadialN(nv); e.target.value = s.radialN; const fin = byId(`f_${idx}`); if(fin) fin.value = s.frequencyHz.toFixed(1); });
+    const rslider=byId(`r_${idx}`);const rv=byId(`rv_${idx}`);const rUpd=()=>{rv.textContent=(+rslider.value).toFixed(1);s.setRadius(+rslider.value); s.updateEigenFrequency(); const fin = byId(`f_${idx}`); if(fin) fin.value = s.frequencyHz.toFixed(1);};
+    rslider.addEventListener('input',rUpd);rUpd();
+    const li=byId(`l_${idx}`),mi=byId(`m_${idx}`);const disabled=(patternBasis!=='ylm');li.disabled=disabled;mi.disabled=disabled;
+    li.addEventListener('change',()=>{let L=Math.max(0,Math.min(12,parseInt(li.value||s.l,10)));let M=Math.max(-L,Math.min(L,s.m));s.setMode(L,M);li.value=s.l;mi.value=s.m; const fin = byId(`f_${idx}`); if(fin) fin.value = s.frequencyHz.toFixed(1);});
+    mi.addEventListener('change',()=>{let M=parseInt(mi.value||s.m,10);M=Math.max(-s.l,Math.min(s.l,M));s.setMode(s.l,M);mi.value=s.m; const fin = byId(`f_${idx}`); if(fin) fin.value = s.frequencyHz.toFixed(1);});
+    ['x','y','z'].forEach(axis=>{const slider=byId(`${axis}_${idx}`);const lab=byId(`${axis}v_${idx}`);const upd=()=>{lab.textContent=(+slider.value).toFixed(1);s.mesh.position[axis]=+slider.value;s.syncPosition()};slider.addEventListener('input',upd);upd();});
+  });
+}
+
+// ============== SMOOTHING (reuse arrays) ==============
+let smoothingAdj = null;
+let smoothingAdjCount = 0;
+let smoothingNewPos = null;
+
+function laplacianSmoothFast(geometry, strength, passes) {
+  if(passes === 0 || strength < 0.01) return;
+  
+  const posAttr = geometry.attributes.position;
+  const pos = posAttr.array;
+  const count = posAttr.count;
+  
+  // Rebuild adjacency only if vertex count changed
+  if(smoothingAdjCount !== count){
+    smoothingAdj = new Array(count);
+    for(let i=0; i<count; i++) smoothingAdj[i] = [];
+    const idx = geometry.index;
+    if(idx) {
+      const indices = idx.array;
+      for(let i=0; i<indices.length; i+=3) {
+        const a = indices[i], b = indices[i+1], c = indices[i+2];
+        if(smoothingAdj[a].indexOf(b) === -1) smoothingAdj[a].push(b);
+        if(smoothingAdj[a].indexOf(c) === -1) smoothingAdj[a].push(c);
+        if(smoothingAdj[b].indexOf(a) === -1) smoothingAdj[b].push(a);
+        if(smoothingAdj[b].indexOf(c) === -1) smoothingAdj[b].push(c);
+        if(smoothingAdj[c].indexOf(a) === -1) smoothingAdj[c].push(a);
+        if(smoothingAdj[c].indexOf(b) === -1) smoothingAdj[c].push(b);
+      }
+    }
+    smoothingAdjCount = count;
+    smoothingNewPos = new Float32Array(count * 3);
+  }
+  
+  for(let pass=0; pass<passes; pass++) {
+    for(let i=0; i<count; i++) {
+      const neighbors = smoothingAdj[i];
+      const nlen = neighbors.length;
+      if(nlen === 0) {
+        smoothingNewPos[3*i] = pos[3*i];
+        smoothingNewPos[3*i+1] = pos[3*i+1];
+        smoothingNewPos[3*i+2] = pos[3*i+2];
+        continue;
+      }
+      let ax=0, ay=0, az=0;
+      for(let j=0; j<nlen; j++) {
+        const ni = neighbors[j];
+        ax += pos[3*ni]; ay += pos[3*ni+1]; az += pos[3*ni+2];
+      }
+      const invN = 1/nlen;
+      ax *= invN; ay *= invN; az *= invN;
+      smoothingNewPos[3*i]   = pos[3*i]   + strength * (ax - pos[3*i]);
+      smoothingNewPos[3*i+1] = pos[3*i+1] + strength * (ay - pos[3*i+1]);
+      smoothingNewPos[3*i+2] = pos[3*i+2] + strength * (az - pos[3*i+2]);
+    }
+    for(let i=0; i<count*3; i++) pos[i] = smoothingNewPos[i];
+  }
+  posAttr.needsUpdate = true;
+}
+
+// ============== INTERFERENCE MESH BUILDER ==============
+// Reusable typed arrays
+let interfVerts = new Float32Array(150000);
+let interfCols = new Float32Array(150000);
+let interfVertsSize = 150000;
+
+function buildTessellatedPairFast(i, j, samples, colorMode, time){
+  const s1=spheres[i], s2=spheres[j];
+  const dx = s2.px - s1.px, dy = s2.py - s1.py, dz = s2.pz - s1.pz;
+  const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
+  const maxD = s1.radius + s2.radius;
+  if(dist >= maxD * 1.5) return null;
+  
+  const centerX = (s1.px + s2.px) * 0.5;
+  const centerY = (s1.py + s2.py) * 0.5;
+  const centerZ = (s1.pz + s2.pz) * 0.5;
+  const range = Math.max(maxD * 1.0, dist * 0.8);
+  
+  const tau = +ui.intThresh.value;
+  const basis = ui.threshBasis.value;
+  const interfMode = ui.interfMode.value;
+  const amp = +ui.amp.value;
+  const r1lim = s1.radius * 1.5, r1limSq = r1lim * r1lim;
+  const r2lim = s2.radius * 1.5, r2limSq = r2lim * r2lim;
+  
+  const beatFreq = Math.abs(s1.frequencyHz - s2.frequencyHz);
+  const beatVal = Math.sin(beatFreq * 2 * Math.PI * time * 0.1) * 0.15;
+  
+  // Ensure arrays are big enough
+  const maxVerts = samples * samples * samples;
+  if(maxVerts * 3 > interfVertsSize){
+    interfVertsSize = maxVerts * 3;
+    interfVerts = new Float32Array(interfVertsSize);
+    interfCols = new Float32Array(interfVertsSize);
+  }
+  
+  let vi = 0;
+  let totalE = 0, peakE = 0, constructiveCount = 0, destructiveCount = 0, totalSamples = 0;
+  const vmap = new Map();
+  const invSamplesM1 = 1 / (samples - 1);
+  
+  const ema = cohEMA.get(pairKey(i,j));
+  const cohR = ema ? Math.min(1, Math.sqrt(ema.cx*ema.cx + ema.cy*ema.cy)) : 0;
+  
+  for(let xi=0; xi<samples; xi++){
+    const u = xi * invSamplesM1;
+    const px = centerX + (u - 0.5) * range;
+    
+    for(let yi=0; yi<samples; yi++){
+      const v = yi * invSamplesM1;
+      const py = centerY + (v - 0.5) * range;
+      
+      for(let zi=0; zi<samples; zi++){
+        const w = zi * invSamplesM1;
+        const pz = centerZ + (w - 0.5) * range;
+        
+        const d1x = px - s1.px, d1y = py - s1.py, d1z = pz - s1.pz;
+        const d1sq = d1x*d1x + d1y*d1y + d1z*d1z;
+        if(d1sq > r1limSq) continue;
+        
+        const d2x = px - s2.px, d2y = py - s2.py, d2z = pz - s2.pz;
+        const d2sq = d2x*d2x + d2y*d2y + d2z*d2z;
+        if(d2sq > r2limSq) continue;
+        
+        const a1 = s1.fieldAtFast(px, py, pz, amp);
+        const a2 = s2.fieldAtFast(px, py, pz, amp);
+        
+        const sum = a1 + a2 + beatVal;
+        const product = a1 * a2 * 4;
+        
+        let combined;
+        if(interfMode === 'add') combined = sum;
+        else if(interfMode === 'mult') combined = product;
+        else combined = sum + product * 0.5;
+        
+        let m;
+        if(basis === 'energy') m = Math.min(1, (a1*a1 + a2*a2) * 15);
+        else if(basis === 'coh') m = cohR;
+        else m = Math.min(1, Math.abs(combined) * 8);
+        
+        totalSamples++;
+        const energy = a1*a1 + a2*a2;
+        totalE += energy;
+        if(energy > peakE) peakE = energy;
+        if(sum > 0.01) constructiveCount++;
+        else if(sum < -0.01) destructiveCount++;
+        
+        if(m < tau) continue;
+        
+        const toCenterX = px - centerX, toCenterY = py - centerY, toCenterZ = pz - centerZ;
+        const toCenterLen = Math.sqrt(toCenterX*toCenterX + toCenterY*toCenterY + toCenterZ*toCenterZ) || 1;
+        const invLen = 1 / toCenterLen;
+        const dispMag = (interfMode === 'mult' ? product : sum) * 1.5;
+        
+        interfVerts[vi*3] = px + toCenterX * invLen * dispMag;
+        interfVerts[vi*3+1] = py + toCenterY * invLen * dispMag;
+        interfVerts[vi*3+2] = pz + toCenterZ * invLen * dispMag;
+        
+        let r=0.5, g=0.5, b=0.5;
+        if(colorMode==='amp' || colorMode==='base'){
+          const inten = Math.min(1, Math.abs(combined) * 8);
+          if(combined >= 0){ r=1.0; g=0.3+0.4*inten; b=0.1; }
+          else { r=0.1; g=0.2+0.3*inten; b=1.0; }
+        } else if(colorMode==='energy'){
+          const e = Math.min(1, energy * 15);
+          // Purple gradient
+          r = 0.35 + 0.65 * e;
+          g = 0.1 + 0.25 * e * e;
+          b = 0.55 + 0.35 * Math.sqrt(e);
+        } else if(colorMode==='coh'){
+          r=0.2+0.8*cohR; g=1.0-0.5*cohR; b=0.35*(1-cohR);
+        } else if(colorMode==='phase'){
+          const phaseDiff = Math.abs(s1.phase - s2.phase) % (2*Math.PI);
+          const norm = phaseDiff / (2*Math.PI);
+          r = Math.max(0, Math.sin(norm * Math.PI));
+          g = Math.max(0, Math.sin(norm * Math.PI + Math.PI/3));
+          b = Math.max(0, Math.sin(norm * Math.PI + 2*Math.PI/3));
+        }
+        
+        interfCols[vi*3] = r;
+        interfCols[vi*3+1] = g;
+        interfCols[vi*3+2] = b;
+        
+        vmap.set(xi * samples * samples + yi * samples + zi, vi);
+        vi++;
+      }
+    }
+  }
+  
+  interfStats.voxels = vi;
+  interfStats.peakE = peakE;
+  interfStats.avgE = totalSamples > 0 ? totalE / totalSamples : 0;
+  interfStats.constructive = totalSamples > 0 ? (constructiveCount / totalSamples * 100) : 0;
+  interfStats.destructive = totalSamples > 0 ? (destructiveCount / totalSamples * 100) : 0;
+  
+  if(vi === 0) return null;
+  
+  // Build indices
+  const indices = [];
+  const s2d = samples * samples;
+  for(let xi=0; xi<samples-1; xi++){
+    for(let yi=0; yi<samples-1; yi++){
+      for(let zi=0; zi<samples-1; zi++){
+        const k000 = xi*s2d + yi*samples + zi;
+        const k100 = (xi+1)*s2d + yi*samples + zi;
+        const k010 = xi*s2d + (yi+1)*samples + zi;
+        const k001 = xi*s2d + yi*samples + (zi+1);
+        const k110 = (xi+1)*s2d + (yi+1)*samples + zi;
+        
+        const v000 = vmap.get(k000), v100 = vmap.get(k100), v010 = vmap.get(k010), v001 = vmap.get(k001), v110 = vmap.get(k110);
+        
+        if(v000 !== undefined && v100 !== undefined && v010 !== undefined) indices.push(v000, v100, v010);
+        if(v100 !== undefined && v110 !== undefined && v010 !== undefined) indices.push(v100, v110, v010);
+        if(v000 !== undefined && v010 !== undefined && v001 !== undefined) indices.push(v000, v010, v001);
+      }
+    }
+  }
+  
+  // Create new geometry with copied data
+  const geom = new THREE.BufferGeometry();
+  geom.setAttribute('position', new THREE.Float32BufferAttribute(interfVerts.slice(0, vi*3), 3));
+  geom.setAttribute('color', new THREE.Float32BufferAttribute(interfCols.slice(0, vi*3), 3));
+  if(indices.length) geom.setIndex(indices);
+  geom.computeVertexNormals();
+  
+  const smoothStrength = +ui.smoothing.value;
+  const smoothPasses = +ui.smoothPasses.value;
+  if(smoothPasses > 0 && smoothStrength > 0.01) {
+    smoothingAdjCount = 0; // Force rebuild for new geometry
+    laplacianSmoothFast(geom, smoothStrength, smoothPasses);
+  }
+  
+  const mat = new THREE.MeshPhongMaterial({vertexColors:true, transparent:true, opacity:0.88, side:THREE.DoubleSide, wireframe:ui.wire.checked, shininess:60});
+  if(ui.enableClip.checked) mat.clippingPlanes = [clipPlane];
+  
+  const mesh = new THREE.Mesh(geom, mat);
+  mesh.userData.pair = [i, j];
+  return mesh;
+}
+
+let lastInterfState = { phases: [], positions: [], settings: '' };
+
+function shouldRebuildInterference(){
+  const settingsKey = `${ui.detail.value}_${ui.colorMode.value}_${ui.intThresh.value}_${ui.interfMode.value}_${ui.smoothing.value}_${ui.smoothPasses.value}`;
+  if(lastInterfState.settings !== settingsKey) {
+    lastInterfState.settings = settingsKey;
+    return true;
+  }
+  
+  for(let i = 0; i < spheres.length; i++){
+    const phaseDiff = Math.abs((spheres[i].phase % (2*Math.PI)) - (lastInterfState.phases[i] || 0));
+    if(phaseDiff > 0.15) {
+      lastInterfState.phases[i] = spheres[i].phase % (2*Math.PI);
+      return true;
+    }
+    
+    const posDiff = Math.abs(spheres[i].px - (lastInterfState.positions[i*3] || 0)) +
+                    Math.abs(spheres[i].py - (lastInterfState.positions[i*3+1] || 0)) +
+                    Math.abs(spheres[i].pz - (lastInterfState.positions[i*3+2] || 0));
+    if(posDiff > 0.1){
+      lastInterfState.positions[i*3] = spheres[i].px;
+      lastInterfState.positions[i*3+1] = spheres[i].py;
+      lastInterfState.positions[i*3+2] = spheres[i].pz;
+      return true;
+    }
+  }
+  return false;
+}
+
+function rebuildInterference(samples, colorMode, time){
+  clearGroup(interferenceGroup);
+  if(!ui.showInt.checked) return;
+  
+  const buildStart = performance.now();
+  
+  for(let i=0; i<spheres.length; i++){
+    for(let j=i+1; j<spheres.length; j++){
+      const m = buildTessellatedPairFast(i, j, samples, colorMode, time);
+      if(m) interferenceGroup.add(m);
+    }
+  }
+  
+  lastBuildTime = performance.now() - buildStart;
+}
+
+function rebuildEdges(){
+  clearGroup(edgesGroup);
+  if(!ui.showEdges.checked) return;
+  for(let i=0; i<spheres.length; i++){
+    for(let j=i+1; j<spheres.length; j++){
+      const geom = new THREE.BufferGeometry().setFromPoints([spheres[i].mesh.position, spheres[j].mesh.position]);
+      const mat = new THREE.LineBasicMaterial({color:0x8888aa, transparent:true, opacity:0.7});
+      const line = new THREE.Line(geom, mat);
+      line.userData.pair = [i, j];
+      edgesGroup.add(line);
+    }
+  }
+}
+
+// Camera
+let isDragging=false, isPanning=false, lastX=0, lastY=0;
+function updateCamera(){
+  _v1.copy(camera.position).sub(cameraTarget);
+  _v1.setLength(cameraDistance);
+  camera.position.copy(cameraTarget).add(_v1);
+  camera.lookAt(cameraTarget);
+}
+updateCamera();
+
+addEventListener('mousedown',e=>{
+  if(e.button===2){isPanning=true;lastX=e.clientX;lastY=e.clientY;return}
+  if(!e.target.closest('#controls')&&!e.target.closest('#interferenceStats')&&!e.target.closest('#perfStats')){isDragging=true;lastX=e.clientX;lastY=e.clientY}
+});
+addEventListener('mouseup',()=>{isDragging=false;isPanning=false});
+addEventListener('mousemove',e=>{
+  const dx=e.clientX-lastX, dy=e.clientY-lastY;
+  lastX=e.clientX;lastY=e.clientY;
+  if(isDragging){
+    const rot=0.005;
+    _v1.copy(camera.position).sub(cameraTarget);
+    _sph.setFromVector3(_v1);
+    _sph.theta -= dx*rot;
+    _sph.phi -= dy*rot;
+    _sph.phi = Math.max(0.01, Math.min(Math.PI-0.01, _sph.phi));
+    _v1.setFromSpherical(_sph);
+    camera.position.copy(cameraTarget).add(_v1);
+    camera.lookAt(cameraTarget);
+  } else if(isPanning){
+    const pan = 0.004 * cameraDistance;
+    camera.getWorldDirection(_v1);
+    _v1.cross(camera.up).normalize();
+    _v2.copy(camera.up).normalize();
+    cameraTarget.addScaledVector(_v1, -dx*pan);
+    cameraTarget.addScaledVector(_v2, dy*pan);
+    updateCamera();
+  }
+});
+addEventListener('wheel',e=>{e.preventDefault();const f=e.deltaY>0?1.1:0.9;cameraDistance=Math.max(2,Math.min(60,cameraDistance*f));updateCamera()},{passive:false});
+
+// ============== MAIN ANIMATION LOOP ==============
+const clock = new THREE.Clock();
+let accumMs = 0, isPaused = false, simTime = 0;
+let statsUpdateCounter = 0;
+
+function animate(){
+  requestAnimationFrame(animate);
+  
+  frameCount++;
+  totalFrames++;
+  const now = performance.now();
+  if(now - lastFrameTime >= 1000){
+    fps = frameCount;
+    frameCount = 0;
+    lastFrameTime = now;
+  }
+  
+  VecPool.reset();
+  
+  const dtr = clock.getDelta();
+  const dt = isPaused ? 0 : dtr;
+  const ms = dt * 1000;
+  accumMs += ms;
+  simTime += dt;
+  
+  const N = spheres.length;
+  const K = +ui.coupling.value;
+  const gamma = +ui.damping.value;
+  const timeScale = +ui.speed.value; // Now properly named
+  const phaseVels = [];
+  
+  // Update phases - real Hz at timeScale=1
+  for(let i=0; i<N; i++){
+    let cpl = 0;
+    for(let j=0; j<N; j++){
+      if(i !== j) cpl += Math.sin(spheres[j].phase - spheres[i].phase);
+    }
+    cpl *= K / Math.max(1, N-1);
+    const vel = spheres[i].omega * timeScale + cpl * timeScale - gamma * timeScale * 0.1;
+    phaseVels.push(vel);
+    spheres[i].updatePhase(dt, cpl, gamma, timeScale);
+  }
+  
+  // Update surfaces
+  const amp = +ui.amp.value;
+  for(let i=0; i<N; i++){
+    spheres[i].setOpacity(+ui.opacity.value);
+    spheres[i].setWireframe(ui.wire.checked);
+    spheres[i].setSpatialK(+ui.spatialK.value || 6);
+    spheres[i].updateSurface(amp);
+  }
+  
+  // Coherence order parameter
+  let cx = 0, cy = 0;
+  for(let i=0; i<N; i++){
+    cx += Math.cos(spheres[i].phase);
+    cy += Math.sin(spheres[i].phase);
+  }
+  const R = Math.sqrt(cx*cx + cy*cy) / Math.max(1, N);
+  
+  byId('Rvalue').textContent = `R = ${R.toFixed(2)}`;
+  byId('runIndicator').textContent = isPaused ? 'paused' : 'running';
+  
+  statsUpdateCounter++;
+  if(statsUpdateCounter % 3 === 0){
+    let pvText = '<strong>dφ/dt (real)</strong><br/>';
+    for(let i=0; i<N; i++) pvText += `S${i+1}: ${(phaseVels[i]/(2*Math.PI)).toFixed(2)} Hz<br/>`;
+    byId('phaseVelocity').innerHTML = pvText;
+    
+    // Memory indicator
+    const memEst = (BESSEL_CACHE.size * 0.02 + interfStats.voxels * 0.024).toFixed(0);
+    byId('perfStats').textContent = `FPS: ${fps} | Build: ${lastBuildTime.toFixed(1)}ms | ~${memEst}KB`;
+  }
+  
+  if(statsUpdateCounter % 5 === 0 && N >= 2){
+    const beatFreq = Math.abs(spheres[0].frequencyHz - spheres[1].frequencyHz);
+    const phaseDelta = ((spheres[0].phase - spheres[1].phase) * 180 / Math.PI) % 360;
+    byId('statVoxels').textContent = interfStats.voxels;
+    byId('statPeakE').textContent = interfStats.peakE.toFixed(3);
+    byId('statAvgE').textContent = interfStats.avgE.toFixed(4);
+    byId('statConstr').textContent = interfStats.constructive.toFixed(1) + '%';
+    byId('statDestr').textContent = interfStats.destructive.toFixed(1) + '%';
+    byId('statBeat').textContent = beatFreq.toFixed(2) + ' Hz';
+    byId('statPhaseDelta').textContent = phaseDelta.toFixed(1) + '°';
+    const nearLock = Math.abs(phaseDelta) < 15 || Math.abs(phaseDelta - 360) < 15;
+    byId('statPhaseDelta').className = nearLock ? 'stat-value highlight' : 'stat-value';
+  }
+  
+  // Coherence edges
+  const alpha = 0.15, tauEdge = +ui.edgeThresh.value;
+  for(let i=0; i<N; i++){
+    for(let j=i+1; j<N; j++){
+      const dphi = spheres[i].phase - spheres[j].phase;
+      const key = pairKey(i, j);
+      const prev = cohEMA.get(key) || {cx:0, cy:0};
+      const tx = Math.cos(dphi), ty = Math.sin(dphi);
+      const cxn = (1-alpha)*prev.cx + alpha*tx;
+      const cyn = (1-alpha)*prev.cy + alpha*ty;
+      cohEMA.set(key, {cx:cxn, cy:cyn});
+      
+      if(ui.showEdges.checked){
+        const Rpair = Math.min(1, Math.sqrt(cxn*cxn + cyn*cyn));
+        for(const line of edgesGroup.children){
+          const [pi, pj] = line.userData.pair || [];
+          if((pi===i && pj===j) || (pi===j && pj===i)){
+            line.material.color.setHSL(0.62*(1-Rpair), 0.8, 0.55);
+            line.material.opacity = 0.25 + 0.75*Rpair;
+            line.visible = Rpair >= tauEdge;
+          }
+        }
+      }
+    }
+  }
+  
+  // Rebuild interference
+  const cadence = +ui.updateMs.value;
+  if(accumMs >= cadence){
+    accumMs = 0;
+    if(shouldRebuildInterference()){
+      rebuildInterference(+ui.detail.value, ui.colorMode.value, simTime);
+    }
+  }
+  
+  // Periodic cache cleanup (every ~10 seconds at 60fps)
+  if(totalFrames % 600 === 0 && BESSEL_CACHE.size > 1500){
+    const keysToDelete = Array.from(BESSEL_CACHE.keys()).slice(0, 500);
+    keysToDelete.forEach(k => BESSEL_CACHE.delete(k));
+  }
+  
+  renderer.render(scene, camera);
+}
+
+function setBasis(b){
+  patternBasis = b;
+  ui.kappaRow.style.display = (b==='kappa') ? '' : 'none';
+  ui.ylmBlock.style.display = (b==='ylm') ? '' : 'none';
+  spheres.forEach((s,i) => {
+    const li = byId(`l_${i}`), mi = byId(`m_${i}`);
+    if(li && mi){ li.disabled = (b!=='ylm'); mi.disabled = (b!=='ylm'); }
+  });
+  lastInterfState.settings = '';
+  rebuildInterference(+ui.detail.value, ui.colorMode.value, 0);
+}
+
+function rebuildAll(){
+  rebuildSpheres(+ui.count.value);
+  rebuildEdges();
+  lastInterfState.settings = '';
+  rebuildInterference(+ui.detail.value, ui.colorMode.value, 0);
+  setBasis(ui.basis.value);
+  updateClipPlane();
+}
+
+ui.basis.addEventListener('change', () => setBasis(ui.basis.value));
+ui.count.addEventListener('input', () => { ui.countVal.textContent = ui.count.value; rebuildAll(); });
+
+['amp','speed','opacity','wire','showInt','interfMode','detail','updateMs','colorMode','spatialK','waveSpeed','srcEmission','intThresh','threshBasis','viscosity','gpuInterf','smoothing','smoothPasses'].forEach(id => {
+  const el = ui[id];
+  if(!el) return;
+  el.addEventListener('input', () => {
+    if(['waveSpeed','viscosity'].includes(id)){
+      spheres.forEach(s => s._cacheValid = false);
+    }
+    if(['detail','colorMode','showInt','intThresh','threshBasis','smoothing','smoothPasses','interfMode','waveSpeed','viscosity','srcEmission'].includes(id)){
+      lastInterfState.settings = '';
+      rebuildInterference(+ui.detail.value, ui.colorMode.value, 0);
+    }
+  });
+});
+
+ui.srcEmission.addEventListener('change', () => {
+  lastInterfState.settings = '';
+  rebuildInterference(+ui.detail.value, ui.colorMode.value, 0);
+});
+
+ui.edgeThresh.addEventListener('input', rebuildEdges);
+ui.showEdges.addEventListener('change', rebuildEdges);
+
+function applyPreset(name){
+  const modes = CHLADNI[name] || CHLADNI.mixed;
+  spheres.forEach((s,i) => {
+    const [l,m] = modes[i % modes.length];
+    s.setMode(l, m);
+    const li = byId(`l_${i}`), mi = byId(`m_${i}`);
+    if(li && mi){ li.value = l; mi.value = m; }
+  });
+}
+
+ui.presetZonal.addEventListener('click', () => { ui.basis.value='ylm'; setBasis('ylm'); applyPreset('zonal'); });
+ui.presetSectoral.addEventListener('click', () => { ui.basis.value='ylm'; setBasis('ylm'); applyPreset('sectoral'); });
+ui.presetTesseral.addEventListener('click', () => { ui.basis.value='ylm'; setBasis('ylm'); applyPreset('tesseral'); });
+ui.presetMixed.addEventListener('click', () => { ui.basis.value='ylm'; setBasis('ylm'); applyPreset('mixed'); });
+
+ui.pauseBtn.addEventListener('click', () => { isPaused=true; ui.runState.textContent='paused'; });
+ui.resumeBtn.addEventListener('click', () => { isPaused=false; ui.runState.textContent='running'; });
+ui.resetViewBtn.addEventListener('click', () => {
+  cameraTarget.set(0,0,0);
+  cameraDistance = 13;
+  camera.position.set(0, 2, cameraDistance);
+  camera.lookAt(cameraTarget);
+  updateCamera();
+  
+  const pos = layoutPositions(spheres.length);
+  spheres.forEach((s,i) => {
+    if(pos[i]){
+      s.mesh.position.copy(pos[i]);
+      s.syncPosition();
+      const xi=byId(`x_${i}`), yi=byId(`y_${i}`), zi=byId(`z_${i}`);
+      const xv=byId(`xv_${i}`), yv=byId(`yv_${i}`), zv=byId(`zv_${i}`);
+      if(xi){ xi.value=pos[i].x.toFixed(1); xv.textContent=pos[i].x.toFixed(1); }
+      if(yi){ yi.value=pos[i].y.toFixed(1); yv.textContent=pos[i].y.toFixed(1); }
+      if(zi){ zi.value=pos[i].z.toFixed(1); zv.textContent=pos[i].z.toFixed(1); }
+    }
+  });
+  rebuildEdges();
+  lastInterfState.settings = '';
+  rebuildInterference(+ui.detail.value, ui.colorMode.value, 0);
+});
+
+rebuildAll();
+animate();
+addEventListener('resize', () => { camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth,innerHeight); });
+</script>
+</body>
+</html>

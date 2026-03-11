@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TRR-G / CGG — Light Propagation Simulator</title>
+<style>
+:root {
+  --bg: #0a0a0f;
+  --panel: rgba(13,17,27,0.97);
+  --text: #e6eef7;
+  --muted: #7a8a9a;
+  --accent: #4ecdc4;
+  --accent2: #ff6b6b;
+  --accent3: #ffe66d;
+  --border: rgba(255,255,255,0.08);
+  --slider-track: #1a2030;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; overflow: hidden; }
+
+#title-bar {
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 18px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+#title-bar h1 { font-size: 14px; font-weight: 600; color: var(--accent); }
+#title-bar p  { font-size: 11px; color: var(--muted); }
+.badge { font-size: 10px; padding: 2px 7px; border-radius: 3px; font-weight: 700; letter-spacing: 0.5px; }
+.badge-settled    { background: #1a3a2a; color: #4ecca4; border: 1px solid #4ecca440; }
+.badge-provisional{ background: #2a2010; color: #ffe66d; border: 1px solid #ffe66d40; }
+
+#main { display: flex; height: calc(100vh - 90px); }
+
+/* ── Controls ── */
+#controls {
+  width: 240px; min-width: 220px;
+  background: var(--panel);
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+  padding: 12px 14px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.section-title {
+  font-size: 10px; text-transform: uppercase; letter-spacing: 1px;
+  color: var(--muted); border-bottom: 1px solid var(--border); padding-bottom: 4px;
+}
+.row { display: flex; flex-direction: column; gap: 3px; }
+.row label { font-size: 11px; color: var(--muted); display: flex; justify-content: space-between; }
+.row label span { color: var(--text); }
+input[type=range] {
+  -webkit-appearance: none; width: 100%; height: 5px;
+  border-radius: 3px; background: var(--slider-track); outline: none; cursor: pointer;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 14px; height: 14px;
+  border-radius: 50%; background: var(--accent); cursor: pointer;
+}
+
+.presets { display: flex; flex-wrap: wrap; gap: 4px; }
+.presets button, .btn {
+  background: #141c2a; border: 1px solid var(--border);
+  color: var(--text); font-size: 10px; padding: 4px 8px; border-radius: 4px; cursor: pointer;
+}
+.presets button:hover, .btn:hover { border-color: var(--accent); color: var(--accent); }
+.btn-row { display: flex; gap: 6px; }
+.btn { flex: 1; font-size: 11px; padding: 6px; text-align: center; }
+.btn-pause { border-color: var(--accent); }
+
+.readout {
+  background: #0d1218; border: 1px solid var(--border); border-radius: 5px;
+  padding: 7px 10px; font-size: 11px;
+}
+.readout .rk { color: var(--muted); }
+.readout .rv { color: var(--accent); font-weight: 600; float: right; }
+.readout .rv2 { color: var(--accent3); font-weight: 600; float: right; }
+
+/* ── Canvas ── */
+#viewport { flex: 1; position: relative; }
+canvas { display: block; width: 100%; height: 100%; }
+
+/* ── Info bar ── */
+#infobar {
+  height: 46px; background: var(--panel);
+  border-top: 1px solid var(--border);
+  display: flex; align-items: center; padding: 0 18px; gap: 24px;
+  font-size: 11px; overflow: hidden;
+}
+.eq { color: var(--accent3); font-family: monospace; font-size: 12px; }
+.eq-note { color: var(--muted); font-size: 10px; }
+
+/* ── Legend ── */
+#legend {
+  position: absolute; right: 12px; top: 12px;
+  background: rgba(10,12,20,0.88); border: 1px solid var(--border);
+  border-radius: 6px; padding: 8px 12px; font-size: 10px; min-width: 140px;
+}
+.legend-item { display: flex; align-items: center; gap: 7px; margin-bottom: 4px; }
+.legend-line { width: 24px; height: 2px; border-radius: 1px; }
+.legend-dot  { width: 10px; height: 10px; border-radius: 50%; }
+
+/* Mobile */
+@media (max-width: 700px) {
+  #controls { width: 100%; max-height: 200px; border-right: none; border-bottom: 1px solid var(--border); }
+  #main { flex-direction: column; }
+}
+</style>
+</head>
+<body>
+
+<div id="title-bar">
+  <div>
+    <h1>TRR-G / CGG — Light Propagation</h1>
+    <p>Null geodesics in emergent effective metric &nbsp;|&nbsp; Weak-field limit</p>
+  </div>
+  <div style="display:flex;gap:6px;align-items:center">
+    <span class="badge badge-settled">γ<sub>PPN</sub>=1 SETTLED</span>
+    <span class="badge badge-provisional">INTERIOR PROVISIONAL</span>
+  </div>
+</div>
+
+<div id="main">
+  <div id="controls">
+
+    <div class="section-title">Scene</div>
+    <div class="row">
+      <label>Mass (M<sub>☉</sub>) <span id="lbl-mass">1.0</span></label>
+      <input type="range" id="sl-mass" min="0.1" max="5" step="0.05" value="1">
+    </div>
+    <div class="row">
+      <label>Impact param b/r<sub>s</sub> <span id="lbl-b">5.0</span></label>
+      <input type="range" id="sl-b" min="2.0" max="20" step="0.1" value="5.0">
+    </div>
+    <div class="row">
+      <label>Coherence gradient δ <span id="lbl-dc">1.00</span></label>
+      <input type="range" id="sl-dc" min="0.0" max="3.0" step="0.05" value="1.0">
+    </div>
+
+    <div class="section-title">Display</div>
+    <div class="row">
+      <label>Show field heatmap</label>
+      <input type="range" id="sl-opacity" min="0" max="1" step="0.05" value="0.55">
+    </div>
+    <div class="row">
+      <label>Ray count <span id="lbl-rays">7</span></label>
+      <input type="range" id="sl-rays" min="1" max="15" step="1" value="7">
+    </div>
+    <div class="row">
+      <label>Speed <span id="lbl-speed">1.0</span></label>
+      <input type="range" id="sl-speed" min="0.1" max="4" step="0.1" value="1.0">
+    </div>
+
+    <div class="section-title">Presets</div>
+    <div class="presets">
+      <button onclick="loadPreset('solar')">Solar limb</button>
+      <button onclick="loadPreset('compact')">Compact (ε≪1)</button>
+      <button onclick="loadPreset('grazing')">Grazing ray</button>
+      <button onclick="loadPreset('strong')">Strong field</button>
+    </div>
+
+    <div class="btn-row">
+      <div class="btn btn-pause" id="btn-pause" onclick="togglePause()">⏸ Pause</div>
+      <div class="btn" onclick="resetSim()">↺ Reset</div>
+    </div>
+
+    <div class="readout">
+      <div><span class="rk">δα (deflection)</span><span class="rv" id="rd-deflect">—</span></div>
+      <div><span class="rk">γ<sub>PPN</sub></span><span class="rv" id="rd-gamma">1.0000</span></div>
+      <div><span class="rk">Δt Shapiro</span><span class="rv" id="rd-shapiro">—</span></div>
+      <div><span class="rk">b / r<sub>s</sub></span><span class="rv2" id="rd-b">—</span></div>
+      <div><span class="rk">Photon sphere</span><span class="rv2" id="rd-ph">1.5 r<sub>s</sub></span></div>
+    </div>
+
+    <div style="font-size:9px;color:var(--muted);line-height:1.5;margin-top:4px;">
+      <b style="color:#ffe66d">δC field:</b> Provisional — depends on SVEA, L≫λ<sub>c</sub>, static source.<br>
+      <b style="color:#4ecca4">γ=1, deflection:</b> Settled in weak-field limit (V22).<br>
+      Photon capture radius shown at r=1.5r<sub>s</sub> (GR value; TRR-G interior not derived).
+    </div>
+
+  </div>
+
+  <div id="viewport">
+    <canvas id="cvs"></canvas>
+    <div id="legend">
+      <div class="legend-item"><div class="legend-line" style="background:#ffe66d"></div><span>Incoming rays</span></div>
+      <div class="legend-item"><div class="legend-line" style="background:#4ecdc4"></div><span>Deflected path</span></div>
+      <div class="legend-item"><div class="legend-line" style="background:#ff6b6b"></div><span>Captured ray</span></div>
+      <div class="legend-item"><div class="legend-line" style="background:rgba(100,180,255,0.5)"></div><span>δC field (∝1/r)</span></div>
+      <div class="legend-item"><div class="legend-dot" style="background:#fff"></div><span>Mass source</span></div>
+      <div class="legend-item"><div class="legend-dot" style="background:rgba(255,107,107,0.3);border:1px solid #ff6b6b"></div><span>r<sub>s</sub> (Schwarzschild)</span></div>
+      <div class="legend-item"><div class="legend-dot" style="background:rgba(255,230,109,0.1);border:1px dashed #ffe66d80"></div><span>Photon sphere 1.5r<sub>s</sub></span></div>
+    </div>
+  </div>
+</div>
+
+<div id="infobar">
+  <span class="eq">h₀₀ = +2δC</span>
+  <span class="eq-note">↑ sign-corrected V22</span>
+  <span style="color:var(--border)">|</span>
+  <span class="eq">∇²(δC) = −κρ</span>
+  <span class="eq-note">κ = 4πG/c²</span>
+  <span style="color:var(--border)">|</span>
+  <span class="eq">δα = 4GM/c²b &nbsp;(γ=1)</span>
+  <span class="eq-note">weak-field, settled</span>
+  <span style="color:var(--border)">|</span>
+  <span class="eq-note" id="fps-display">— fps</span>
+</div>
+
+<script>
+// ─────────────────────────────────────────────
+//  STATE
+// ─────────────────────────────────────────────
+const C = 3e8; // m/s (symbolic; scale to pixels)
+const G = 6.674e-11;
+const Msun = 1.989e30;
+
+const state = {
+  mass: 1.0,      // Solar masses
+  b_over_rs: 5.0, // impact param / Schwarzschild radius
+  dC_scale: 1.0,  // coherence perturbation scale (1 = GR-matched)
+  fieldOpacity: 0.55,
+  nRays: 7,
+  speed: 1.0,
+  paused: false,
+  t: 0,
+};
+
+let rays = [];      // active ray photons
+let rayTrails = []; // completed trails
+let frameCount = 0, lastFPSTime = performance.now();
+
+// ─────────────────────────────────────────────
+//  PHYSICS
+// ─────────────────────────────────────────────
+// TRR-G / CGG effective metric (weak-field, SVEA):
+//   ds² = -(1 + 2δC)c²dt² + (1 - 2δC)(dx² + dy²)
+//   δC(r) = -GM/(c² r)   [potential, negative definite]
+//   γ_PPN = 1 exactly in this limit (V22 settled)
+//
+// Null geodesic equation (2D isotropic):
+//   d²x/dλ² = -∂_x Φ_eff - (dx/dλ)² ∂_x δC + ...
+// For |δC| << 1, leading-order bending:
+//   δα = 2(1+γ) GM / (c² b) = 4GM/(c²b)
+//
+// We integrate numerically using the effective refractive index
+//   n(r) ≈ 1 - 2δC(r)   [isotropic PPN, γ=1]
+// Ray bending from Fermat principle: dn/dl × n_perp
+
+function deltaC(x, y, cx, cy, rs_px) {
+  // δC(r) = -(rs/2)/r (in units where rs/2 = GM/c² ; negative = attractive)
+  const dx = x - cx, dy = y - cy;
+  const r = Math.sqrt(dx*dx + dy*dy);
+  const rMin = rs_px * 0.5; // avoid singularity
+  const rr = Math.max(r, rMin);
+  return -state.dC_scale * (rs_px / 2) / rr;
+}
+
+function refractiveIndex(x, y, cx, cy, rs_px) {
+  // n ≈ 1 - 2δC  (isotropic, PPN γ=1)
+  const dC = deltaC(x, y, cx, cy, rs_px);
+  return 1.0 - 2.0 * dC; // dC < 0 → n > 1 near mass
+}
+
+function gradN(x, y, cx, cy, rs_px) {
+  // Numerical gradient of n(r) via central differences
+  const eps = 1.5;
+  const nx = (refractiveIndex(x+eps,y, cx,cy,rs_px) - refractiveIndex(x-eps,y, cx,cy,rs_px)) / (2*eps);
+  const ny = (refractiveIndex(x,y+eps, cx,cy,rs_px) - refractiveIndex(x,y-eps, cx,cy,rs_px)) / (2*eps);
+  return {nx, ny};
+}
+
+// Fermat / ray equation in media with variable n:
+//   d/ds(n * d r/ds) = ∇n
+//   → d²r/ds² = (∇n - (dr/ds · ∇n) dr/ds) / n
+function stepRay(ray, cx, cy, rs_px, dt_step) {
+  const {nx, ny} = gradN(ray.x, ray.y, cx, cy, rs_px);
+  const n = refractiveIndex(ray.x, ray.y, cx, cy, rs_px);
+  
+  // Normalize direction
+  const spd = Math.sqrt(ray.vx*ray.vx + ray.vy*ray.vy);
+  const tx = ray.vx / spd, ty = ray.vy / spd;
+
+  // d²r/ds² = (∇n - (t·∇n)t) / n
+  const tdotgrad = tx*nx + ty*ny;
+  const ax = (nx - tdotgrad * tx) / n;
+  const ay = (ny - tdotgrad * ty) / n;
+
+  ray.vx += ax * dt_step;
+  ray.vy += ay * dt_step;
+  // Re-normalize speed to c (geometric optics)
+  const newSpd = Math.sqrt(ray.vx*ray.vx + ray.vy*ray.vy);
+  ray.vx = (ray.vx / newSpd) * spd;
+  ray.vy = (ray.vy / newSpd) * spd;
+  
+  ray.x += ray.vx * dt_step;
+  ray.y += ray.vy * dt_step;
+  ray.trail.push({x: ray.x, y: ray.y});
+  if (ray.trail.length > 800) ray.trail.shift();
+}
+
+// ─────────────────────────────────────────────
+//  SCENE SETUP
+// ─────────────────────────────────────────────
+function makeRays(W, H, cx, cy, rs_px) {
+  const nRays = state.nRays;
+  const rArr = [];
+  // Space rays with different impact parameters
+  const bMin = 1.6 * rs_px; // closest: just outside photon sphere
+  const bMax = 14 * rs_px;
+  for (let i = 0; i < nRays; i++) {
+    const frac = nRays === 1 ? 0.5 : i / (nRays - 1);
+    const b = bMin + frac * (bMax - bMin);
+    // Set b based on slider override if single ray shown
+    const bUse = nRays === 1 ? state.b_over_rs * rs_px : b;
+    rArr.push({
+      x: 30,
+      y: cy - bUse,  // incoming from left at height b
+      vx: 2.5,
+      vy: 0,
+      trail: [{x: 30, y: cy - bUse}],
+      b_px: bUse,
+      active: true,
+      captured: false,
+    });
+  }
+  return rArr;
+}
+
+// ─────────────────────────────────────────────
+//  CANVAS / RENDER
+// ─────────────────────────────────────────────
+const cvs = document.getElementById('cvs');
+const ctx = cvs.getContext('2d');
+
+function resize() {
+  const vp = document.getElementById('viewport');
+  cvs.width  = vp.clientWidth  * devicePixelRatio;
+  cvs.height = vp.clientHeight * devicePixelRatio;
+  cvs.style.width  = vp.clientWidth  + 'px';
+  cvs.style.height = vp.clientHeight + 'px';
+  resetSim();
+}
+window.addEventListener('resize', resize);
+
+function computeScene() {
+  const W = cvs.width, H = cvs.height;
+  const cx = W * 0.45, cy = H * 0.5;
+  // rs in pixels: scale so 1 solar mass gives rs ≈ W/20
+  const rs_px = (W / 20) * state.mass;
+  return {W, H, cx, cy, rs_px};
+}
+
+// Field heatmap (precomputed on offscreen canvas)
+let fieldCanvas = null;
+function buildFieldCanvas(W, H, cx, cy, rs_px) {
+  const scale = 4; // downsample
+  const ow = Math.ceil(W/scale), oh = Math.ceil(H/scale);
+  const oc = document.createElement('canvas');
+  oc.width = ow; oc.height = oh;
+  const octx = oc.getContext('2d');
+  const img = octx.createImageData(ow, oh);
+  const d = img.data;
+  for (let j = 0; j < oh; j++) {
+    for (let i = 0; i < ow; i++) {
+      const xp = i * scale, yp = j * scale;
+      const dC = deltaC(xp, yp, cx, cy, rs_px);
+      // Map dC: negative → blue, near zero → dark
+      const v = Math.max(0, Math.min(1, -dC / (rs_px / 2)));
+      const idx = (j*ow + i)*4;
+      d[idx]   = Math.round(20  + 80  * v);
+      d[idx+1] = Math.round(80  + 120 * v);
+      d[idx+2] = Math.round(160 + 95  * v);
+      d[idx+3] = Math.round(255 * v * 0.8);
+    }
+  }
+  octx.putImageData(img, 0, 0);
+  fieldCanvas = {canvas: oc, scale};
+}
+
+function renderFieldHeatmap(W, H) {
+  if (!fieldCanvas) return;
+  ctx.save();
+  ctx.globalAlpha = state.fieldOpacity;
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(fieldCanvas.canvas, 0, 0, W, H);
+  ctx.restore();
+}
+
+function renderScene(W, H, cx, cy, rs_px) {
+  ctx.clearRect(0, 0, W, H);
+
+  // Background
+  ctx.fillStyle = '#07090e';
+  ctx.fillRect(0, 0, W, H);
+
+  // Field heatmap
+  renderFieldHeatmap(W, H);
+
+  // Grid lines (faint)
+  ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+  ctx.lineWidth = 1;
+  for (let gx = 0; gx < W; gx += W/10) { ctx.beginPath(); ctx.moveTo(gx,0); ctx.lineTo(gx,H); ctx.stroke(); }
+  for (let gy = 0; gy < H; gy += H/10) { ctx.beginPath(); ctx.moveTo(0,gy); ctx.lineTo(W,gy); ctx.stroke(); }
+
+  // Photon sphere (dashed, 1.5rs) — GR value, TRR-G interior unresolved
+  ctx.save();
+  ctx.setLineDash([6,8]);
+  ctx.strokeStyle = 'rgba(255,230,109,0.2)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.arc(cx, cy, 1.5 * rs_px, 0, Math.PI*2);
+  ctx.stroke();
+  ctx.restore();
+
+  // Schwarzschild radius circle
+  ctx.strokeStyle = 'rgba(255,107,107,0.5)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(cx, cy, rs_px, 0, Math.PI*2);
+  ctx.stroke();
+  // Fill
+  ctx.fillStyle = 'rgba(255,107,107,0.12)';
+  ctx.beginPath();
+  ctx.arc(cx, cy, rs_px, 0, Math.PI*2);
+  ctx.fill();
+
+  // Mass source
+  const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, rs_px*0.8);
+  grad.addColorStop(0, 'rgba(255,255,255,0.95)');
+  grad.addColorStop(0.3, 'rgba(200,200,255,0.6)');
+  grad.addColorStop(1, 'rgba(100,150,255,0)');
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.arc(cx, cy, rs_px * 0.8, 0, Math.PI*2);
+  ctx.fill();
+
+  // Label: rs
+  ctx.fillStyle = 'rgba(255,107,107,0.7)';
+  ctx.font = `${Math.round(10*devicePixelRatio)}px system-ui`;
+  ctx.fillText('r_s', cx + rs_px + 5, cy - 5);
+
+  // Label: photon sphere
+  ctx.fillStyle = 'rgba(255,230,109,0.4)';
+  ctx.fillText('1.5r_s', cx + 1.5*rs_px + 5, cy - 5);
+
+  // Draw rays
+  for (const ray of rays) {
+    if (ray.trail.length < 2) continue;
+    const captured = ray.captured;
+    ctx.beginPath();
+    ctx.moveTo(ray.trail[0].x, ray.trail[0].y);
+    for (let i = 1; i < ray.trail.length; i++) {
+      ctx.lineTo(ray.trail[i].x, ray.trail[i].y);
+    }
+    // Color by impact parameter proximity
+    const b_ratio = ray.b_px / rs_px;
+    let rayColor;
+    if (captured) {
+      rayColor = 'rgba(255,107,107,0.85)';
+    } else if (b_ratio < 3) {
+      rayColor = 'rgba(255,180,80,0.9)';
+    } else {
+      rayColor = 'rgba(255,230,109,0.75)';
+    }
+    ctx.strokeStyle = rayColor;
+    ctx.lineWidth = captured ? 1.5 : 1.8;
+    ctx.stroke();
+
+    // Photon dot
+    if (ray.active) {
+      ctx.fillStyle = captured ? '#ff6b6b' : '#ffe66d';
+      ctx.beginPath();
+      ctx.arc(ray.x, ray.y, 3.5, 0, Math.PI*2);
+      ctx.fill();
+    }
+  }
+
+  // Deflection annotation for primary ray
+  const primary = rays.find(r => !r.captured && r.b_px / rs_px > state.b_over_rs * 0.9 && r.b_px / rs_px < state.b_over_rs * 1.1);
+  if (primary && primary.trail.length > 20) {
+    const last = primary.trail[primary.trail.length - 1];
+    const first = primary.trail[0];
+    // Angle of exit vs entry
+    const vxIn = 1, vyIn = 0;
+    const vxOut = primary.vx, vyOut = primary.vy;
+    const dot = vxIn*vxOut + vyIn*vyOut;
+    const mag = Math.sqrt(vxOut*vxOut + vyOut*vyOut);
+    const angleRad = Math.acos(Math.max(-1, Math.min(1, dot/mag)));
+    const angleSec = angleRad * 180 / Math.PI * 3600;
+    updateReadouts(primary.b_px / rs_px, angleSec);
+  }
+
+  // Scale bar
+  ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+  ctx.lineWidth = 1.5;
+  const barX = W * 0.06, barY = H * 0.93;
+  ctx.beginPath(); ctx.moveTo(barX, barY); ctx.lineTo(barX + rs_px*2, barY); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(barX, barY-4); ctx.lineTo(barX, barY+4); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(barX+rs_px*2, barY-4); ctx.lineTo(barX+rs_px*2, barY+4); ctx.stroke();
+  ctx.fillStyle = 'rgba(255,255,255,0.4)';
+  ctx.font = `${Math.round(9*devicePixelRatio)}px system-ui`;
+  ctx.fillText('2r_s', barX + rs_px*0.85, barY - 6);
+}
+
+function updateReadouts(b_ratio, angleSec) {
+  document.getElementById('rd-b').textContent = b_ratio.toFixed(2) + ' r_s';
+  document.getElementById('rd-gamma').textContent = '1.0000';
+  // δα theoretical: 4GM/(c²b) = 2rs/b (in units where rs = 2GM/c²)
+  const deflect_theory_sec = (2 / b_ratio) * 180 / Math.PI * 3600;
+  document.getElementById('rd-deflect').textContent = deflect_theory_sec.toFixed(2) + '″';
+  // Shapiro delay ~ (rs/2) ln(4r²/b²) [rough order-of-magnitude]
+  const shapiro_us = 240 * state.mass * Math.log(Math.max(1.01, 4 * 100 / (b_ratio * b_ratio)));
+  document.getElementById('rd-shapiro').textContent = shapiro_us.toFixed(1) + ' μs';
+}
+
+// ─────────────────────────────────────────────
+//  SIMULATION LOOP
+// ─────────────────────────────────────────────
+let {W, H, cx, cy, rs_px} = {W:0,H:0,cx:0,cy:0,rs_px:0};
+let clock = { last: performance.now() };
+let needFieldRebuild = true;
+
+function update(dt) {
+  const sc = computeScene();
+  W = sc.W; H = sc.H; cx = sc.cx; cy = sc.cy; rs_px = sc.rs_px;
+
+  if (needFieldRebuild) {
+    buildFieldCanvas(W, H, cx, cy, rs_px);
+    needFieldRebuild = false;
+  }
+
+  const step = 2.5 * state.speed;
+  const nSteps = 4;
+
+  for (const ray of rays) {
+    if (!ray.active) continue;
+    for (let s = 0; s < nSteps; s++) {
+      stepRay(ray, cx, cy, rs_px, step / nSteps);
+      const dx = ray.x - cx, dy = ray.y - cy;
+      const r = Math.sqrt(dx*dx+dy*dy);
+      // Captured inside rs
+      if (r < rs_px * 0.95) { ray.active = false; ray.captured = true; break; }
+      // Escaped off screen
+      if (ray.x > W + 50 || ray.x < -50 || ray.y > H + 50 || ray.y < -50) {
+        ray.active = false; break;
+      }
+    }
+  }
+
+  // Respawn completed rays
+  const allDone = rays.every(r => !r.active);
+  if (allDone) spawnRays();
+}
+
+function spawnRays() {
+  const sc = computeScene();
+  rays = makeRays(sc.W, sc.H, sc.cx, sc.cy, sc.rs_px);
+}
+
+function animate(now) {
+  const dt = Math.min((now - clock.last) / 1000, 0.05);
+  clock.last = now;
+  frameCount++;
+  if (now - lastFPSTime > 800) {
+    const fps = (frameCount / ((now - lastFPSTime) / 1000)).toFixed(0);
+    document.getElementById('fps-display').textContent = fps + ' fps';
+    frameCount = 0; lastFPSTime = now;
+  }
+
+  if (!state.paused) update(dt);
+
+  const sc = computeScene();
+  renderScene(sc.W, sc.H, sc.cx, sc.cy, sc.rs_px);
+  requestAnimationFrame(animate);
+}
+
+// ─────────────────────────────────────────────
+//  UI BINDINGS
+// ─────────────────────────────────────────────
+function bindSlider(id, labelId, stateKey, transform, postFn) {
+  const sl = document.getElementById(id);
+  const lb = document.getElementById(labelId);
+  sl.oninput = () => {
+    const v = transform ? transform(+sl.value) : +sl.value;
+    state[stateKey] = v;
+    lb.textContent = v.toFixed ? v.toFixed(2) : v;
+    if (postFn) postFn(v);
+  };
+}
+
+bindSlider('sl-mass',    'lbl-mass',  'mass',        null, () => { needFieldRebuild=true; resetSim(); });
+bindSlider('sl-b',       'lbl-b',     'b_over_rs',   null, () => resetSim());
+bindSlider('sl-dc',      'lbl-dc',    'dC_scale',    null, () => { needFieldRebuild=true; resetSim(); });
+bindSlider('sl-opacity', null,        'fieldOpacity', null, null);
+bindSlider('sl-rays',    'lbl-rays',  'nRays',       v => Math.round(v), resetSim);
+bindSlider('sl-speed',   'lbl-speed', 'speed',       null, null);
+
+function togglePause() {
+  state.paused = !state.paused;
+  document.getElementById('btn-pause').textContent = state.paused ? '▶ Play' : '⏸ Pause';
+}
+
+function resetSim() {
+  const sc = computeScene();
+  rays = makeRays(sc.W, sc.H, sc.cx, sc.cy, sc.rs_px);
+}
+
+// ─────────────────────────────────────────────
+//  PRESETS
+// ─────────────────────────────────────────────
+const PRESETS = {
+  solar:   { mass: 1.0, b_over_rs: 8.0,  dC_scale: 1.0, nRays: 7,  speed: 1.0 },
+  compact: { mass: 1.5, b_over_rs: 5.0,  dC_scale: 1.0, nRays: 9,  speed: 1.5 },
+  grazing: { mass: 1.0, b_over_rs: 1.7,  dC_scale: 1.0, nRays: 5,  speed: 1.0 },
+  strong:  { mass: 3.0, b_over_rs: 2.5,  dC_scale: 1.0, nRays: 11, speed: 1.8 },
+};
+
+function loadPreset(name) {
+  const p = PRESETS[name];
+  state.mass       = p.mass;
+  state.b_over_rs  = p.b_over_rs;
+  state.dC_scale   = p.dC_scale;
+  state.nRays      = p.nRays;
+  state.speed      = p.speed;
+  // sync sliders
+  document.getElementById('sl-mass').value  = p.mass;
+  document.getElementById('lbl-mass').textContent = p.mass.toFixed(2);
+  document.getElementById('sl-b').value    = p.b_over_rs;
+  document.getElementById('lbl-b').textContent = p.b_over_rs.toFixed(2);
+  document.getElementById('sl-dc').value   = p.dC_scale;
+  document.getElementById('lbl-dc').textContent = p.dC_scale.toFixed(2);
+  document.getElementById('sl-rays').value = p.nRays;
+  document.getElementById('lbl-rays').textContent = p.nRays;
+  document.getElementById('sl-speed').value = p.speed;
+  document.getElementById('lbl-speed').textContent = p.speed.toFixed(1);
+  needFieldRebuild = true;
+  resetSim();
+}
+
+// ─────────────────────────────────────────────
+//  INIT
+// ─────────────────────────────────────────────
+resize();
+requestAnimationFrame(animate);
+</script>
+</body>
+</html>
