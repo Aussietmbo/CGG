@@ -1,0 +1,13 @@
+theme: minimal
+title: CGG Research and Simulators
+description: Physics simulators for compact object systems and coherence phenomena
+show_downloads: true
+github:
+  is_project_page: false
+  repository_url: https://github.com/Aussietmbo/CGG
+
+# Build settings
+markdown: kramdown
+plugins:
+  - jekyll-feed
+  - jekyll-seo-tag
