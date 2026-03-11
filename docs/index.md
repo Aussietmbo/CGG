@@ -21,7 +21,7 @@ A collection of open-access physics simulators and computational tools for resea
 ## 🎯 Quick Links
 
 - **[Full README](../README.md)** — Complete project overview
-- **[📄 Research Publications](research.md)** — Download TRRG_V27_r2 and citations
+- **[📄 Research Publications](research.md)** — Download TRR_CGG_V27 and citations
 - **[TRR-G Core Simulators](../simulators/trr-g-core/)** — Compact object physics
 - **[Field Solvers](../simulators/field-solvers-diagnostics/)** — Numerical equation solvers
 - **GitHub Repository** — [Aussietmbo/CGG](https://github.com/Aussietmbo/CGG)

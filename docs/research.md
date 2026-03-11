@@ -7,13 +7,13 @@ title: Research
 
 ## 📄 Published Papers
 
-### TRRG_V27_r2 — Comprehensive TRR-G Theory Document
+### TRR_CGG_V27 — Comprehensive TRR-G Theory Document
 
 **Status:** Published  
 **Release Date:** March 2026 (Revision 2)  
 **Version:** 27 Revision 2
 
-[**📥 Download TRRG_V27_r2.docx**](papers/TRRG_V27_r2.docx)
+[**📥 Download TRR_CGG_V27.pdf**](papers/TRR_CGG_V27.pdf)
 
 This is the primary research documentation for the TRR-G framework, including:
 
@@ -48,7 +48,7 @@ All simulators referenced in the papers are available for interactive exploratio
 If you use this research or simulators, please cite:
 
 ```
-TRRG_V27_r2: TRR-G Framework Theory and Simulators
+TRR_CGG_V27: TRR-G Framework Theory and Simulators
 Author: Aussietmbo
 Version: 27 (Revision 2)
 Date: March 2026

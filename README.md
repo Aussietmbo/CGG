@@ -66,7 +66,7 @@ Select a category above to explore the simulators and their documentation.
 
 ## 📚 Research & Publications
 
-### 📄 [Download: TRRG_V27_r2](papers/TRRG_V27_r2.docx)
+### 📄 [Download: TRR_CGG_V27](papers/TRR_CGG_V27.pdf)
 
 Comprehensive TRR-G Theory Document (March 2026)
 
