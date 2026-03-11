@@ -1,5 +1,5 @@
-theme: minimal
 title: CGG Research and Simulators
 description: Physics simulators for compact object systems and coherence phenomena
 github:
   is_project_page: false
+markdown: kramdown

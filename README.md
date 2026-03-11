@@ -1,3 +1,7 @@
+---
+layout: default
+---
+
 # CGG Research and Simulators
 
 A collection of physics simulators and computational tools focused on compact object physics, field theory, and coherence phenomena. All simulators are open for public use and collaboration.
@@ -6,11 +10,37 @@ A collection of physics simulators and computational tools focused on compact ob
 
 Quick access to our most interactive and visually striking tools:
 
-- **[3D Fourier Synthesis v5.0](simulators/wave-dynamics/fourier_synthv5.3.html)** — Wave builder with resonance manifold visualization
-- **[Coherence-Driven Cellular Automata v4.2](simulators/cellular-automata/coherence-driven-ca_fft_v4_2.html)** — Phase diagram explorer with spectral feedback
-- **[Lambdoma Resonance Keyboard](simulators/harmonic-resonance/lambdoma-resonance-autochord_modulated.html)** — Interactive harmonic tuning system
-- **[Resonant Spheres Simulator](simulators/wave-dynamics/resonant-spheres-sim_v6.1.html)** — Interference pattern and focus analysis
-- **[CGG Vortex-Core Black Hole](simulators/trr-g-core/blackhole_cgg_vortex.html)** — Compact object interior vortex dynamics
+<div class="featured-grid">
+<div class="featured-item">
+<strong>3D Fourier Synthesis v5.0</strong><br>
+Wave builder with resonance manifold visualization<br>
+<a href="simulators/wave-dynamics/fourier_synthv5.3.html">Launch Simulator →</a>
+</div>
+
+<div class="featured-item">
+<strong>Coherence-Driven Cellular Automata v4.2</strong><br>
+Phase diagram explorer with spectral feedback<br>
+<a href="simulators/cellular-automata/coherence-driven-ca_fft_v4_2.html">Launch Simulator →</a>
+</div>
+
+<div class="featured-item">
+<strong>Lambdoma Resonance Keyboard</strong><br>
+Interactive harmonic tuning system<br>
+<a href="simulators/harmonic-resonance/lambdoma-resonance-autochord_modulated.html">Launch Simulator →</a>
+</div>
+
+<div class="featured-item">
+<strong>Resonant Spheres Simulator</strong><br>
+Interference pattern and focus analysis<br>
+<a href="simulators/wave-dynamics/resonant-spheres-sim_v6.1.html">Launch Simulator →</a>
+</div>
+
+<div class="featured-item">
+<strong>CGG Vortex-Core Black Hole</strong><br>
+Compact object interior vortex dynamics<br>
+<a href="simulators/trr-g-core/blackhole_cgg_vortex.html">Launch Simulator →</a>
+</div>
+</div>
 
 ---
 
@@ -51,6 +81,8 @@ Exploratory tools for harmonic resonance and musical physics.
 Advanced visualization platforms for interactive exploration of field data.
 - TRR-G V12 Visual Simulator (Three.js, No External Controls)
 
+---
+
 ## 🚀 Getting Started
 
 Each simulator folder contains:
@@ -60,18 +92,24 @@ Each simulator folder contains:
 
 Select a category above to explore the simulators and their documentation.
 
-## 📝 Research Papers
+---
 
-**[📄 View Research Publications](papers/)**
+## 📚 Research & Publications
 
-- **TRRG_V27.2** — Comprehensive TRR-G theory document with full framework validation
+### 📄 [Download: TRRG_V27.2](papers/TRRG_V27.2.docx)
+
+Comprehensive TRR-G Theory Document (March 2026)
+
+The complete research paper covering theoretical framework, compact object physics, gravitational effects, and wave propagation.
 
 All simulators are validated against peer research. Details and citations are available in each simulator's documentation.
+
+**[View papers folder →](papers/)**
+
+---
 
 ## 📧 Contact
 
 For questions, contributions, or collaborations, please open an issue or contact the repository maintainers.
-
----
 
 *Last updated: March 2026*
