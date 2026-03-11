@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CGG Research and Simulators</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #fafafa;
+        }
+        
+        header {
+            background: white;
+            border-bottom: 1px solid #eee;
+            padding: 2rem 0;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 2rem;
+        }
+        
+        header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            margin-bottom: 0.5rem;
+        }
+        
+        header p {
+            font-size: 1.1rem;
+            color: #666;
+            font-weight: 400;
+        }
+        
+        main {
+            padding: 3rem 0;
+        }
+        
+        section {
+            background: white;
+            margin-bottom: 2rem;
+            padding: 2.5rem;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        }
+        
+        h2 {
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid #d32f2f;
+            display: inline-block;
+        }
+        
+        h3 {
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin: 1.5rem 0 1rem 0;
+            color: #000;
+        }
+        
+        ul {
+            margin-left: 2rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        li {
+            margin-bottom: 0.8rem;
+            line-height: 1.8;
+        }
+        
+        a {
+            color: #d32f2f;
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+        
+        a:hover {
+            color: #b71c1c;
+            text-decoration: underline;
+        }
+        
+        .featured-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin: 2rem 0;
+        }
+        
+        .featured-item {
+            background: #f9f9f9;
+            padding: 1.5rem;
+            border-radius: 6px;
+            border-left: 4px solid #d32f2f;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .featured-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(211, 47, 47, 0.15);
+        }
+        
+        .featured-item strong {
+            color: #000;
+            font-size: 1.05rem;
+            display: block;
+            margin-bottom: 0.5rem;
+        }
+        
+        .featured-item p {
+            margin-bottom: 1rem;
+            font-size: 0.95rem;
+            color: #555;
+        }
+        
+        .featured-item a {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            background: #d32f2f;
+            color: white;
+            border-radius: 4px;
+            transition: background 0.2s;
+        }
+        
+        .featured-item a:hover {
+            background: #b71c1c;
+            color: white;
+            text-decoration: none;
+        }
+        
+        .category-item {
+            margin: 1.5rem 0;
+            padding: 1rem;
+            background: #f9f9f9;
+            border-radius: 4px;
+        }
+        
+        .category-item h3 {
+            margin-top: 0;
+        }
+        
+        .category-item a {
+            display: inline-block;
+            margin-right: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        hr {
+            border: none;
+            border-top: 1px solid #eee;
+            margin: 2rem 0;
+        }
+        
+        footer {
+            text-align: center;
+            padding: 2rem;
+            color: #999;
+            font-size: 0.9rem;
+        }
+        
+        @media (min-width: 1920px) {
+            .container {
+                max-width: 1400px;
+            }
+            header { padding: 3rem 0; }
+            header h1 { font-size: 3.2rem; }
+            header p { font-size: 1.3rem; }
+            h2 { font-size: 2.2rem; }
+            h3 { font-size: 1.5rem; }
+            section { padding: 3.5rem; }
+            .featured-grid { gap: 2rem; }
+        }
+        
+        @media (max-width: 768px) {
+            header h1 { font-size: 1.8rem; }
+            h2 { font-size: 1.4rem; }
+            section { padding: 1.5rem; }
+            .container { padding: 0 1rem; }
+            .featured-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>CGG Research and Simulators</h1>
+            <p>Physics simulators for compact object systems and coherence phenomena</p>
+        </div>
+    </header>
+    
+    <main>
+        <div class="container">
+            <section>
+                <h2>🎯 Featured Simulators</h2>
+                <p>Quick access to our most interactive and visually striking tools:</p>
+                <div class="featured-grid">
+                    <div class="featured-item">
+                        <strong>3D Fourier Synthesis v5.0</strong>
+                        <p>Wave builder with resonance manifold visualization</p>
+                        <a href="simulators/wave-dynamics/fourier_synthv5.3.html" target="_blank">Launch →</a>
+                    </div>
+                    <div class="featured-item">
+                        <strong>Coherence-Driven Cellular Automata v4.2</strong>
+                        <p>Phase diagram explorer with spectral feedback</p>
+                        <a href="simulators/cellular-automata/coherence-driven-ca_fft_v4_2.html" target="_blank">Launch →</a>
+                    </div>
+                    <div class="featured-item">
+                        <strong>Lambdoma Resonance Keyboard</strong>
+                        <p>Interactive harmonic tuning system</p>
+                        <a href="simulators/harmonic-resonance/lambdoma-resonance-autochord_modulated.html" target="_blank">Launch →</a>
+                    </div>
+                    <div class="featured-item">
+                        <strong>Resonant Spheres Simulator</strong>
+                        <p>Interference pattern and focus analysis</p>
+                        <a href="simulators/wave-dynamics/resonant-spheres-sim_v6.1.html" target="_blank">Launch →</a>
+                    </div>
+                    <div class="featured-item">
+                        <strong>CGG Vortex-Core Black Hole</strong>
+                        <p>Compact object interior vortex dynamics</p>
+                        <a href="simulators/trr-g-core/blackhole_cgg_vortex.html" target="_blank">Launch →</a>
+                    </div>
+                </div>
+            </section>
+            
+            <section>
+                <h2>📁 Simulator Categories</h2>
+                
+                <div class="category-item">
+                    <h3><a href="simulators/trr-g-core/">🔴 TRR-G Compact Object Simulators</a></h3>
+                    <p>Core simulators for studying compact object physics, vortex formation, and gravitational effects.</p>
+                    <ul>
+                        <li>TRR-G Paper III — Vortex Nucleation Simulator</li>
+                        <li>TRR-G / CGG — Light Propagation Simulator</li>
+                        <li>TRR-G — ψ Wavefront Propagation</li>
+                        <li>TRR-G Vortex Field Explorer — WebGL</li>
+                        <li>CGG Vortex-Core Black Hole</li>
+                    </ul>
+                </div>
+                
+                <div class="category-item">
+                    <h3><a href="simulators/field-solvers-diagnostics/">⚙️ Field Solvers & Diagnostics</a></h3>
+                    <p>Numerical solvers and diagnostic tools for field equations and validation.</p>
+                    <ul>
+                        <li>TRR-G Radial Solver — Coherence-Modified Gravitational Potential</li>
+                        <li>TRR-G κ Isolation Test — Mismatch Diagnostics</li>
+                        <li>TRR-G 3D κ Field Simulator</li>
+                        <li>TRR-G Substrate Evaluator v2 — Dynamic Field Evolution</li>
+                    </ul>
+                </div>
+                
+                <div class="category-item">
+                    <h3><a href="simulators/wave-dynamics/">🌊 Wave Dynamics & Resonance</a></h3>
+                    <p>Simulators for wave propagation, resonance phenomena, and field dynamics.</p>
+                    <ul>
+                        <li>TRR Wave Tank (GPU) – Dot-Product Coherence</li>
+                        <li>3D Fourier Synthesis v5.0 - Wave Builder + Resonance Manifold</li>
+                        <li>Resonant Spheres — Interference Focus (v4.3)</li>
+                        <li>TRR-G: Solar System Coherence Field</li>
+                    </ul>
+                </div>
+                
+                <div class="category-item">
+                    <h3><a href="simulators/cellular-automata/">🔄 Cellular Automata</a></h3>
+                    <p>Coherence-driven cellular automaton with spectral feedback and parameter exploration.</p>
+                    <ul>
+                        <li>Coherence-Driven Cellular Automata v4.2</li>
+                    </ul>
+                </div>
+                
+                <div class="category-item">
+                    <h3><a href="simulators/harmonic-resonance/">🎵 Harmonic & Musical Resonance</a></h3>
+                    <p>Exploratory tools for harmonic resonance and musical physics.</p>
+                    <ul>
+                        <li>The Big Chord — Primordial Resonance Simulator</li>
+                        <li>Lambdoma Resonance Keyboard</li>
+                    </ul>
+                </div>
+                
+                <div class="category-item">
+                    <h3><a href="simulators/visualization-tools/">🔍 Visualization & Interactive Tools</a></h3>
+                    <p>Advanced visualization platforms for interactive exploration of field data.</p>
+                    <ul>
+                        <li>TRR-G V12 Visual Simulator (Three.js, No External Controls)</li>
+                    </ul>
+                </div>
+            </section>
+            
+            <section>
+                <h2>📚 Research & Publications</h2>
+                <h3>📄 <a href="papers/TRRG_V27.2.docx" target="_blank">Download: TRRG_V27.2</a></h3>
+                <p><strong>Comprehensive TRR-G Theory Document (March 2026)</strong></p>
+                <p>The complete research paper covering theoretical framework, compact object physics, gravitational effects, and wave propagation.</p>
+                <p>All simulators are validated against peer research. <a href="papers/">View papers folder →</a></p>
+            </section>
+            
+            <section>
+                <h2>🚀 Getting Started</h2>
+                <ul>
+                    <li>Select a simulator from the Featured or Categories sections above</li>
+                    <li>Each simulator folder contains detailed README files with usage instructions</li>
+                    <li>Download the research paper to understand the full framework</li>
+                    <li>Open an <a href="https://github.com/Aussietmbo/CGG/issues" target="_blank">issue on GitHub</a> with questions or feedback</li>
+                </ul>
+            </section>
+        </div>
+    </main>
+    
+    <footer>
+        <div class="container">
+            <p>CGG Research and Simulators | Last updated: March 2026 | <a href="https://github.com/Aussietmbo/CGG" target="_blank">View on GitHub</a></p>
+        </div>
+    </footer>
+</body>
+</html>
