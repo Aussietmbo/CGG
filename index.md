@@ -1,8 +1,3 @@
----
-layout: default
-title: Home
----
-
 # 🔬 CGG Research and Simulators
 
 A collection of open-access physics simulators and computational tools for research in compact object physics, field theory, and coherence phenomena.
