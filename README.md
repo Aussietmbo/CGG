@@ -2,6 +2,18 @@
 
 A collection of physics simulators and computational tools focused on compact object physics, field theory, and coherence phenomena. All simulators are open for public use and collaboration.
 
+## 🎯 Featured Simulators
+
+Quick access to our most interactive and visually striking tools:
+
+- **[3D Fourier Synthesis v5.0](simulators/wave-dynamics/fourier_synthv5.3.html)** — Wave builder with resonance manifold visualization
+- **[Coherence-Driven Cellular Automata v4.2](simulators/cellular-automata/coherence-driven-ca_fft_v4_2.html)** — Phase diagram explorer with spectral feedback
+- **[Lambdoma Resonance Keyboard](simulators/harmonic-resonance/lambdoma-resonance-autochord_modulated.html)** — Interactive harmonic tuning system
+- **[Resonant Spheres Simulator](simulators/wave-dynamics/resonant-spheres-sim_v6.1.html)** — Interference pattern and focus analysis
+- **[CGG Vortex-Core Black Hole](simulators/trr-g-core/blackhole_cgg_vortex.html)** — Compact object interior vortex dynamics
+
+---
+
 ## 📁 Simulator Categories
 
 ### [TRR-G Compact Object Simulators](simulators/trr-g-core/)
