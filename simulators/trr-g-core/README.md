@@ -69,6 +69,20 @@ Compact object interior with emphasis on vortex core structure.
 
 ---
 
+### [CGG Joint Parameter Constraint Visualizer](cgg_constraint_sim.html)
+Simultaneous viability wedge across Optical Clock, NICER, Cassini, and QNM observational constraints.
+
+**Features:**
+- Interactive 2D constraint map over (δ, L₀) parameter space
+- Live constraint pills: Optical Clock · NICER · Cassini · QNM pass/fail status
+- Preset parameter sweeps for isolating individual constraints
+- Exportable CSV parameter reports
+- Coupling constraint equation display
+
+**Best for:** Identifying viable CGG parameter regions consistent with all observational bounds simultaneously.
+
+---
+
 ## Technical Notes
 
 - All simulators interconnect within the TRR-G framework
