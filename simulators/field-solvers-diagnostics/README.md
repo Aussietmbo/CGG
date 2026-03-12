@@ -56,8 +56,8 @@ Dynamic evaluation of field evolution on computational substrates.
 
 ---
 
-### [TRR-G Klein-Gordon 1D (flipped) — Boundary Solver](TRRG_KleinGordon_1D_flipped.html)
-1‑D Klein–Gordon field solver with flipped boundary conditions.
+### [TRR-G Klein-Gordon 1D (flipped)](TRRG_KleinGordon_1D_flipped.html)
+1‑D Klein–Gordon solver with flipped boundary conditions.
 
 **Features:**
 - Demonstrates kink dynamics under inverted boundary setup
