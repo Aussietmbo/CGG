@@ -1,0 +1,1817 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CGG Joint Parameter Constraint Visualizer</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-mml-chtml.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;600&family=IBM+Plex+Sans:wght@300;400;600&display=swap');
+
+:root {
+  --bg: #050810;
+  --panel: #090d18;
+  --panel2: #0d1220;
+  --border: rgba(100,160,255,0.12);
+  --text: #c8d8f0;
+  --muted: #506080;
+  --accent: #3af0c8;
+  --accent2: #f03a6a;
+  --accent3: #f0a83a;
+  --accent4: #3a8af0;
+  --viable: #3af090;
+  --font-mono: 'IBM Plex Mono', monospace;
+  --font-sans: 'IBM Plex Sans', sans-serif;
+
+  /* Zone colors */
+  --z-clock: rgba(240,58,106,0.75);
+  --z-nicer: rgba(240,168,58,0.72);
+  --z-qnm: rgba(200,140,58,0.55);
+  --z-viable: rgba(58,240,144,0.28);
+  --z-cassini: rgba(58,138,240,0.18);
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  min-height: 100vh;
+  overflow: hidden;
+}
+
+/* ─── HEADER ─── */
+#header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 18px;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+  flex-shrink: 0;
+}
+
+#header h1 {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+#header .subtitle {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: 0.05em;
+}
+
+#wedge-status {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 3px;
+  border: 1px solid;
+  letter-spacing: 0.1em;
+  transition: all 0.3s;
+}
+#wedge-status.open { color: var(--viable); border-color: var(--viable); background: rgba(58,240,144,0.08); }
+#wedge-status.closed { color: var(--accent2); border-color: var(--accent2); background: rgba(240,58,106,0.08); }
+
+/* ─── MAIN LAYOUT ─── */
+#app {
+  display: grid;
+  grid-template-columns: 240px 1fr 220px;
+  grid-template-rows: calc(100vh - 42px - 110px);
+  gap: 0;
+  height: calc(100vh - 42px - 110px);
+}
+
+/* ─── LEFT PANEL: Controls ─── */
+#controls {
+  background: var(--panel);
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.section-label {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 4px;
+  margin-bottom: 6px;
+}
+
+.ctrl-row {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-bottom: 6px;
+}
+.ctrl-row label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text);
+  display: flex;
+  justify-content: space-between;
+}
+.ctrl-row label span { color: var(--accent); }
+
+input[type=range] {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(100,160,255,0.15);
+  outline: none;
+  cursor: pointer;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  box-shadow: 0 0 6px rgba(58,240,200,0.5);
+}
+
+.toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.toggle-row label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+input[type=checkbox] {
+  appearance: none;
+  width: 28px; height: 14px;
+  background: rgba(100,160,255,0.15);
+  border-radius: 7px;
+  position: relative;
+  cursor: pointer;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+input[type=checkbox]:checked { background: var(--accent); }
+input[type=checkbox]::after {
+  content: '';
+  position: absolute;
+  width: 10px; height: 10px;
+  background: white;
+  border-radius: 50%;
+  top: 2px; left: 2px;
+  transition: left 0.2s;
+}
+input[type=checkbox]:checked::after { left: 16px; }
+
+/* Preset buttons */
+.presets { display: flex; flex-direction: column; gap: 4px; }
+.preset-btn {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 6px 10px;
+  background: var(--panel2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+  border-radius: 3px;
+  transition: all 0.15s;
+  letter-spacing: 0.03em;
+}
+.preset-btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(58,240,200,0.05); }
+.preset-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(58,240,200,0.1); }
+.preset-desc { font-size: 8px; color: var(--muted); display: block; margin-top: 1px; }
+
+/* ─── MAIN CANVAS AREA ─── */
+#canvas-area {
+  position: relative;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+}
+
+#main-canvas {
+  display: block;
+  cursor: crosshair;
+  flex: 1;
+}
+
+#plot-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+  flex-shrink: 0;
+}
+.tab-btn {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 6px 14px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--muted);
+  cursor: pointer;
+  letter-spacing: 0.05em;
+  transition: all 0.15s;
+}
+.tab-btn:hover { color: var(--text); }
+.tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+#cursor-info {
+  position: absolute;
+  pointer-events: none;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  background: rgba(5,8,16,0.92);
+  border: 1px solid var(--border);
+  padding: 6px 10px;
+  border-radius: 3px;
+  display: none;
+  z-index: 10;
+  line-height: 1.6;
+}
+
+/* ─── RIGHT PANEL: Readouts + Report ─── */
+#readouts {
+  background: var(--panel);
+  border-left: 1px solid var(--border);
+  overflow-y: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.readout-block { display: flex; flex-direction: column; gap: 5px; }
+
+.readout-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(100,160,255,0.06);
+}
+.readout-label {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: 0.05em;
+}
+.readout-val {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--accent);
+}
+.readout-val.bad { color: var(--accent2); }
+.readout-val.warn { color: var(--accent3); }
+.readout-val.ok { color: var(--viable); }
+
+.constraint-pill {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  padding: 2px 7px;
+  border-radius: 2px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+.pill-ok { background: rgba(58,240,144,0.15); color: var(--viable); border: 1px solid rgba(58,240,144,0.3); }
+.pill-fail { background: rgba(240,58,106,0.15); color: var(--accent2); border: 1px solid rgba(240,58,106,0.3); }
+.pill-warn { background: rgba(240,168,58,0.15); color: var(--accent3); border: 1px solid rgba(240,168,58,0.3); }
+
+/* Report */
+.report-btn {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 7px 10px;
+  background: rgba(58,240,200,0.08);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  cursor: pointer;
+  border-radius: 3px;
+  width: 100%;
+  letter-spacing: 0.05em;
+  transition: all 0.15s;
+}
+.report-btn:hover { background: rgba(58,240,200,0.15); }
+
+#report-output {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text);
+  background: var(--panel2);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 8px;
+  white-space: pre;
+  overflow-x: auto;
+  line-height: 1.6;
+  display: none;
+}
+
+/* Legend */
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--muted);
+  margin-bottom: 3px;
+}
+.legend-swatch {
+  width: 12px; height: 12px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+/* ─── BOTTOM BAR: Equations ─── */
+#bottom-bar {
+  height: 110px;
+  background: var(--panel);
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 0;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.eq-panel {
+  flex: 1;
+  padding: 8px 16px;
+  border-right: 1px solid var(--border);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.eq-panel:last-child { border-right: none; }
+.eq-title {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.eq-content {
+  font-size: 11px;
+  color: var(--text);
+  line-height: 1.5;
+}
+
+/* scrollbar */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(100,160,255,0.2); border-radius: 2px; }
+
+/* Modal for report */
+#modal-overlay {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(5,8,16,0.85);
+  z-index: 100;
+  align-items: center;
+  justify-content: center;
+}
+#modal-overlay.show { display: flex; }
+#modal-box {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 20px;
+  max-width: 700px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  position: relative;
+}
+#modal-title {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--accent);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 14px;
+}
+#modal-content {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text);
+  line-height: 1.7;
+  white-space: pre;
+}
+#modal-close {
+  position: absolute;
+  top: 12px; right: 14px;
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 18px;
+  cursor: pointer;
+}
+#modal-close:hover { color: var(--text); }
+
+.copy-btn {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 5px 12px;
+  background: var(--panel2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  cursor: pointer;
+  border-radius: 3px;
+  margin-top: 12px;
+  transition: all 0.15s;
+}
+.copy-btn:hover { border-color: var(--accent); color: var(--accent); }
+</style>
+</head>
+<body>
+
+<div id="header">
+  <div>
+    <h1>CGG · Joint Parameter Constraint Visualizer</h1>
+    <div class="subtitle">Optical Clock · NICER · Cassini · QNM — Simultaneous Viability Wedge</div>
+  </div>
+  <div id="wedge-status" class="open">WEDGE: OPEN</div>
+</div>
+
+<div id="app">
+
+  <!-- LEFT: CONTROLS -->
+  <div id="controls">
+
+    <div>
+      <div class="section-label">Parameters</div>
+      <div class="ctrl-row">
+        <label>δ (surface displacement) <span id="v-delta">0.050</span></label>
+        <input type="range" id="sl-delta" min="0.01" max="0.12" step="0.001" value="0.05">
+      </div>
+      <div class="ctrl-row">
+        <label>R_NS (km) <span id="v-rns">12.0</span></label>
+        <input type="range" id="sl-rns" min="10" max="14" step="0.1" value="12">
+      </div>
+      <div class="ctrl-row">
+        <label>ε_max (×10⁻⁷) <span id="v-eps">14.9</span></label>
+        <input type="range" id="sl-eps" min="1" max="50" step="0.5" value="14.9">
+      </div>
+      <div class="ctrl-row">
+        <label>QNM tol. |Δω/ω|_max <span id="v-qnm">0.030</span></label>
+        <input type="range" id="sl-qnm" min="0.005" max="0.10" step="0.005" value="0.03">
+      </div>
+      <div class="ctrl-row">
+        <label>ω_R·r_s (QNM anchor) <span id="v-omr">0.747</span></label>
+        <input type="range" id="sl-omr" min="0.5" max="1.2" step="0.001" value="0.747">
+      </div>
+    </div>
+
+    <div>
+      <div class="section-label">Display Layers</div>
+      <div class="toggle-row">
+        <label><input type="checkbox" id="tog-clock" checked> Optical clock excl.</label>
+      </div>
+      <div class="toggle-row">
+        <label><input type="checkbox" id="tog-nicer" checked> NICER excl. (L₀&lt;500 km)</label>
+      </div>
+      <div class="toggle-row">
+        <label><input type="checkbox" id="tog-qnm" checked> QNM excl.</label>
+      </div>
+      <div class="toggle-row">
+        <label><input type="checkbox" id="tog-cassini" checked> Cassini line</label>
+      </div>
+      <div class="toggle-row">
+        <label><input type="checkbox" id="tog-viable" checked> Viable wedge</label>
+      </div>
+      <div class="toggle-row">
+        <label><input type="checkbox" id="tog-anchor" checked> Canonical anchor</label>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-label">Presets</div>
+      <div class="presets">
+        <button class="preset-btn active" id="pr-canonical" onclick="loadPreset('canonical')">
+          Canonical Anchor
+          <span class="preset-desc">m_s·r_s=71.8, δ=0.05, R=12 km</span>
+        </button>
+        <button class="preset-btn" id="pr-tight" onclick="loadPreset('tight')">
+          Tight Wedge
+          <span class="preset-desc">m_s·r_s=100, δ=0.02 — stress test upper wedge</span>
+        </button>
+        <button class="preset-btn" id="pr-stress" onclick="loadPreset('stress')">
+          Max δ Stress
+          <span class="preset-desc">δ=0.10 — maximizes QNM exclusion</span>
+        </button>
+        <button class="preset-btn" id="pr-edge" onclick="loadPreset('edge')">
+          ε Edge Case
+          <span class="preset-desc">m_s·r_s=62, δ=0.05 — sits at optical clock limit</span>
+        </button>
+        <button class="preset-btn" id="pr-nicer" onclick="loadPreset('niceronly')">
+          NICER Focus
+          <span class="preset-desc">Wide δ range — isolates L₀ constraint</span>
+        </button>
+        <button class="preset-btn" id="pr-gr" onclick="loadPreset('grlimit')">
+          GR Limit
+          <span class="preset-desc">δ→0, L₀→∞ recovery check</span>
+        </button>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-label">Legend</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:rgba(240,58,106,0.8)"></div>Optical clock excl.</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:rgba(240,168,58,0.8)"></div>NICER excl.</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:rgba(200,140,58,0.6)"></div>QNM excl.</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:rgba(58,240,144,0.4)"></div>Viable wedge</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:rgba(58,138,240,0.5); border: 1px dashed rgba(58,138,240,0.8)"></div>Cassini bound</div>
+    </div>
+
+  </div>
+
+  <!-- CENTER: CANVAS -->
+  <div id="canvas-area">
+    <div id="plot-tabs">
+      <button class="tab-btn active" onclick="switchTab('constraint')">Constraint Map</button>
+      <button class="tab-btn" onclick="switchTab('epsilon')">ε vs m_s·r_s</button>
+      <button class="tab-btn" onclick="switchTab('meff')">M_eff/M_GR vs L₀</button>
+      <button class="tab-btn" onclick="switchTab('qnm')">QNM Shift</button>
+    </div>
+    <canvas id="main-canvas"></canvas>
+    <div id="cursor-info"></div>
+  </div>
+
+  <!-- RIGHT: READOUTS -->
+  <div id="readouts">
+
+    <div>
+      <div class="section-label">At Cursor / Anchor</div>
+      <div class="readout-block">
+        <div class="readout-item">
+          <span class="readout-label">m_s · r_s</span>
+          <span class="readout-val" id="r-msrs">71.8</span>
+        </div>
+        <div class="readout-item">
+          <span class="readout-label">L₀ (km)</span>
+          <span class="readout-val" id="r-l0">—</span>
+        </div>
+        <div class="readout-item">
+          <span class="readout-label">ε</span>
+          <span class="readout-val" id="r-eps">—</span>
+        </div>
+        <div class="readout-item">
+          <span class="readout-label">M_eff/M_GR</span>
+          <span class="readout-val" id="r-meff">—</span>
+        </div>
+        <div class="readout-item">
+          <span class="readout-label">|Δω/ω|</span>
+          <span class="readout-val" id="r-qnm">—</span>
+        </div>
+        <div class="readout-item">
+          <span class="readout-label">ξ = 1/m_s (km·r_s)</span>
+          <span class="readout-val" id="r-xi">—</span>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-label">Constraint Status</div>
+      <div class="readout-block">
+        <div class="readout-item">
+          <span class="readout-label">Optical clock</span>
+          <span id="cs-clock" class="constraint-pill pill-ok">PASS</span>
+        </div>
+        <div class="readout-item">
+          <span class="readout-label">NICER (L₀)</span>
+          <span id="cs-nicer" class="constraint-pill pill-ok">PASS</span>
+        </div>
+        <div class="readout-item">
+          <span class="readout-label">QNM shift</span>
+          <span id="cs-qnm" class="constraint-pill pill-ok">PASS</span>
+        </div>
+        <div class="readout-item">
+          <span class="readout-label">Cassini (density-run)</span>
+          <span id="cs-cassini" class="constraint-pill pill-warn">CLOSURE</span>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-label">Global Wedge Stats</div>
+      <div class="readout-block">
+        <div class="readout-item">
+          <span class="readout-label">Wedge m_s·r_s range</span>
+          <span class="readout-val" id="r-wedge-msrs">—</span>
+        </div>
+        <div class="readout-item">
+          <span class="readout-label">Wedge L₀ range (km)</span>
+          <span class="readout-val" id="r-wedge-l0">—</span>
+        </div>
+        <div class="readout-item">
+          <span class="readout-label">Wedge pixel area %</span>
+          <span class="readout-val" id="r-wedge-area">—</span>
+        </div>
+        <div class="readout-item">
+          <span class="readout-label">Min ε in wedge</span>
+          <span class="readout-val" id="r-wedge-epsmin">—</span>
+        </div>
+        <div class="readout-item">
+          <span class="readout-label">L₀ dynamic range</span>
+          <span class="readout-val" id="r-dynrange">~120×</span>
+        </div>
+        <div class="readout-item">
+          <span class="readout-label">Anchor in wedge?</span>
+          <span class="readout-val" id="r-anchor-in">—</span>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-label">Validation Checks</div>
+      <div class="readout-block">
+        <div class="readout-item">
+          <span class="readout-label">GR recovery (L₀→∞)</span>
+          <span class="readout-val" id="v-gr" style="font-size:9px">—</span>
+        </div>
+        <div class="readout-item">
+          <span class="readout-label">Anchor ε</span>
+          <span class="readout-val" id="v-anchor-eps" style="font-size:9px">—</span>
+        </div>
+        <div class="readout-item">
+          <span class="readout-label">NICER @ 500 km</span>
+          <span class="readout-val" id="v-nicer500" style="font-size:9px">—</span>
+        </div>
+        <div class="readout-item">
+          <span class="readout-label">Anchor QNM</span>
+          <span class="readout-val" id="v-anchor-qnm" style="font-size:9px">—</span>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-label">Report Tools</div>
+      <button class="report-btn" onclick="generateReport()">📋 Generate Full Report</button>
+      <button class="report-btn" style="margin-top:5px;background:rgba(58,138,240,0.08);border-color:var(--accent4);color:var(--accent4);" onclick="exportCSV()">⬇ Export CSV Data</button>
+      <button class="report-btn" style="margin-top:5px;background:rgba(240,168,58,0.08);border-color:var(--accent3);color:var(--accent3);" onclick="runWedgeScan()">🔍 Scan Wedge Bounds</button>
+    </div>
+
+  </div>
+
+</div>
+
+<!-- BOTTOM: Equations -->
+<div id="bottom-bar">
+  <div class="eq-panel">
+    <div class="eq-title">Epsilon-Bridge</div>
+    <div class="eq-content" id="eq1">ε ≈ (ω_R r_s)² / [ℓ(ℓ+1)−1 + ½(m_s r_s)⁴ δ]</div>
+  </div>
+  <div class="eq-panel">
+    <div class="eq-title">Screened Poisson</div>
+    <div class="eq-content">M_eff/M_GR = (3L₀³/8R³)·[1−e^(−2R/L₀)(1+2R/L₀+2R²/L₀²)]</div>
+  </div>
+  <div class="eq-panel">
+    <div class="eq-title">QNM Shift</div>
+    <div class="eq-content">|Δω/ω| = δ · C₁ · (m_s r_s),  C₁ = 0.0495</div>
+  </div>
+  <div class="eq-panel">
+    <div class="eq-title">Optical Clock Bound</div>
+    <div class="eq-content">ε &lt; 1.49×10⁻⁶  (3σ)   →   m_s r_s ≳ 62 at δ=0.05</div>
+  </div>
+  <div class="eq-panel">
+    <div class="eq-title">Coupling Constraint</div>
+    <div class="eq-content">g_m Ψ₀² = 4πG  [fixed]<br>h₀₀ = 2δC,  γ_PPN = 1  [derived]</div>
+  </div>
+</div>
+
+<!-- Modal for reports -->
+<div id="modal-overlay">
+  <div id="modal-box">
+    <button id="modal-close" onclick="closeModal()">✕</button>
+    <div id="modal-title">CGG PARAMETER REPORT</div>
+    <div id="modal-content"></div>
+    <button class="copy-btn" onclick="copyReport()">Copy to Clipboard</button>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════
+const S = {
+  delta: 0.05,
+  R_ns: 12,        // km
+  eps_max: 1.49e-6,
+  qnm_max: 0.03,
+  omr: 0.747,      // ω_R · r_s
+  ell: 2,
+  C1: 0.0495,
+  show_clock: true,
+  show_nicer: true,
+  show_qnm: true,
+  show_cassini: true,
+  show_viable: true,
+  show_anchor: true,
+  // axis ranges
+  msrs_min: 10, msrs_max: 150,
+  l0_min: 1, l0_max: 1e6,  // km, log scale
+  // cursor
+  cursor_msrs: 71.8, cursor_l0: 1000,
+  activeTab: 'constraint',
+  activePreset: 'canonical'
+};
+
+const NICER_L0 = 500;       // km
+const CASSINI_L0 = 60000;   // km (solar-system scale)
+
+// ═══════════════════════════════════════════════════════
+// PHYSICS FUNCTIONS
+// ═══════════════════════════════════════════════════════
+
+function epsilon(msrs, delta, omr, ell) {
+  const num = omr * omr;
+  const den = ell * (ell + 1) - 1 + 0.5 * Math.pow(msrs, 4) * delta;
+  if (den <= 0) return Infinity;
+  return num / den;
+}
+
+function meff_ratio(L0_km, R_km) {
+  if (L0_km >= 1e9) return 1.0;
+  const x = 2 * R_km / L0_km;
+  if (x > 500) return 0;
+  // Taylor expansion for small x to avoid floating-point cancellation:
+  // bracket = 1 - e^{-x}(1+x+x²/2) ≈ x³/3 - x⁴/4 + x⁵/10 - ...
+  // coeff * bracket → 1 - x²/10 + x⁴/280 - ... as x→0
+  // Taylor for x < 0.1: M_eff/M_GR ~ 1 - 3x/4 + 3x^2/10 - x^3/12
+  if (x < 0.1) {
+    return Math.max(0, Math.min(1, 1 - 3*x/4 + 3*x*x/10 - x*x*x/12));
+  }
+  // Correct bracket: int_0^R r^2 exp(-2r/L0) dr uses [2 - exp(-x)(x^2+2x+2)]
+  const expx = Math.exp(-x);
+  const bracket = 2 - expx * (x*x + 2*x + 2);
+  const coeff = 3 * Math.pow(L0_km, 3) / (8 * Math.pow(R_km, 3));
+  return Math.max(0, Math.min(1, coeff * bracket));
+}
+
+function qnm_shift(msrs, delta) {
+  return delta * S.C1 * msrs;
+}
+
+// ═══════════════════════════════════════════════════════
+// COORDINATE MAPPING
+// ═══════════════════════════════════════════════════════
+
+function pxToMsrs(px, W) {
+  return S.msrs_min + (px / W) * (S.msrs_max - S.msrs_min);
+}
+function mrsTo_px(msrs, W) {
+  return ((msrs - S.msrs_min) / (S.msrs_max - S.msrs_min)) * W;
+}
+
+// Log scale for L0
+function pxToL0(py, H) {
+  const t = 1 - (py / H); // top = high L0
+  return Math.pow(10, Math.log10(S.l0_min) + t * (Math.log10(S.l0_max) - Math.log10(S.l0_min)));
+}
+function l0ToPx(l0, H) {
+  const logMin = Math.log10(S.l0_min);
+  const logMax = Math.log10(S.l0_max);
+  const t = (Math.log10(l0) - logMin) / (logMax - logMin);
+  return H * (1 - t);
+}
+
+// ═══════════════════════════════════════════════════════
+// CANVAS SETUP
+// ═══════════════════════════════════════════════════════
+
+const canvas = document.getElementById('main-canvas');
+const ctx = canvas.getContext('2d');
+let W, H, offCanvas, offCtx;
+
+function resizeCanvas() {
+  const rect = canvas.parentElement.getBoundingClientRect();
+  W = Math.floor(rect.width);
+  H = Math.floor(rect.height - 34); // minus tabs
+  canvas.width = W * devicePixelRatio;
+  canvas.height = H * devicePixelRatio;
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+  ctx.scale(devicePixelRatio, devicePixelRatio);
+  offCanvas = document.createElement('canvas');
+  offCanvas.width = W;
+  offCanvas.height = H;
+  offCtx = offCanvas.getContext('2d');
+  renderAll();
+}
+
+
+// ═══════════════════════════════════════════════════════
+// WEDGE SCAN — lightweight 100×100 grid, always current
+// Called from renderAll() regardless of active tab
+// ═══════════════════════════════════════════════════════
+function computeWedgeScan() {
+  const N = 100;
+  wedgeStats = { minMsrs: Infinity, maxMsrs: -Infinity, minL0: Infinity, maxL0: -Infinity,
+                 pixCount: 0, totalPix: N * N, minEps: Infinity };
+  const logL0min = Math.log10(S.l0_min), logL0max = Math.log10(S.l0_max);
+  for (let j = 0; j < N; j++) {
+    const t = (j + 0.5) / N;
+    const l0 = Math.pow(10, logL0min + t * (logL0max - logL0min));
+    for (let i = 0; i < N; i++) {
+      const msrs = S.msrs_min + ((i + 0.5) / N) * (S.msrs_max - S.msrs_min);
+      const eps = epsilon(msrs, S.delta, S.omr, S.ell);
+      const qnm = qnm_shift(msrs, S.delta);
+      const clock_ok = eps <= S.eps_max;
+      const nicer_ok = l0 >= NICER_L0;
+      const qnm_ok = qnm <= S.qnm_max;
+      if (clock_ok && nicer_ok && qnm_ok) {
+        wedgeStats.pixCount++;
+        if (msrs < wedgeStats.minMsrs) wedgeStats.minMsrs = msrs;
+        if (msrs > wedgeStats.maxMsrs) wedgeStats.maxMsrs = msrs;
+        if (l0 < wedgeStats.minL0) wedgeStats.minL0 = l0;
+        if (l0 > wedgeStats.maxL0) wedgeStats.maxL0 = l0;
+        if (eps < wedgeStats.minEps) wedgeStats.minEps = eps;
+      }
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// RENDER: CONSTRAINT MAP
+// ═══════════════════════════════════════════════════════
+
+let wedgeStats = { minMsrs: Infinity, maxMsrs: -Infinity, minL0: Infinity, maxL0: -Infinity, pixCount: 0, totalPix: 0, minEps: Infinity };
+
+function drawConstraintMap() {
+  const imgData = offCtx.createImageData(W, H);
+  const d = imgData.data;
+  wedgeStats = { minMsrs: Infinity, maxMsrs: -Infinity, minL0: Infinity, maxL0: -Infinity, pixCount: 0, totalPix: W * H, minEps: Infinity };
+
+  for (let py = 0; py < H; py++) {
+    const l0 = pxToL0(py, H);
+    for (let px = 0; px < W; px++) {
+      const msrs = pxToMsrs(px, W);
+      const eps = epsilon(msrs, S.delta, S.omr, S.ell);
+      const mr = meff_ratio(l0, S.R_ns);
+      const qnm = qnm_shift(msrs, S.delta);
+
+      const clock_excl = S.show_clock && (eps > S.eps_max);
+      const nicer_excl = S.show_nicer && (l0 < NICER_L0);
+      const qnm_excl = S.show_qnm && (qnm > S.qnm_max);
+      const is_excl = clock_excl || nicer_excl || qnm_excl;
+      const is_viable = S.show_viable && !is_excl;
+
+      let r = 5, g = 8, b = 16, a = 255;
+
+      if (clock_excl && nicer_excl) { r=200; g=60; b=80; a=220; }
+      else if (clock_excl) { r=220; g=40; b=90; a=200; }
+      else if (nicer_excl) { r=200; g=130; b=40; a=190; }
+      else if (qnm_excl) { r=160; g=100; b=30; a=150; }
+      else if (is_viable) {
+        // viable: bright green floor so strip is always visible, intensity by ε margin
+        const margin_t = Math.log10(S.eps_max / eps) / 3;
+        const t = Math.min(1, Math.max(0, margin_t));
+        // floor ensures minimum visibility even at t~0
+        r = Math.round(20 + 80 * t);
+        g = Math.round(160 + 80 * t);
+        b = Math.round(60 + 60 * t);
+        a = 255;
+
+        wedgeStats.pixCount++;
+        if (msrs < wedgeStats.minMsrs) wedgeStats.minMsrs = msrs;
+        if (msrs > wedgeStats.maxMsrs) wedgeStats.maxMsrs = msrs;
+        if (l0 < wedgeStats.minL0) wedgeStats.minL0 = l0;
+        if (l0 > wedgeStats.maxL0) wedgeStats.maxL0 = l0;
+        if (eps < wedgeStats.minEps) wedgeStats.minEps = eps;
+      }
+
+      const i = (py * W + px) * 4;
+      d[i] = r; d[i+1] = g; d[i+2] = b; d[i+3] = a;
+    }
+  }
+
+  offCtx.putImageData(imgData, 0, 0);
+  ctx.drawImage(offCanvas, 0, 0);
+
+  // Wedge boundary outline — draw a visible green rectangle around viable region
+  // Uses wedgeStats populated by the pixel scan above
+  if (S.show_viable && wedgeStats.pixCount > 0 &&
+      isFinite(wedgeStats.minMsrs) && isFinite(wedgeStats.maxMsrs)) {
+    const wx1 = mrsTo_px(wedgeStats.minMsrs, W);
+    const wx2 = mrsTo_px(wedgeStats.maxMsrs, W);
+    const wy1 = l0ToPx(wedgeStats.maxL0, H);  // top (high L0)
+    const wy2 = l0ToPx(wedgeStats.minL0, H);  // bottom (low L0)
+    ctx.strokeStyle = 'rgba(58,240,144,0.95)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([]);
+    ctx.strokeRect(wx1, wy1, wx2 - wx1, wy2 - wy1);
+    // Label the wedge
+    ctx.font = 'bold 9px IBM Plex Mono';
+    const wedgeLabel = `VIABLE  m_s·r_s ${wedgeStats.minMsrs.toFixed(0)}–${wedgeStats.maxMsrs.toFixed(0)}`;
+    const wlw = ctx.measureText(wedgeLabel).width;
+    // Position label inside the green region, vertically centered
+    const labelX = wx1 + (wx2 - wx1) / 2 - wlw / 2;
+    const labelY = wy1 + (wy2 - wy1) / 2 + 4;
+    ctx.fillStyle = 'rgba(5,8,16,0.75)';
+    ctx.fillRect(labelX - 3, labelY - 10, wlw + 6, 13);
+    ctx.fillStyle = 'rgba(58,240,144,0.98)';
+    ctx.fillText(wedgeLabel, labelX, labelY);
+  }
+
+  // Grid lines
+  drawGrid();
+
+  // NICER line
+  if (S.show_nicer) {
+    const nicerY = l0ToPx(NICER_L0, H);
+    ctx.strokeStyle = 'rgba(240,168,58,0.9)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath(); ctx.moveTo(0, nicerY); ctx.lineTo(W, nicerY); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(240,168,58,0.9)';
+    ctx.font = '9px IBM Plex Mono';
+    ctx.fillText('NICER: L₀=500 km', 4, nicerY - 4);
+  }
+
+  // Cassini line
+  if (S.show_cassini) {
+    const cassY = l0ToPx(CASSINI_L0, H);
+    ctx.strokeStyle = 'rgba(58,138,240,0.7)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([8, 4]);
+    ctx.beginPath(); ctx.moveTo(0, cassY); ctx.lineTo(W, cassY); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(58,138,240,0.7)';
+    ctx.font = '9px IBM Plex Mono';
+    ctx.fillText('Cassini: L₀=60,000 km', 4, cassY - 4);
+  }
+
+  // QNM exclusion boundary line
+  if (S.show_qnm) {
+    const msrsQNM = S.qnm_max / (S.delta * S.C1);
+    if (msrsQNM >= S.msrs_min && msrsQNM <= S.msrs_max) {
+      const qnmX = mrsTo_px(msrsQNM, W);
+      ctx.strokeStyle = 'rgba(200,140,58,0.9)';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([3, 3]);
+      ctx.beginPath(); ctx.moveTo(qnmX, 0); ctx.lineTo(qnmX, H); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = 'rgba(200,140,58,0.9)';
+      ctx.font = '9px IBM Plex Mono';
+      ctx.save(); ctx.translate(qnmX+4, H-40); ctx.rotate(-Math.PI/2);
+      ctx.fillText('QNM limit', 0, 0);
+      ctx.restore();
+    }
+  }
+
+  // Canonical anchor crosshair
+  if (S.show_anchor) {
+    const anchorX = mrsTo_px(71.8, W);
+    // anchor exists for all L0 — mark at a reference height (e.g., NICER threshold)
+    const anchorY = l0ToPx(1000, H);
+    ctx.strokeStyle = 'rgba(58,240,200,0.9)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([2, 4]);
+    ctx.beginPath(); ctx.moveTo(anchorX, 0); ctx.lineTo(anchorX, H); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.arc(anchorX, anchorY, 5, 0, Math.PI*2);
+    ctx.strokeStyle = 'rgba(58,240,200,0.9)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(58,240,200,0.9)';
+    ctx.font = '9px IBM Plex Mono';
+    ctx.fillText('◆ anchor (71.8)', anchorX + 7, anchorY - 6);
+  }
+
+  // Cursor crosshair
+  drawCursorCrosshair();
+  updateWedgeStats();
+  updateValidationChecks();
+}
+
+function drawGrid() {
+  ctx.strokeStyle = 'rgba(100,160,255,0.06)';
+  ctx.lineWidth = 1;
+  ctx.font = '9px IBM Plex Mono';
+  ctx.fillStyle = 'rgba(100,160,255,0.4)';
+
+  // X grid: msrs ticks
+  for (let msrs = 20; msrs <= 140; msrs += 20) {
+    const px = mrsTo_px(msrs, W);
+    ctx.beginPath(); ctx.moveTo(px, 0); ctx.lineTo(px, H); ctx.stroke();
+    ctx.fillText(msrs, px - 8, H - 4);
+  }
+  ctx.fillText('m_s·r_s →', W - 70, H - 4);
+
+  // Y grid: L0 log ticks — draw inside plot with dark pill background
+  for (let exp = 0; exp <= 6; exp++) {
+    const l0 = Math.pow(10, exp);
+    const py = l0ToPx(l0, H);
+    if (py < 6 || py > H - 4) continue;
+    ctx.beginPath(); ctx.moveTo(0, py); ctx.lineTo(W, py); ctx.stroke();
+    let label;
+    if (exp >= 6) label = '1M';
+    else if (exp >= 3) label = `${Math.pow(10, exp-3).toFixed(0)}k`;
+    else label = `${Math.pow(10, exp).toFixed(0)}`;
+    // Dark pill background so label is readable over any zone color
+    const lw = ctx.measureText(label).width;
+    ctx.fillStyle = 'rgba(5,8,16,0.72)';
+    ctx.fillRect(4, py - 8, lw + 6, 11);
+    ctx.fillStyle = 'rgba(140,180,255,0.75)';
+    ctx.fillText(label, 7, py + 2);
+    ctx.fillStyle = 'rgba(100,160,255,0.4)';  // restore for next iteration
+  }
+}
+
+function drawCursorCrosshair() {
+  const cx = mrsTo_px(S.cursor_msrs, W);
+  const cy = l0ToPx(S.cursor_l0, H);
+  ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([2,4]);
+  ctx.beginPath(); ctx.moveTo(cx, 0); ctx.lineTo(cx, H); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0, cy); ctx.lineTo(W, cy); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.beginPath();
+  ctx.arc(cx, cy, 4, 0, Math.PI*2);
+  ctx.strokeStyle = 'white';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+}
+
+// ═══════════════════════════════════════════════════════
+// RENDER: ε vs m_s·r_s
+// ═══════════════════════════════════════════════════════
+function drawEpsilonPlot() {
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#050810';
+  ctx.fillRect(0, 0, W, H);
+
+  const margin = { l:55, r:20, t:20, b:40 };
+  const pw = W - margin.l - margin.r;
+  const ph = H - margin.t - margin.b;
+
+  // Axes
+  ctx.strokeStyle = 'rgba(100,160,255,0.3)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(margin.l, margin.t, pw, ph);
+
+  // Grid
+  ctx.strokeStyle = 'rgba(100,160,255,0.06)';
+  ctx.font = '9px IBM Plex Mono';
+  ctx.fillStyle = 'rgba(100,160,255,0.5)';
+
+  // X: msrs
+  for (let m = 20; m <= 140; m += 20) {
+    const x = margin.l + (m - S.msrs_min) / (S.msrs_max - S.msrs_min) * pw;
+    ctx.beginPath(); ctx.moveTo(x, margin.t); ctx.lineTo(x, margin.t+ph); ctx.stroke();
+    ctx.fillText(m, x-8, margin.t+ph+14);
+  }
+
+  // Y: epsilon log scale
+  const epsMin = 1e-10, epsMax = 1e-3;
+  function epsToY(e) {
+    const t = (Math.log10(e) - Math.log10(epsMin)) / (Math.log10(epsMax) - Math.log10(epsMin));
+    return margin.t + ph - t * ph;
+  }
+  for (let ep = -10; ep <= -3; ep++) {
+    const y = epsToY(Math.pow(10, ep));
+    if (y < margin.t || y > margin.t+ph) continue;
+    ctx.beginPath(); ctx.moveTo(margin.l, y); ctx.lineTo(margin.l+pw, y); ctx.stroke();
+    ctx.fillText(`10^${ep}`, 2, y+3);
+  }
+
+  // Optical clock bound line
+  const boundY = epsToY(S.eps_max);
+  ctx.strokeStyle = 'rgba(240,58,106,0.9)';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([5,4]);
+  ctx.beginPath(); ctx.moveTo(margin.l, boundY); ctx.lineTo(margin.l+pw, boundY); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = 'rgba(240,58,106,0.9)';
+  ctx.fillText('ε_max = '+S.eps_max.toExponential(2), margin.l+4, boundY-4);
+
+  // Shade excluded region (above bound)
+  ctx.fillStyle = 'rgba(240,58,106,0.08)';
+  ctx.fillRect(margin.l, margin.t, pw, Math.max(0, boundY - margin.t));
+
+  // Epsilon curve
+  ctx.strokeStyle = 'rgba(58,240,200,0.9)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  let first = true;
+  for (let px = 0; px < pw; px++) {
+    const msrs = S.msrs_min + (px / pw) * (S.msrs_max - S.msrs_min);
+    const eps = epsilon(msrs, S.delta, S.omr, S.ell);
+    if (!isFinite(eps) || eps <= 0) continue;
+    const x = margin.l + px;
+    const y = epsToY(eps);
+    if (first) { ctx.moveTo(x, y); first = false; }
+    else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+
+  // Canonical anchor vertical
+  const ancX = margin.l + (71.8 - S.msrs_min) / (S.msrs_max - S.msrs_min) * pw;
+  ctx.strokeStyle = 'rgba(58,240,200,0.5)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([3,4]);
+  ctx.beginPath(); ctx.moveTo(ancX, margin.t); ctx.lineTo(ancX, margin.t+ph); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Threshold m_s r_s = 62
+  const thX = margin.l + (62 - S.msrs_min) / (S.msrs_max - S.msrs_min) * pw;
+  ctx.strokeStyle = 'rgba(240,168,58,0.6)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([2,4]);
+  ctx.beginPath(); ctx.moveTo(thX, margin.t); ctx.lineTo(thX, margin.t+ph); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = 'rgba(240,168,58,0.8)';
+  ctx.font = '9px IBM Plex Mono';
+  ctx.fillText('m_s r_s=62', thX+2, margin.t+12);
+
+  // Labels
+  ctx.fillStyle = 'rgba(100,160,255,0.6)';
+  ctx.fillText('m_s·r_s', margin.l + pw/2 - 20, margin.t+ph+28);
+  ctx.save(); ctx.translate(14, margin.t + ph/2); ctx.rotate(-Math.PI/2);
+  ctx.fillText('ε (log)', 0, 0); ctx.restore();
+
+  ctx.fillStyle = 'rgba(58,240,200,0.7)';
+  ctx.font = '10px IBM Plex Mono';
+  ctx.fillText('ε vs m_s·r_s  [δ='+S.delta.toFixed(3)+']', margin.l, margin.t-6);
+}
+
+// ═══════════════════════════════════════════════════════
+// RENDER: M_eff/M_GR vs L0
+// ═══════════════════════════════════════════════════════
+function drawMeffPlot() {
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#050810';
+  ctx.fillRect(0, 0, W, H);
+
+  const margin = { l:55, r:20, t:20, b:40 };
+  const pw = W - margin.l - margin.r;
+  const ph = H - margin.t - margin.b;
+
+  ctx.strokeStyle = 'rgba(100,160,255,0.3)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(margin.l, margin.t, pw, ph);
+
+  const l0LogMin = 0, l0LogMax = 6;
+  function l0ToX(l0) {
+    const t = (Math.log10(Math.max(1,l0)) - l0LogMin) / (l0LogMax - l0LogMin);
+    return margin.l + t * pw;
+  }
+  function ratioToY(r) { return margin.t + ph - r * ph; }
+
+  ctx.strokeStyle = 'rgba(100,160,255,0.06)';
+  ctx.font = '9px IBM Plex Mono';
+  ctx.fillStyle = 'rgba(100,160,255,0.5)';
+
+  for (let e = 0; e <= 6; e++) {
+    const x = l0ToX(Math.pow(10, e));
+    ctx.beginPath(); ctx.moveTo(x, margin.t); ctx.lineTo(x, margin.t+ph); ctx.stroke();
+    const label = e >= 3 ? (Math.pow(10,e-3))+'k' : ''+Math.pow(10,e);
+    ctx.fillText(label, x-12, margin.t+ph+14);
+  }
+  for (let v = 0; v <= 1; v += 0.1) {
+    const y = ratioToY(v);
+    ctx.beginPath(); ctx.moveTo(margin.l, y); ctx.lineTo(margin.l+pw, y); ctx.stroke();
+    ctx.fillText(v.toFixed(1), 2, y+3);
+  }
+
+  // NICER bound
+  const nicerX = l0ToX(NICER_L0);
+  ctx.strokeStyle = 'rgba(240,168,58,0.9)';
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([4,4]);
+  ctx.beginPath(); ctx.moveTo(nicerX, margin.t); ctx.lineTo(nicerX, margin.t+ph); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = 'rgba(240,168,58,0.9)';
+  ctx.fillText('NICER L₀=500 km', nicerX+3, margin.t+14);
+
+  // Cassini bound
+  const cassX = l0ToX(CASSINI_L0);
+  ctx.strokeStyle = 'rgba(58,138,240,0.7)';
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([6,4]);
+  ctx.beginPath(); ctx.moveTo(cassX, margin.t); ctx.lineTo(cassX, margin.t+ph); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = 'rgba(58,138,240,0.7)';
+  ctx.fillText('Cassini 60k km', cassX+3, margin.t+24);
+
+  // NICER threshold M_eff/M_GR = 0.972
+  const nicerMeffY = ratioToY(0.972);
+  ctx.strokeStyle = 'rgba(240,168,58,0.5)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([2,4]);
+  ctx.beginPath(); ctx.moveTo(margin.l, nicerMeffY); ctx.lineTo(margin.l+pw, nicerMeffY); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = 'rgba(240,168,58,0.5)';
+  ctx.fillText('0.972', 2, nicerMeffY+3);
+
+  // M_eff/M_GR curve — use index counter, never float equality for moveTo
+  ctx.strokeStyle = 'rgba(58,240,200,0.9)';
+  ctx.lineWidth = 2.5;
+  ctx.setLineDash([]);  // ensure solid line, not inherited dash
+  ctx.beginPath();
+  const curveSteps = 400;
+  for (let i = 0; i <= curveSteps; i++) {
+    const e = l0LogMin + (i / curveSteps) * (l0LogMax - l0LogMin);
+    const l0 = Math.pow(10, e);
+    const mr = meff_ratio(l0, S.R_ns);
+    const x = l0ToX(l0);
+    const y = ratioToY(mr);
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+
+  // Table 3 validation points — n=1 polytrope solver (NOT uniform density)
+  // These will NOT sit on the analytic curve (uniform density). Discrepancy is physical.
+  const table3 = [{l0:10,mr:0.268},{l0:50,mr:0.862},{l0:100,mr:0.948},{l0:500,mr:0.972},{l0:1000,mr:0.988}];
+  for (const pt of table3) {
+    const x = l0ToX(pt.l0);
+    const y = ratioToY(pt.mr);
+    // Draw crosshair marker instead of filled dot to distinguish from curve
+    ctx.strokeStyle = 'rgba(240,168,58,0.9)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(x-6, y); ctx.lineTo(x+6, y); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x, y-6); ctx.lineTo(x, y+6); ctx.stroke();
+    ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI*2);
+    ctx.fillStyle = 'rgba(240,168,58,0.9)';
+    ctx.fill();
+    // Show analytic value at same L0 for direct comparison
+    const analytic = meff_ratio(pt.l0, S.R_ns);
+    ctx.fillStyle = 'rgba(240,168,58,0.6)';
+    ctx.font = '8px IBM Plex Mono';
+    ctx.fillText(`T3:${pt.mr} / A:${analytic.toFixed(3)}`, x + 7, y + 3);
+  }
+
+  // Legend distinguishing curve from dots
+  ctx.fillStyle = 'rgba(58,240,200,0.7)';
+  ctx.font = '9px IBM Plex Mono';
+  ctx.fillText('— analytic (uniform ρ)', margin.l + 4, margin.t + ph - 22);
+  ctx.fillStyle = 'rgba(240,168,58,0.7)';
+  ctx.fillText('+ Table 3 (n=1 polytrope solver) — discrepancy is physical, not a bug', margin.l + 4, margin.t + ph - 10);
+
+  ctx.fillStyle = 'rgba(100,160,255,0.6)';
+  ctx.fillText('L₀ (km, log scale)', margin.l + pw/2 - 40, margin.t+ph+28);
+  ctx.save(); ctx.translate(14, margin.t + ph/2); ctx.rotate(-Math.PI/2);
+  ctx.fillText('M_eff / M_GR', 0, 0); ctx.restore();
+
+  ctx.fillStyle = 'rgba(58,240,200,0.7)';
+  ctx.font = '10px IBM Plex Mono';
+  ctx.fillText('M_eff/M_GR vs L₀  [R_NS='+S.R_ns+' km, uniform ρ analytic]  + = Table 3 (n=1 polytrope solver)', margin.l, margin.t-6);
+}
+
+// ═══════════════════════════════════════════════════════
+// RENDER: QNM Shift
+// ═══════════════════════════════════════════════════════
+function drawQNMPlot() {
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#050810';
+  ctx.fillRect(0, 0, W, H);
+
+  const margin = { l:55, r:20, t:20, b:40 };
+  const pw = W - margin.l - margin.r;
+  const ph = H - margin.t - margin.b;
+
+  ctx.strokeStyle = 'rgba(100,160,255,0.3)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(margin.l, margin.t, pw, ph);
+
+  const qnmMax = 0.15;
+  function msrsToX(m) { return margin.l + (m - S.msrs_min) / (S.msrs_max - S.msrs_min) * pw; }
+  function qToY(q) { return margin.t + ph - (q / qnmMax) * ph; }
+
+  ctx.strokeStyle = 'rgba(100,160,255,0.06)';
+  ctx.font = '9px IBM Plex Mono';
+  ctx.fillStyle = 'rgba(100,160,255,0.5)';
+
+  for (let m = 20; m <= 140; m += 20) {
+    const x = msrsToX(m); ctx.beginPath(); ctx.moveTo(x, margin.t); ctx.lineTo(x, margin.t+ph); ctx.stroke();
+    ctx.fillText(m, x-8, margin.t+ph+14);
+  }
+  for (let q = 0; q <= qnmMax; q += 0.02) {
+    const y = qToY(q); ctx.beginPath(); ctx.moveTo(margin.l, y); ctx.lineTo(margin.l+pw, y); ctx.stroke();
+    ctx.fillText(q.toFixed(2), 2, y+3);
+  }
+
+  // QNM tolerance line
+  const tolY = qToY(S.qnm_max);
+  ctx.strokeStyle = 'rgba(200,140,58,0.9)';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([5,4]);
+  ctx.beginPath(); ctx.moveTo(margin.l, tolY); ctx.lineTo(margin.l+pw, tolY); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = 'rgba(200,140,58,0.9)';
+  ctx.fillText('|Δω/ω|_max = '+S.qnm_max.toFixed(3), margin.l+4, tolY-4);
+
+  // Legacy quadratic (for comparison)
+  ctx.strokeStyle = 'rgba(150,80,80,0.5)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([2,4]);
+  ctx.beginPath();
+  let first = true;
+  for (let px = 0; px < pw; px++) {
+    const msrs = S.msrs_min + (px / pw) * (S.msrs_max - S.msrs_min);
+    const q_legacy = S.delta * 0.5 * msrs * msrs;
+    if (q_legacy > qnmMax * 2) break;
+    const x = margin.l + px;
+    const y = qToY(q_legacy);
+    if (y < margin.t - 5) break;
+    if (first) { ctx.moveTo(x, y); first = false; } else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = 'rgba(150,80,80,0.6)';
+  ctx.fillText('LEGACY ½x² (RETIRED)', margin.l + 10, margin.t + 14);
+
+  // Corrected linear
+  ctx.strokeStyle = 'rgba(58,240,200,0.9)';
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  for (let px = 0; px < pw; px++) {
+    const msrs = S.msrs_min + (px / pw) * (S.msrs_max - S.msrs_min);
+    const q = qnm_shift(msrs, S.delta);
+    const x = margin.l + px;
+    const y = qToY(q);
+    if (px === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+
+  // Canonical anchor
+  const ancX = msrsToX(71.8);
+  const ancQ = qnm_shift(71.8, S.delta);
+  const ancY = qToY(ancQ);
+  ctx.fillStyle = 'rgba(58,240,200,0.9)';
+  ctx.beginPath(); ctx.arc(ancX, ancY, 5, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = 'rgba(58,240,200,0.7)';
+  ctx.font = '9px IBM Plex Mono';
+  ctx.fillText('anchor: '+ancQ.toFixed(3), ancX+7, ancY-4);
+
+  ctx.fillStyle = 'rgba(100,160,255,0.6)';
+  ctx.fillText('m_s·r_s', margin.l + pw/2 - 20, margin.t+ph+28);
+  ctx.save(); ctx.translate(14, margin.t + ph/2); ctx.rotate(-Math.PI/2);
+  ctx.fillText('|Δω/ω|', 0, 0); ctx.restore();
+
+  ctx.fillStyle = 'rgba(58,240,200,0.7)';
+  ctx.font = '10px IBM Plex Mono';
+  ctx.fillText('QNM Shift  [δ='+S.delta.toFixed(3)+', C₁=0.0495]  — corrected linear vs legacy quadratic', margin.l, margin.t-6);
+}
+
+// ═══════════════════════════════════════════════════════
+// RENDER DISPATCH
+// ═══════════════════════════════════════════════════════
+function renderAll() {
+  if (!W || !H) return;
+  ctx.clearRect(0, 0, W, H);
+  computeWedgeScan();  // always update wedge stats, regardless of tab
+  if (S.activeTab === 'constraint') drawConstraintMap();
+  else if (S.activeTab === 'epsilon') drawEpsilonPlot();
+  else if (S.activeTab === 'meff') drawMeffPlot();
+  else if (S.activeTab === 'qnm') drawQNMPlot();
+  updateSidebarReadouts();
+  updateWedgeStats();
+  updateValidationChecks();
+}
+
+function switchTab(tab) {
+  S.activeTab = tab;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  renderAll();
+}
+
+// ═══════════════════════════════════════════════════════
+// SIDEBAR UPDATES
+// ═══════════════════════════════════════════════════════
+function fmt(v, digits=3) {
+  if (!isFinite(v)) return '∞';
+  if (Math.abs(v) < 1e-3 || Math.abs(v) >= 1e4) return v.toExponential(digits);
+  return v.toPrecision(digits+1);
+}
+
+function updateSidebarReadouts() {
+  const msrs = S.cursor_msrs;
+  const l0 = S.cursor_l0;
+  const eps = epsilon(msrs, S.delta, S.omr, S.ell);
+  const mr = meff_ratio(l0, S.R_ns);
+  const qnm = qnm_shift(msrs, S.delta);
+  const xi = 1 / msrs; // ξ·r_s = 1/(m_s r_s) in units of r_s
+
+  document.getElementById('r-msrs').textContent = msrs.toFixed(1);
+  document.getElementById('r-l0').textContent = l0 < 1e4 ? l0.toFixed(0)+' km' : (l0/1e3).toFixed(0)+'k km';
+  document.getElementById('r-eps').textContent = fmt(eps);
+  document.getElementById('r-meff').textContent = mr.toFixed(4);
+  document.getElementById('r-qnm').textContent = qnm.toFixed(4);
+  document.getElementById('r-xi').textContent = xi.toFixed(4);
+
+  // Constraint pills
+  const clock_ok = eps < S.eps_max;
+  const nicer_ok = l0 >= NICER_L0;
+  const qnm_ok = qnm <= S.qnm_max;
+
+  const setPill = (id, ok, failLabel='FAIL') => {
+    const el = document.getElementById(id);
+    el.className = 'constraint-pill ' + (ok ? 'pill-ok' : 'pill-fail');
+    el.textContent = ok ? 'PASS' : failLabel;
+  };
+
+  setPill('cs-clock', clock_ok);
+  setPill('cs-nicer', nicer_ok);
+  setPill('cs-qnm', qnm_ok);
+  document.getElementById('cs-cassini').className = 'constraint-pill pill-warn';
+  document.getElementById('cs-cassini').textContent = 'CLOSURE';
+
+  // Wedge status — report global wedge existence (pixCount), not cursor status
+  // Cursor status is shown in constraint pills; header shows whether any viable region exists
+  const wedge_exists = wedgeStats.pixCount > 0;
+  const ws = document.getElementById('wedge-status');
+  ws.textContent = wedge_exists ? 'WEDGE: OPEN' : 'WEDGE: CLOSED';
+  ws.className = wedge_exists ? 'open' : 'closed';
+}
+
+function updateWedgeStats() {
+  const area = (wedgeStats.pixCount / wedgeStats.totalPix * 100).toFixed(1);
+  document.getElementById('r-wedge-area').textContent = area + '%';
+  if (wedgeStats.pixCount > 0) {
+    document.getElementById('r-wedge-msrs').textContent =
+      wedgeStats.minMsrs.toFixed(0) + '–' + wedgeStats.maxMsrs.toFixed(0);
+    document.getElementById('r-wedge-l0').textContent =
+      wedgeStats.minL0.toFixed(0) + '–' + (wedgeStats.maxL0/1000).toFixed(0)+'k';
+    document.getElementById('r-wedge-epsmin').textContent = wedgeStats.minEps.toExponential(2);
+    // Check if canonical anchor is in wedge
+    const ancEps = epsilon(71.8, S.delta, S.omr, S.ell);
+    const ancInWedge = ancEps < S.eps_max && S.cursor_l0 >= NICER_L0 && qnm_shift(71.8, S.delta) <= S.qnm_max;
+    const ancGlobalOk = ancEps < S.eps_max && qnm_shift(71.8, S.delta) <= S.qnm_max;
+    document.getElementById('r-anchor-in').textContent = ancGlobalOk ? 'YES ✓' : 'NO ✗';
+    document.getElementById('r-anchor-in').className = 'readout-val ' + (ancGlobalOk ? 'ok' : 'bad');
+  } else {
+    document.getElementById('r-wedge-msrs').textContent = 'NONE';
+    document.getElementById('r-wedge-l0').textContent = 'NONE';
+    document.getElementById('r-anchor-in').textContent = 'N/A';
+  }
+}
+
+function updateValidationChecks() {
+  // GR recovery: L0 = 1e6 km
+  const gr_val = meff_ratio(1e6, S.R_ns);
+  const gr_el = document.getElementById('v-gr');
+  gr_el.textContent = gr_val.toFixed(6) + ' (exp 1.000)';
+  gr_el.className = 'readout-val ' + (Math.abs(gr_val - 1.0) < 1e-4 ? 'ok' : 'bad');
+
+  // Anchor ε
+  const ancEps = epsilon(71.8, S.delta, S.omr, S.ell);
+  const ancEl = document.getElementById('v-anchor-eps');
+  ancEl.textContent = ancEps.toExponential(2) + ' (exp 5.98e-8)';
+  ancEl.className = 'readout-val ' + (ancEps < S.eps_max ? 'ok' : 'bad');
+
+  // NICER at 500 km
+  const nicer500 = meff_ratio(500, S.R_ns);
+  const nicerEl = document.getElementById('v-nicer500');
+  nicerEl.textContent = nicer500.toFixed(4) + ' (T3:0.972 polytrope)';
+  // Analytic uniform-ρ will differ from polytrope solver — tolerance 0.05 is appropriate
+  nicerEl.className = 'readout-val ' + (Math.abs(nicer500 - 0.972) < 0.05 ? 'ok' : 'warn');
+
+  // Anchor QNM
+  const ancQNM = qnm_shift(71.8, S.delta);
+  const qnmEl = document.getElementById('v-anchor-qnm');
+  qnmEl.textContent = ancQNM.toFixed(4) + ' (exp 0.178)';
+  qnmEl.className = 'readout-val ' + (ancQNM <= S.qnm_max ? 'ok' : 'bad');
+}
+
+// ═══════════════════════════════════════════════════════
+// CANVAS MOUSE
+// ═══════════════════════════════════════════════════════
+canvas.addEventListener('mousemove', (e) => {
+  if (S.activeTab !== 'constraint') return;
+  const rect = canvas.getBoundingClientRect();
+  const px = e.clientX - rect.left;
+  const py = e.clientY - rect.top;
+  S.cursor_msrs = Math.max(S.msrs_min, Math.min(S.msrs_max, pxToMsrs(px, W)));
+  S.cursor_l0 = pxToL0(py, H);
+
+  const eps = epsilon(S.cursor_msrs, S.delta, S.omr, S.ell);
+  const mr = meff_ratio(S.cursor_l0, S.R_ns);
+  const qnm = qnm_shift(S.cursor_msrs, S.delta);
+
+  const ci = document.getElementById('cursor-info');
+  ci.style.display = 'block';
+  ci.style.left = (px + 12) + 'px';
+  ci.style.top = (py + 12) + 'px';
+  ci.innerHTML =
+    `m_s·r_s: <b>${S.cursor_msrs.toFixed(1)}</b>  L₀: <b>${S.cursor_l0.toFixed(0)} km</b><br>` +
+    `ε: <b>${fmt(eps)}</b>  [limit: ${S.eps_max.toExponential(2)}]<br>` +
+    `M_eff/M_GR: <b>${mr.toFixed(4)}</b><br>` +
+    `|Δω/ω|: <b>${qnm.toFixed(4)}</b>  [limit: ${S.qnm_max.toFixed(3)}]<br>` +
+    `Clock: <b>${eps<S.eps_max?'✓':'✗'}</b>  NICER: <b>${S.cursor_l0>=NICER_L0?'✓':'✗'}</b>  QNM: <b>${qnm<=S.qnm_max?'✓':'✗'}</b>`;
+
+  renderAll();
+});
+
+canvas.addEventListener('mouseleave', () => {
+  document.getElementById('cursor-info').style.display = 'none';
+});
+
+// ═══════════════════════════════════════════════════════
+// CONTROLS
+// ═══════════════════════════════════════════════════════
+function bindSlider(id, key, display, scale=1, digits=3) {
+  const el = document.getElementById(id);
+  el.addEventListener('input', () => {
+    S[key] = parseFloat(el.value) * scale;
+    document.getElementById(display).textContent = S[key].toFixed(digits);
+    clearPresets();
+    renderAll();
+  });
+}
+function bindToggle(id, key) {
+  const el = document.getElementById(id);
+  el.addEventListener('change', () => { S[key] = el.checked; renderAll(); });
+}
+
+bindSlider('sl-delta', 'delta', 'v-delta');
+bindSlider('sl-rns', 'R_ns', 'v-rns', 1, 1);
+bindSlider('sl-qnm', 'qnm_max', 'v-qnm');
+bindSlider('sl-omr', 'omr', 'v-omr');
+
+// ε slider: stored as raw × 10^-7
+document.getElementById('sl-eps').addEventListener('input', (e) => {
+  S.eps_max = parseFloat(e.target.value) * 1e-7;
+  document.getElementById('v-eps').textContent = (S.eps_max * 1e7).toFixed(1);
+  clearPresets();
+  renderAll();
+});
+
+bindToggle('tog-clock', 'show_clock');
+bindToggle('tog-nicer', 'show_nicer');
+bindToggle('tog-qnm', 'show_qnm');
+bindToggle('tog-cassini', 'show_cassini');
+bindToggle('tog-viable', 'show_viable');
+bindToggle('tog-anchor', 'show_anchor');
+
+// ═══════════════════════════════════════════════════════
+// PRESETS
+// ═══════════════════════════════════════════════════════
+const PRESETS = {
+  canonical: { delta:0.05, R_ns:12, eps_max:1.49e-6, qnm_max:0.03, omr:0.747,
+    cursor_msrs:71.8, cursor_l0:1000 },
+  tight:     { delta:0.02, R_ns:12, eps_max:1.49e-6, qnm_max:0.03, omr:0.747,
+    cursor_msrs:100, cursor_l0:1000 },
+  stress:    { delta:0.10, R_ns:12, eps_max:1.49e-6, qnm_max:0.03, omr:0.747,
+    cursor_msrs:71.8, cursor_l0:1000 },
+  edge:      { delta:0.05, R_ns:12, eps_max:1.49e-6, qnm_max:0.03, omr:0.747,
+    cursor_msrs:62, cursor_l0:1000 },
+  niceronly: { delta:0.03, R_ns:12, eps_max:1.49e-6, qnm_max:0.06, omr:0.747,
+    cursor_msrs:80, cursor_l0:800 },
+  grlimit:   { delta:0.001, R_ns:12, eps_max:1.49e-6, qnm_max:0.1, omr:0.747,
+    cursor_msrs:100, cursor_l0:1e5 },
+};
+
+function loadPreset(name) {
+  const p = PRESETS[name];
+  Object.assign(S, p);
+  // Update sliders
+  document.getElementById('sl-delta').value = S.delta;
+  document.getElementById('v-delta').textContent = S.delta.toFixed(3);
+  document.getElementById('sl-rns').value = S.R_ns;
+  document.getElementById('v-rns').textContent = S.R_ns.toFixed(1);
+  document.getElementById('sl-eps').value = S.eps_max * 1e7;
+  document.getElementById('v-eps').textContent = (S.eps_max * 1e7).toFixed(1);
+  document.getElementById('sl-qnm').value = S.qnm_max;
+  document.getElementById('v-qnm').textContent = S.qnm_max.toFixed(3);
+  document.getElementById('sl-omr').value = S.omr;
+  document.getElementById('v-omr').textContent = S.omr.toFixed(3);
+
+  document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('pr-'+name)?.classList.add('active');
+  S.activePreset = name;
+  renderAll();
+}
+
+function clearPresets() {
+  document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+}
+
+// ═══════════════════════════════════════════════════════
+// WEDGE SCAN
+// ═══════════════════════════════════════════════════════
+function runWedgeScan() {
+  const results = [];
+  // Scan for wedge boundaries at multiple δ values
+  const deltas = [0.01, 0.02, 0.03, 0.05, 0.07, 0.10, 0.12];
+  for (const d of deltas) {
+    let msrsMin = null, msrsMax = null;
+    for (let msrs = 10; msrs <= 150; msrs += 0.5) {
+      const eps = epsilon(msrs, d, S.omr, S.ell);
+      const qnm = qnm_shift(msrs, d);
+      const clock_ok = eps < S.eps_max;
+      const qnm_ok = qnm <= S.qnm_max;
+      if (clock_ok && qnm_ok) {
+        if (msrsMin === null) msrsMin = msrs;
+        msrsMax = msrs;
+      }
+    }
+    results.push({ delta: d, msrsMin, msrsMax });
+  }
+
+  let txt = 'WEDGE SCAN — m_s·r_s viable range vs δ\n';
+  txt += '(L₀ > 500 km required separately — apply NICER constraint)\n\n';
+  txt += 'δ        m_s·r_s range        QNM limit     Status\n';
+  txt += '─────────────────────────────────────────────────────\n';
+  for (const r of results) {
+    if (r.msrsMin === null) {
+      txt += `${r.delta.toFixed(3)}    NO VIABLE RANGE                         CLOSED\n`;
+    } else {
+      const qlim = (S.qnm_max / (r.delta * S.C1)).toFixed(1);
+      txt += `${r.delta.toFixed(3)}    ${r.msrsMin.toFixed(0).padStart(4)}–${r.msrsMax.toFixed(0).padEnd(6)}           ≤${qlim.padEnd(9)}     OPEN\n`;
+    }
+  }
+  txt += '\nDynamic range: L₀(solar)/L₀(NS) ~ 120× [Cassini/NICER]\n';
+  txt += 'This is a closure-dependent requirement (L₀ ∝ ρ^{-α} ansatz).\n';
+  showModal('WEDGE SCAN RESULTS', txt);
+}
+
+// ═══════════════════════════════════════════════════════
+// FULL REPORT
+// ═══════════════════════════════════════════════════════
+function generateReport() {
+  const msrs = S.cursor_msrs;
+  const l0 = S.cursor_l0;
+  const eps = epsilon(msrs, S.delta, S.omr, S.ell);
+  const mr = meff_ratio(l0, S.R_ns);
+  const qnm = qnm_shift(msrs, S.delta);
+  const ancEps = epsilon(71.8, S.delta, S.omr, S.ell);
+  const ancQNM = qnm_shift(71.8, S.delta);
+  const gr_check = meff_ratio(1e6, S.R_ns);
+  const nicer500 = meff_ratio(500, S.R_ns);
+
+  const now = new Date().toISOString().slice(0,19).replace('T',' ');
+
+  let report = `CGG JOINT PARAMETER CONSTRAINT REPORT
+Generated: ${now}
+══════════════════════════════════════════════════════
+
+ACTIVE PARAMETERS
+─────────────────
+δ (surface displacement):    ${S.delta.toFixed(4)}
+R_NS (neutron star radius):  ${S.R_ns.toFixed(1)} km
+ε_max (optical clock):       ${S.eps_max.toExponential(3)}
+|Δω/ω|_max (QNM tolerance): ${S.qnm_max.toFixed(4)}
+ω_R·r_s (QNM anchor):       ${S.omr.toFixed(4)}
+ℓ:                           ${S.ell}
+C₁ (QNM linear coeff):       0.0495
+
+CURSOR POSITION
+───────────────
+m_s·r_s:                     ${msrs.toFixed(2)}
+L₀:                          ${l0.toFixed(0)} km
+
+COMPUTED VALUES AT CURSOR
+──────────────────────────
+ε:                           ${fmt(eps)}
+M_eff/M_GR:                  ${mr.toFixed(6)}
+|Δω/ω|:                      ${qnm.toFixed(6)}
+ξ/r_s (= 1/m_s·r_s):        ${(1/msrs).toFixed(6)}
+
+CONSTRAINT STATUS AT CURSOR
+────────────────────────────
+Optical clock (ε < ${S.eps_max.toExponential(2)}):    ${eps < S.eps_max ? 'PASS ✓' : 'FAIL ✗'}
+NICER (L₀ > 500 km):         ${l0 >= NICER_L0 ? 'PASS ✓' : 'FAIL ✗'}
+QNM shift (< ${S.qnm_max.toFixed(3)}):         ${qnm <= S.qnm_max ? 'PASS ✓' : 'FAIL ✗'}
+Cassini (density-running):   CLOSURE-DEPENDENT (not computed here)
+ALL PASS:                    ${eps < S.eps_max && l0 >= NICER_L0 && qnm <= S.qnm_max ? 'YES — WEDGE OPEN' : 'NO  — WEDGE CLOSED'}
+
+CANONICAL ANCHOR CHECKS (m_s·r_s = 71.8, δ = ${S.delta.toFixed(3)})
+──────────────────────────────────────────────────────────────────────
+ε at anchor:                 ${ancEps.toExponential(4)}  [expected: ~5.98e-8 at δ=0.05]
+  ε < ε_max:                 ${ancEps < S.eps_max ? 'PASS ✓' : 'FAIL ✗'}
+  margin factor:             ${(S.eps_max / ancEps).toFixed(1)}× below limit
+|Δω/ω| at anchor:            ${ancQNM.toFixed(6)}  [expected: ~0.178 at δ=0.05]
+  < QNM_max:                 ${ancQNM <= S.qnm_max ? 'PASS ✓' : 'FAIL ✗'}
+
+GLOBAL VALIDATION CHECKS
+─────────────────────────
+GR recovery (L₀=1e6 km):    M_eff/M_GR = ${gr_check.toFixed(6)}  [expected: 1.000000]  ${Math.abs(gr_check-1)<1e-4 ? '✓' : '✗'}
+NICER @ 500 km:              M_eff/M_GR = ${nicer500.toFixed(4)}  [expected: 0.972]     ${Math.abs(nicer500-0.972)<0.01 ? '✓' : '✗'}
+ε bridge @ m_s·r_s=62:       ${epsilon(62,0.05,0.747,2).toExponential(3)}  [should be ≈ ε_max edge]
+
+WEDGE AREA STATISTICS
+──────────────────────
+Viable pixel fraction:       ${(wedgeStats.pixCount/wedgeStats.totalPix*100).toFixed(2)}%
+m_s·r_s range in wedge:      ${wedgeStats.minMsrs===Infinity ? 'NONE' : wedgeStats.minMsrs.toFixed(0)+'–'+wedgeStats.maxMsrs.toFixed(0)}
+L₀ range in wedge (km):      ${wedgeStats.minL0===Infinity ? 'NONE' : wedgeStats.minL0.toFixed(0)+'–'+(wedgeStats.maxL0/1000).toFixed(0)+'k'}
+Min ε in wedge:              ${wedgeStats.minEps===Infinity ? 'N/A' : wedgeStats.minEps.toExponential(2)}
+Required dynamic range:      L₀(solar)/L₀(NS) ~ 120× [CLOSURE DEPENDENT]
+
+EQUATIONS USED
+──────────────
+[1] ε = (ω_R·r_s)² / [ℓ(ℓ+1)−1 + ½(m_s·r_s)⁴·δ]
+[2] M_eff/M_GR = (3L₀³/8R³)·[1−exp(−2R/L₀)(1+2R/L₀+2R²/L₀²)]
+[3] |Δω/ω| = δ · C₁ · (m_s·r_s),  C₁ = 0.0495
+[4] Optical clock: ε < 1.49×10⁻⁶ (3σ)
+[5] NICER: L₀ > 500 km  (neutron star scale)
+[6] Cassini: L₀ > 60,000 km  (solar system scale — density-running closure)
+
+CLASSIFICATION
+──────────────
+Settled:     Empirical bounds [4][5][6]; GR recovery check; solver table (Table 3)
+Canonical:   Equations [1][2][3]; C₁=0.0495; coupling g_m·Ψ₀²=4πG
+Provisional: Cassini/NICER bridging via L₀∝ρ^{-α}; dynamic range ~120×
+Legacy:      QNM quadratic F=½x² (overestimates by ~720× at anchor — RETIRED)
+
+REVIEWER RISK FLAGS
+────────────────────
+1. Cassini constraint is not computed here — density-running closure
+   must bridge L₀(NS)≈500 km to L₀(solar)≥60,000 km simultaneously.
+   This ~120× dynamic range is closure-dependent, not action-derived.
+2. Wedge boundaries are solver-illustrated at canonical anchor only.
+   Full boundary mapping requires varying δ across [0.02, 0.05].
+3. Radiative stability of the non-minimal coupling sector remains open
+   (Gap #4 — existential risk at quantum level).
+4. Rotating/vortex sector results are indicative only; Hartle-Thorne
+   slow-rotation calculation not completed.
+`;
+  showModal('CGG FULL PARAMETER REPORT', report);
+}
+
+// ═══════════════════════════════════════════════════════
+// CSV EXPORT
+// ═══════════════════════════════════════════════════════
+function exportCSV() {
+  const lines = ['msrs,L0_km,epsilon,Meff_ratio,QNM_shift,clock_ok,nicer_ok,qnm_ok,viable'];
+  const msrsSteps = 50, l0Steps = 50;
+  for (let i = 0; i <= msrsSteps; i++) {
+    const msrs = S.msrs_min + (i/msrsSteps)*(S.msrs_max - S.msrs_min);
+    for (let j = 0; j <= l0Steps; j++) {
+      const t = j / l0Steps;
+      const l0 = Math.pow(10, Math.log10(S.l0_min) + t*(Math.log10(S.l0_max)-Math.log10(S.l0_min)));
+      const eps = epsilon(msrs, S.delta, S.omr, S.ell);
+      const mr = meff_ratio(l0, S.R_ns);
+      const qnm = qnm_shift(msrs, S.delta);
+      const clock_ok = eps < S.eps_max ? 1 : 0;
+      const nicer_ok = l0 >= NICER_L0 ? 1 : 0;
+      const qnm_ok = qnm <= S.qnm_max ? 1 : 0;
+      const viable = (clock_ok && nicer_ok && qnm_ok) ? 1 : 0;
+      lines.push(`${msrs.toFixed(2)},${l0.toFixed(2)},${eps.toExponential(6)},${mr.toFixed(6)},${qnm.toFixed(6)},${clock_ok},${nicer_ok},${qnm_ok},${viable}`);
+    }
+  }
+  const blob = new Blob([lines.join('\n')], {type:'text/csv'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `cgg_constraints_d${S.delta.toFixed(3)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ═══════════════════════════════════════════════════════
+// MODAL
+// ═══════════════════════════════════════════════════════
+function showModal(title, content) {
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-content').textContent = content;
+  document.getElementById('modal-overlay').classList.add('show');
+}
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('show');
+}
+function copyReport() {
+  navigator.clipboard.writeText(document.getElementById('modal-content').textContent);
+}
+document.getElementById('modal-overlay').addEventListener('click', (e) => {
+  if (e.target === document.getElementById('modal-overlay')) closeModal();
+});
+
+// ═══════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+loadPreset('canonical');
+</script>
+</body>
+</html>
