@@ -11,7 +11,7 @@ Quick access to our most interactive and visually striking tools:
 - **[Lambdoma Resonance Keyboard](simulators/harmonic-resonance/lambdoma-resonance-autochord_modulated.html)** — Interactive harmonic tuning system
 - **[Resonant Spheres Simulator](simulators/wave-dynamics/resonant-spheres-sim_v6.1.html)** — Interference pattern and focus analysis
 - **[CGG Vortex-Core Black Hole](simulators/trr-g-core/blackhole_cgg_vortex.html)** — Compact object interior vortex dynamics
-- **[TRR-G Klein–Gordon 1D (flipped)](simulators/field-solvers-diagnostics/TRRG_KleinGordon_1D_flipped.html)** — 1‑D kink solver
+- **[TRR-G Klein–Gordon 1D (flipped)](simulators/field-solvers-diagnostics/TRRG_KleinGordon_1D_flipped.html)** — 1‑D solver
 
 ---
 
