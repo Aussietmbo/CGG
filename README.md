@@ -11,10 +11,22 @@ Quick access to our most interactive and visually striking tools:
 - **[Lambdoma Resonance Keyboard](simulators/harmonic-resonance/lambdoma-resonance-autochord_modulated.html)** — Interactive harmonic tuning system
 - **[Resonant Spheres Simulator](simulators/wave-dynamics/resonant-spheres-sim_v6.1.html)** — Interference pattern and focus analysis
 - **[CGG Vortex-Core Black Hole](simulators/trr-g-core/blackhole_cgg_vortex.html)** — Compact object interior vortex dynamics
+- **[TRR-G Klein–Gordon 1D (flipped)](simulators/field-solvers-diagnostics/TRRG_KleinGordon_1D_flipped.html)** — 1‑D kink solver
 
 ---
 
-## 📁 Simulator Categories
+## � Getting Started
+
+Each simulator folder contains:
+- A detailed README with usage instructions
+- Source code and documentation
+- Links to related research papers
+
+Select a category above to explore the simulators and their documentation.
+
+---
+
+## �📁 Simulator Categories
 
 ### [TRR-G Compact Object Simulators](simulators/trr-g-core/)
 Core simulators for studying compact object physics, vortex formation, and gravitational effects.
@@ -54,18 +66,7 @@ Advanced visualization platforms for interactive exploration of field data.
 
 ---
 
-## 🚀 Getting Started
-
-Each simulator folder contains:
-- A detailed README with usage instructions
-- Source code and documentation
-- Links to related research papers
-
-Select a category above to explore the simulators and their documentation.
-
----
-
-## 📚 Research & Publications
+##  Research & Publications
 
 ### 📄 [Download: TRR_CGG_V27](papers/TRR_CGG_V27.pdf)
 
@@ -81,6 +82,11 @@ All simulators are validated against peer research. Details and citations are av
 
 ## 📧 Contact
 
-For questions, contributions, or collaborations, please open an issue or contact the repository maintainers.
+For questions, contributions, or collaborations, please open an issue or contact the repository maintainers. You can also reach out directly:
+
+- **Tim Garner**
+- Email: [aussietmbo@gmail.com](mailto:aussietmbo@gmail.com)
+- Phone: 480‑375‑5144
+- GitHub: [Aussietmbo/CGG](https://github.com/Aussietmbo/CGG)
 
 *Last updated: March 2026*

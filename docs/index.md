@@ -7,6 +7,17 @@ title: Home
 
 A collection of open-access physics simulators and computational tools for research in compact object physics, field theory, and coherence phenomena.
 
+## Getting Started
+
+Each simulator category has its own README with:
+- Detailed usage instructions
+- Technical specifications
+- Links to related research
+- Code examples
+
+Choose a category above to explore!
+
+
 ## 📂 Browse by Category
 
 | Category | Count | Description |
@@ -40,17 +51,8 @@ Large-scale parameter sweep tool for exploring phase diagrams and glider detecti
 ### TRR-G Light Propagation
 Ray optics in scalar field backgrounds with analytical validation.
 
----
-
-## Getting Started
-
-Each simulator category has its own README with:
-- Detailed usage instructions
-- Technical specifications
-- Links to related research
-- Code examples
-
-Choose a category above to explore!
+### TRR-G Klein–Gordon 1D (flipped)
+1‑D kink solver.
 
 ## 🤝 Contributing
 
