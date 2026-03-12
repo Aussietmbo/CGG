@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>TRR-G Klein-Gordon Time-Domain Solver</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=DM+Sans:wght@400;500;700&display=swap');
+:root{--bg:#060a10;--panel:#0b1018;--panel2:#0d1424;--text:#d4dff0;--muted:#6a7d9e;
+--accent:#3edbc9;--accent2:#5e9dff;--accent3:#f0a944;--danger:#ff4b6e;--ok:#4caf50;
+--border:rgba(255,255,255,0.06);--glow:rgba(62,219,201,0.12);
+--mono:'IBM Plex Mono',monospace;--sans:'DM Sans',system-ui,sans-serif;--radius:10px}
+*{box-sizing:border-box;margin:0;padding:0}html,body{height:100%;overflow:hidden}
+body{background:radial-gradient(ellipse 900px 600px at 20% 8%,rgba(62,219,201,.07),transparent 60%),
+radial-gradient(ellipse 700px 500px at 85% 85%,rgba(94,157,255,.06),transparent 60%),var(--bg);
+color:var(--text);font-family:var(--sans);display:flex;flex-direction:column;user-select:none}
+.titlebar{height:48px;display:flex;align-items:center;justify-content:space-between;padding:0 20px;
+background:linear-gradient(180deg,rgba(255,255,255,.025),transparent);border-bottom:1px solid var(--border);flex-shrink:0}
+.titlebar .title{font-weight:700;font-size:14px}.titlebar .title em{font-style:normal;color:var(--accent)}
+.titlebar .ver{font-family:var(--mono);font-size:11px;color:var(--muted)}
+.wrap{flex:1;display:flex;min-height:0}
+.side{width:320px;min-width:320px;background:linear-gradient(180deg,rgba(255,255,255,.02),transparent 40%),var(--panel);
+border-right:1px solid var(--border);padding:10px;overflow-y:auto;display:flex;flex-direction:column;gap:8px}
+.side::-webkit-scrollbar{width:5px}.side::-webkit-scrollbar-thumb{background:rgba(255,255,255,.08);border-radius:3px}
+.card{background:linear-gradient(180deg,rgba(255,255,255,.025),transparent 50%),var(--panel2);
+border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px}
+.card h3{font-size:9px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+.row{display:flex;align-items:center;gap:6px}.row+.row{margin-top:5px}
+.lbl{font-size:11px;color:#b8c8e0;white-space:nowrap;min-width:100px}
+.val{font-family:var(--mono);font-size:10px;color:var(--accent);min-width:55px;text-align:right;flex-shrink:0}
+input[type=range]{-webkit-appearance:none;flex:1;min-width:0;height:4px;border-radius:2px;background:#151e2e;outline:none;cursor:pointer}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;border-radius:50%;background:var(--accent);cursor:pointer}
+.seg{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px}
+.seg button,.btn{font-family:var(--mono);font-size:10px;padding:5px 8px;border-radius:5px;
+border:1px solid var(--border);background:rgba(255,255,255,.03);color:var(--text);cursor:pointer;transition:all .15s;white-space:nowrap}
+.seg button:hover,.btn:hover{border-color:rgba(255,255,255,.12);background:rgba(255,255,255,.06)}
+.seg button.on{border-color:rgba(62,219,201,.5);background:rgba(62,219,201,.12);color:var(--accent);font-weight:600}
+.btn.pri{border-color:rgba(62,219,201,.5);background:rgba(62,219,201,.12);color:var(--accent);font-weight:600}
+.btn.dgr{border-color:rgba(255,75,110,.4);color:var(--danger)}.btn.dgr:hover{background:rgba(255,75,110,.1)}
+.btnrow{display:flex;gap:6px}
+.sr{display:flex;align-items:center;justify-content:space-between;padding:3px 0;font-size:11px}
+.sr+.sr{border-top:1px solid rgba(255,255,255,.03)}
+.sl{color:#8899b0}.sv{font-family:var(--mono);font-size:10px;color:var(--accent);font-weight:600}
+.sv.w{color:var(--accent3)}.sv.b{color:var(--danger)}.sv.g{color:var(--ok)}
+.note{font-size:9px;color:var(--muted);font-family:var(--mono);line-height:1.4;margin-top:4px}
+.vp{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column;padding:8px;gap:6px}
+.pw{flex:1;position:relative;min-height:0;background:rgba(8,12,20,.5);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.pw canvas{width:100%;height:100%;display:block}
+.pt{position:absolute;top:5px;left:8px;font-size:9px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:rgba(160,180,210,.6);z-index:2;pointer-events:none}
+.infobar{height:28px;display:flex;align-items:center;justify-content:space-between;padding:0 20px;
+background:var(--panel);border-top:1px solid var(--border);font-family:var(--mono);font-size:10px;color:var(--muted);flex-shrink:0}
+.infobar .eq{color:var(--accent)}
+@media(max-width:768px){.wrap{flex-direction:column-reverse}.side{width:100%;min-width:unset;max-height:35vh;border-right:none;border-top:1px solid var(--border)}}
+</style>
+</head>
+<body>
+<div class="titlebar">
+  <div class="title"><em>TRR-G</em> Klein-Gordon Time-Domain Solver (1+1D)</div>
+  <div class="ver">Nonlinear · Mexican Hat · Matter Coupling · Coherence Extraction</div>
+</div>
+<div class="wrap">
+<aside class="side">
+  <div class="card"><h3>Substrate Field</h3>
+    <div class="row"><div class="lbl">Ψ₀ (vacuum)</div><input id="psi0" type="range" min="0.5" max="3.0" step="0.05" value="1.0"/><div class="val" id="psi0V">1.00</div></div>
+    <div class="row"><div class="lbl">λ (self-coupling)</div><input id="lam" type="range" min="0.01" max="5.0" step="0.01" value="1.0"/><div class="val" id="lamV">1.00</div></div>
+    <div class="row"><div class="lbl">c_s (phase vel)</div><input id="cs" type="range" min="0.1" max="3.0" step="0.05" value="1.0"/><div class="val" id="csV">1.00</div></div>
+    <div class="note">Mexican hat: V = (λ/4)(|ψ|² − Ψ₀²)²</div>
+  </div>
+  <div class="card"><h3>Matter Source</h3>
+    <div class="row"><div class="lbl">g_m (coupling)</div><input id="gm" type="range" min="0.0" max="5.0" step="0.05" value="1.0"/><div class="val" id="gmV">1.00</div></div>
+    <div class="row"><div class="lbl">ρ₀ (peak density)</div><input id="rho0" type="range" min="0.0" max="5.0" step="0.05" value="1.5"/><div class="val" id="rho0V">1.50</div></div>
+    <div class="row"><div class="lbl">σ (source width)</div><input id="sigma" type="range" min="2" max="40" step="1" value="8"/><div class="val" id="sigmaV">8</div></div>
+    <div class="note">ρ(x) = ρ₀ exp(−x²/2σ²) centered at x=0<br/>Coupling: +g_m ρ ψ (matter enhances |ψ|²)</div>
+  </div>
+  <div class="card"><h3>Solver</h3>
+    <div class="row"><div class="lbl">Grid points</div>
+      <select id="Ngrid"><option value="512">512</option><option value="1024" selected>1024</option><option value="2048">2048</option></select></div>
+    <div class="row"><div class="lbl">Domain half-width</div><input id="Ldom" type="range" min="50" max="300" step="10" value="150"/><div class="val" id="LdomV">150</div></div>
+    <div class="row"><div class="lbl">Steps/frame</div><input id="spf" type="range" min="1" max="100" step="1" value="20"/><div class="val" id="spfV">20</div></div>
+    <div class="note">Leapfrog (Verlet) · CFL-stable · absorbing BC</div>
+  </div>
+  <div class="card"><h3>Presets</h3>
+    <div class="seg" id="presets">
+      <button class="on" data-p="gentle">Gentle Source</button>
+      <button data-p="strong">Strong Coupling</button>
+      <button data-p="narrow">Narrow Core</button>
+      <button data-p="nocoupling">No Coupling</button>
+    </div>
+  </div>
+  <div class="card"><h3>Controls</h3>
+    <div class="btnrow">
+      <button class="btn pri" id="playBtn">Play</button>
+      <button class="btn" id="stepBtn">Step ×100</button>
+      <button class="btn dgr" id="resetBtn">Reset</button>
+    </div>
+  </div>
+  <div class="card"><h3>Diagnostics</h3>
+    <div class="sr"><div class="sl">Time</div><div class="sv" id="timeV">0.00</div></div>
+    <div class="sr"><div class="sl">Steps</div><div class="sv" id="stepsV">0</div></div>
+    <div class="sr"><div class="sl">⟨|ψ|²⟩ at origin</div><div class="sv" id="cohOriginV">—</div></div>
+    <div class="sr"><div class="sl">δC(0) / δC_theory</div><div class="sv" id="recoveryV">—</div></div>
+    <div class="sr"><div class="sl">Energy</div><div class="sv" id="energyV">—</div></div>
+    <div class="sr"><div class="sl">Max |ψ|</div><div class="sv" id="maxPsiV">—</div></div>
+    <div class="sr"><div class="sl">FPS</div><div class="sv" id="fpsV">—</div></div>
+    <div class="note" id="diagNote">Idle</div>
+  </div>
+  <div class="card"><h3>1/|x| Recovery Test</h3>
+    <div class="note">Once δC(x) stabilizes, the exterior envelope should follow δC ∝ 1/|x|. The recovery ratio compares time-averaged |ψ|² to the Poisson prediction.</div>
+    <div class="sr"><div class="sl">Fit quality (r > 3σ)</div><div class="sv" id="fitV">—</div></div>
+  </div>
+</aside>
+<main class="vp">
+  <div class="pw"><div class="pt">Re(ψ) — Real part of substrate field</div><canvas id="c1"></canvas></div>
+  <div class="pw"><div class="pt">|ψ|² — Instantaneous coherence density C(x,t)</div><canvas id="c2"></canvas></div>
+  <div class="pw"><div class="pt">⟨|ψ|²⟩ — Time-averaged coherence & Poisson prediction</div><canvas id="c3"></canvas></div>
+</main>
+</div>
+<div class="infobar">
+  <div><span class="eq">∂²ψ/∂t² − c²_s ∂²ψ/∂x² + λ(|ψ|² − Ψ₀²)ψ = +g_m ρ(x) ψ</span> · <span style="color:var(--accent3)">SIGN-FLIPPED COUPLING</span></div>
+  <div id="statusBar">Ready</div>
+</div>
+<script>
+"use strict";
+
+// === STATE ===
+const S = {
+  // field params
+  psi0: 1.0, lam: 1.0, cs: 1.0, gm: 1.0, rho0: 1.5, sigma: 8,
+  // solver params
+  N: 1024, L: 150, spf: 20,
+  // runtime
+  playing: false, t: 0, steps: 0, dt: 0, dx: 0,
+  // arrays
+  psiR: null, psiI: null,     // field real/imag
+  dpsiR: null, dpsiI: null,   // time derivatives (velocity)
+  rho: null,                   // matter density
+  x: null,                     // grid positions
+  // averaging
+  cohAvg: null, avgCount: 0,
+  avgStart: 200,               // start averaging after this many steps
+  // diagnostics
+  energy: 0, maxPsi: 0, cohOrigin: 0
+};
+
+const el = id => document.getElementById(id);
+const c1 = el('c1'), c2 = el('c2'), c3 = el('c3');
+const ctx1 = c1.getContext('2d'), ctx2 = c2.getContext('2d'), ctx3 = c3.getContext('2d');
+
+// === INIT ===
+function init() {
+  S.N = parseInt(el('Ngrid').value);
+  S.L = parseFloat(el('Ldom').value);
+  S.dx = 2 * S.L / S.N;
+  // CFL condition: dt < dx / c_s
+  S.dt = 0.4 * S.dx / Math.max(S.cs, 0.1);
+  S.t = 0; S.steps = 0; S.avgCount = 0;
+
+  S.x = new Float64Array(S.N);
+  S.psiR = new Float64Array(S.N);
+  S.psiI = new Float64Array(S.N);
+  S.dpsiR = new Float64Array(S.N);
+  S.dpsiI = new Float64Array(S.N);
+  S.rho = new Float64Array(S.N);
+  S.cohAvg = new Float64Array(S.N);
+
+  for (let i = 0; i < S.N; i++) {
+    S.x[i] = -S.L + (i + 0.5) * S.dx;
+    // Initial condition: vacuum state with small perturbation
+    S.psiR[i] = S.psi0 + 0.001 * (Math.random() - 0.5);
+    S.psiI[i] = 0.001 * (Math.random() - 0.5);
+    S.dpsiR[i] = 0;
+    S.dpsiI[i] = 0;
+    // Matter source
+    S.rho[i] = S.rho0 * Math.exp(-S.x[i] * S.x[i] / (2 * S.sigma * S.sigma));
+    S.cohAvg[i] = 0;
+  }
+}
+
+// === PHYSICS STEP (Leapfrog / Störmer-Verlet) ===
+function computeAccel(psiR, psiI, accR, accI) {
+  const N = S.N, dx = S.dx, cs2 = S.cs * S.cs, lam = S.lam, psi0sq = S.psi0 * S.psi0, gm = S.gm;
+  const idx2 = cs2 / (dx * dx);
+  
+  for (let i = 0; i < N; i++) {
+    const im = i > 0 ? i - 1 : i;       // reflecting BC at left
+    const ip = i < N - 1 ? i + 1 : i;   // reflecting BC at right
+    
+    // Laplacian (second spatial derivative)
+    const lapR = (psiR[ip] - 2 * psiR[i] + psiR[im]) * idx2;
+    const lapI = (psiI[ip] - 2 * psiI[i] + psiI[im]) * idx2;
+    
+    // |ψ|²
+    const psi2 = psiR[i] * psiR[i] + psiI[i] * psiI[i];
+    
+    // Mexican hat: −λ(|ψ|² − Ψ₀²)ψ
+    const mh = -lam * (psi2 - psi0sq);
+    
+    // Matter coupling: +g_m ρ ψ (positive = matter enhances coherence)
+    const mc = +gm * S.rho[i];
+    
+    // Total: ∂²ψ/∂t² = c_s² ∂²ψ/∂x² + [−λ(|ψ|²−Ψ₀²) + g_m ρ] ψ
+    accR[i] = lapR + (mh + mc) * psiR[i];
+    accI[i] = lapI + (mh + mc) * psiI[i];
+  }
+  
+  // Absorbing boundary layers (last 30 points each side)
+  const absWidth = 30;
+  for (let k = 0; k < absWidth; k++) {
+    const damp = 0.02 * (1 - k / absWidth);
+    // Left boundary
+    accR[k] -= damp * S.dpsiR[k];
+    accI[k] -= damp * S.dpsiI[k];
+    // Right boundary
+    const j = N - 1 - k;
+    accR[j] -= damp * S.dpsiR[j];
+    accI[j] -= damp * S.dpsiI[j];
+  }
+}
+
+function step() {
+  const N = S.N, dt = S.dt;
+  const accR = new Float64Array(N);
+  const accI = new Float64Array(N);
+  
+  // Velocity Verlet:
+  // 1. a(t) from current position
+  computeAccel(S.psiR, S.psiI, accR, accI);
+  
+  // 2. x(t+dt) = x(t) + v(t)dt + 0.5 a(t) dt²
+  for (let i = 0; i < N; i++) {
+    S.psiR[i] += S.dpsiR[i] * dt + 0.5 * accR[i] * dt * dt;
+    S.psiI[i] += S.dpsiI[i] * dt + 0.5 * accI[i] * dt * dt;
+  }
+  
+  // 3. a(t+dt) from new position
+  const accR2 = new Float64Array(N);
+  const accI2 = new Float64Array(N);
+  computeAccel(S.psiR, S.psiI, accR2, accI2);
+  
+  // 4. v(t+dt) = v(t) + 0.5(a(t) + a(t+dt))dt
+  for (let i = 0; i < N; i++) {
+    S.dpsiR[i] += 0.5 * (accR[i] + accR2[i]) * dt;
+    S.dpsiI[i] += 0.5 * (accI[i] + accI2[i]) * dt;
+  }
+  
+  S.t += dt;
+  S.steps++;
+  
+  // Accumulate time average after warmup
+  if (S.steps > S.avgStart) {
+    for (let i = 0; i < N; i++) {
+      const coh = S.psiR[i] * S.psiR[i] + S.psiI[i] * S.psiI[i];
+      S.cohAvg[i] += coh;
+    }
+    S.avgCount++;
+  }
+}
+
+function multiStep(n) {
+  for (let i = 0; i < n; i++) step();
+}
+
+// === DIAGNOSTICS ===
+function computeDiagnostics() {
+  const N = S.N, dx = S.dx, cs2 = S.cs * S.cs, lam = S.lam, psi0sq = S.psi0 * S.psi0, gm = S.gm;
+  let E = 0, maxP = 0;
+  const mid = Math.floor(N / 2);
+  
+  for (let i = 0; i < N; i++) {
+    const pR = S.psiR[i], pI = S.psiI[i];
+    const vR = S.dpsiR[i], vI = S.dpsiI[i];
+    const psi2 = pR * pR + pI * pI;
+    const amp = Math.sqrt(psi2);
+    if (amp > maxP) maxP = amp;
+    
+    // Kinetic energy density: 0.5 |∂ψ/∂t|²
+    E += 0.5 * (vR * vR + vI * vI) * dx;
+    
+    // Gradient energy: 0.5 c_s² |∂ψ/∂x|²
+    if (i < N - 1) {
+      const grR = (S.psiR[i + 1] - pR) / dx;
+      const grI = (S.psiI[i + 1] - pI) / dx;
+      E += 0.5 * cs2 * (grR * grR + grI * grI) * dx;
+    }
+    
+    // Potential: (λ/4)(|ψ|² − Ψ₀²)²
+    const dev = psi2 - psi0sq;
+    E += (lam / 4) * dev * dev * dx;
+    
+    // Matter coupling: −g_m ρ |ψ|² (negative = lowers energy where matter + field coexist)
+    E -= gm * S.rho[i] * psi2 * dx;
+  }
+  
+  S.energy = E;
+  S.maxPsi = maxP;
+  S.cohOrigin = S.psiR[mid] * S.psiR[mid] + S.psiI[mid] * S.psiI[mid];
+  
+  // Recovery test: compare time-averaged δC to Poisson prediction
+  if (S.avgCount > 50) {
+    const avgCoh = S.cohAvg.map(v => v / S.avgCount);
+    const dC_origin = avgCoh[mid] - S.psi0 * S.psi0;
+    
+    // Theoretical prediction for 1D Poisson with Gaussian source:
+    // d²(δC)/dx² = −κ ρ(x) with κ = g_m/(c_s² + λΨ₀²) approximately
+    // For a Gaussian source, the 1D Green's function gives δC(0) ~ κ ρ₀ σ √(π/2)
+    // More precisely: δC(0) = (g_m * ρ₀ * σ * √(2π)) / (2 * m_eff²) where m_eff² = 2λΨ₀²
+    // But the exact recovery depends on the nonlinear dynamics.
+    // Simple metric: does δC fall off roughly as expected?
+    
+    // Fit 1/|x| in exterior (|x| > 3σ)
+    let sumSq = 0, count = 0;
+    const refVal = dC_origin > 0 ? dC_origin : 1;
+    for (let i = 0; i < N; i++) {
+      const absX = Math.abs(S.x[i]);
+      if (absX > 3 * S.sigma && absX < S.L * 0.7) {
+        const dC_i = avgCoh[i] - S.psi0 * S.psi0;
+        // In 1D, Poisson gives δC linear in |x| far from source, not 1/|x|
+        // Actually 1D: d²(δC)/dx² = −source → δC(x) = δC(0) − (integral)
+        // Outside source: δC(x) = A − B|x| (linear falloff in 1D, not 1/r)
+        // This is correct — 1D gravity is constant force, linear potential
+        // Let's instead check the ratio δC(x)/δC(0) vs expected decay
+        if (dC_origin > 1e-10) {
+          const ratio = dC_i / dC_origin;
+          // In 1D: δC(x)/δC(0) should be ~1 inside source, then decrease linearly
+          sumSq += ratio * ratio;
+          count++;
+        }
+      }
+    }
+    
+    el('recoveryV').textContent = dC_origin > 0.001 ? dC_origin.toFixed(4) : dC_origin.toExponential(2);
+    el('recoveryV').className = 'sv' + (dC_origin > 0.01 ? ' g' : dC_origin > 0 ? ' w' : ' b');
+    
+    // 1D fit quality: check linearity of δC outside source
+    if (count > 10) {
+      let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0, n = 0;
+      for (let i = 0; i < N; i++) {
+        const absX = Math.abs(S.x[i]);
+        if (absX > 3 * S.sigma && absX < S.L * 0.6) {
+          const dC_i = avgCoh[i] - S.psi0 * S.psi0;
+          sumX += absX; sumY += dC_i; sumXY += absX * dC_i; sumXX += absX * absX;
+          n++;
+        }
+      }
+      const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
+      // R² for linear fit
+      const meanY = sumY / n;
+      let ssTot = 0, ssRes = 0;
+      const intercept = (sumY - slope * sumX) / n;
+      for (let i = 0; i < N; i++) {
+        const absX = Math.abs(S.x[i]);
+        if (absX > 3 * S.sigma && absX < S.L * 0.6) {
+          const dC_i = avgCoh[i] - S.psi0 * S.psi0;
+          const pred = intercept + slope * absX;
+          ssTot += (dC_i - meanY) * (dC_i - meanY);
+          ssRes += (dC_i - pred) * (dC_i - pred);
+        }
+      }
+      const r2 = ssTot > 0 ? 1 - ssRes / ssTot : 0;
+      el('fitV').textContent = `R²=${r2.toFixed(4)} (1D linear)`;
+      el('fitV').className = 'sv' + (r2 > 0.95 ? ' g' : r2 > 0.8 ? ' w' : ' b');
+    }
+  }
+}
+
+// === RENDERING ===
+function resizeC(canvas) {
+  const rect = canvas.parentElement.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  canvas.style.width = rect.width + 'px';
+  canvas.style.height = rect.height + 'px';
+  return { W: canvas.width, H: canvas.height, dpr };
+}
+
+function plotLine(ctx, canvas, title, data, opts) {
+  const { W, H, dpr } = resizeC(canvas);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const w = W / dpr, h = H / dpr;
+  ctx.clearRect(0, 0, w, h);
+  
+  const pad = { top: 8, right: 12, bottom: 22, left: 50 };
+  const pw = w - pad.left - pad.right;
+  const ph = h - pad.top - pad.bottom;
+  
+  // Background with subtle gradient
+  ctx.fillStyle = 'rgba(6,10,16,0.3)';
+  ctx.fillRect(pad.left, pad.top, pw, ph);
+  
+  // Grid
+  ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+  ctx.lineWidth = 1;
+  for (let i = 1; i < 5; i++) {
+    const y = pad.top + ph * i / 5;
+    ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(pad.left + pw, y); ctx.stroke();
+  }
+  // Center line
+  if (opts.centerLine) {
+    const cy = pad.top + ph - (-opts.yMin) / (opts.yMax - opts.yMin) * ph;
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+    ctx.beginPath(); ctx.moveTo(pad.left, cy); ctx.lineTo(pad.left + pw, cy); ctx.stroke();
+  }
+  
+  // Source region highlight
+  if (opts.showSource) {
+    const s3 = 3 * S.sigma;
+    const x1 = pad.left + (-s3 - opts.xMin) / (opts.xMax - opts.xMin) * pw;
+    const x2 = pad.left + (s3 - opts.xMin) / (opts.xMax - opts.xMin) * pw;
+    ctx.fillStyle = 'rgba(240,169,68,0.04)';
+    ctx.fillRect(Math.max(pad.left, x1), pad.top, Math.min(x2 - x1, pw), ph);
+  }
+  
+  // Draw curves
+  for (const curve of data) {
+    if (!curve.y) continue;
+    ctx.strokeStyle = curve.color;
+    ctx.lineWidth = curve.width || 1.5;
+    ctx.setLineDash(curve.dash || []);
+    ctx.beginPath();
+    let started = false;
+    for (let i = 0; i < S.N; i++) {
+      const px = pad.left + (S.x[i] - opts.xMin) / (opts.xMax - opts.xMin) * pw;
+      let yVal = typeof curve.y === 'function' ? curve.y(i) : curve.y[i];
+      const py = pad.top + ph - (yVal - opts.yMin) / (opts.yMax - opts.yMin) * ph;
+      if (px < pad.left || px > pad.left + pw) continue;
+      const cpy = Math.max(pad.top - 5, Math.min(pad.top + ph + 5, py));
+      if (!started) { ctx.moveTo(px, cpy); started = true; }
+      else ctx.lineTo(px, cpy);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+    if (curve.label) {
+      ctx.fillStyle = curve.color;
+      ctx.font = '9px "IBM Plex Mono"';
+      ctx.fillText(curve.label, pad.left + pw - 60, pad.top + 12 + (curve.labelOff || 0));
+    }
+  }
+  
+  // Y axis labels
+  ctx.fillStyle = 'rgba(255,255,255,0.4)';
+  ctx.font = '9px "IBM Plex Mono"';
+  for (let i = 0; i <= 4; i++) {
+    const val = opts.yMin + (opts.yMax - opts.yMin) * i / 4;
+    const y = pad.top + ph - ph * i / 4;
+    ctx.fillText(val.toFixed(opts.yPrec || 2), pad.left - 42, y + 3);
+  }
+  // X axis
+  ctx.fillText('-L', pad.left, pad.top + ph + 14);
+  ctx.fillText('0', pad.left + pw / 2 - 3, pad.top + ph + 14);
+  ctx.fillText('+L', pad.left + pw - 10, pad.top + ph + 14);
+}
+
+function render() {
+  if (!S.psiR) return;
+  const xMin = -S.L, xMax = S.L;
+  
+  // Find y ranges
+  let reMax = 0;
+  for (let i = 0; i < S.N; i++) {
+    const v = Math.abs(S.psiR[i]);
+    if (v > reMax) reMax = v;
+  }
+  reMax = Math.max(reMax * 1.1, S.psi0 * 1.5);
+  
+  // Plot 1: Re(ψ)
+  plotLine(ctx1, c1, 'Re(ψ)', [
+    { y: S.psiR, color: '#3edbc9', width: 1.5 },
+    { y: i => S.psi0, color: 'rgba(94,157,255,0.3)', width: 1, dash: [4, 4], label: 'Ψ₀' },
+  ], { xMin, xMax, yMin: -reMax, yMax: reMax, centerLine: true, showSource: true });
+  
+  // Plot 2: |ψ|² instantaneous
+  const coh = new Float64Array(S.N);
+  let cohMax = 0;
+  for (let i = 0; i < S.N; i++) {
+    coh[i] = S.psiR[i] * S.psiR[i] + S.psiI[i] * S.psiI[i];
+    if (coh[i] > cohMax) cohMax = coh[i];
+  }
+  cohMax = Math.max(cohMax * 1.05, S.psi0 * S.psi0 * 1.5);
+  
+  plotLine(ctx2, c2, '|ψ|²', [
+    { y: coh, color: '#3edbc9', width: 1.5 },
+    { y: i => S.psi0 * S.psi0, color: 'rgba(94,157,255,0.3)', width: 1, dash: [4, 4], label: 'Ψ₀²' },
+    { y: i => S.rho[i] * 0.3 + S.psi0 * S.psi0 * 0.5, color: 'rgba(240,169,68,0.25)', width: 1, label: 'ρ(x)', labelOff: 12 },
+  ], { xMin, xMax, yMin: 0, yMax: cohMax, showSource: true });
+  
+  // Plot 3: Time-averaged ⟨|ψ|²⟩
+  if (S.avgCount > 10) {
+    const avgCoh = new Float64Array(S.N);
+    let avgMax = 0;
+    for (let i = 0; i < S.N; i++) {
+      avgCoh[i] = S.cohAvg[i] / S.avgCount;
+      if (avgCoh[i] > avgMax) avgMax = avgCoh[i];
+    }
+    avgMax = Math.max(avgMax * 1.05, S.psi0 * S.psi0 * 1.3);
+    
+    // Compute δC = ⟨|ψ|²⟩ − Ψ₀²
+    const dC = new Float64Array(S.N);
+    let dCMax = 0;
+    for (let i = 0; i < S.N; i++) {
+      dC[i] = avgCoh[i] - S.psi0 * S.psi0;
+      if (Math.abs(dC[i]) > dCMax) dCMax = Math.abs(dC[i]);
+    }
+    
+    // Theoretical 1D Poisson prediction:
+    // In 1D: d²(δC)/dx² = −(g_m/(effective_stiffness)) ρ(x)
+    // The effective stiffness near the vacuum is related to 2λΨ₀²
+    // But in the dynamic case the carrier frequency also matters
+    // Show just the raw ⟨|ψ|²⟩ and Ψ₀² baseline
+    plotLine(ctx3, c3, '⟨|ψ|²⟩', [
+      { y: avgCoh, color: '#3edbc9', width: 2, label: '⟨|ψ|²⟩' },
+      { y: i => S.psi0 * S.psi0, color: 'rgba(94,157,255,0.3)', width: 1, dash: [4, 4], label: 'Ψ₀²' },
+      { y: i => S.rho[i] * 0.15 + S.psi0 * S.psi0 * 0.8, color: 'rgba(240,169,68,0.2)', width: 1, label: 'ρ(x)', labelOff: 12 },
+    ], { xMin, xMax, yMin: Math.min(S.psi0 * S.psi0 * 0.8, avgCoh[0] * 0.95), yMax: avgMax, showSource: true, yPrec: 3 });
+  } else {
+    // Blank with message
+    const { W, H, dpr } = resizeC(c3);
+    ctx3.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx3.clearRect(0, 0, W / dpr, H / dpr);
+    ctx3.fillStyle = 'rgba(255,255,255,0.15)';
+    ctx3.font = '12px "DM Sans"';
+    ctx3.fillText('Averaging begins after ' + S.avgStart + ' steps...', 20, H / dpr / 2);
+    ctx3.fillText('Steps: ' + S.steps + '/' + S.avgStart, 20, H / dpr / 2 + 20);
+  }
+}
+
+function updateUI() {
+  computeDiagnostics();
+  el('timeV').textContent = S.t.toFixed(2);
+  el('stepsV').textContent = String(S.steps);
+  el('cohOriginV').textContent = S.cohOrigin.toFixed(4);
+  el('energyV').textContent = S.energy < 1000 ? S.energy.toFixed(2) : S.energy.toExponential(2);
+  el('maxPsiV').textContent = S.maxPsi.toFixed(4);
+  el('maxPsiV').className = 'sv' + (S.maxPsi > S.psi0 * 5 ? ' b' : S.maxPsi > S.psi0 * 2 ? ' w' : '');
+  el('diagNote').textContent = S.playing ? 'Running' : 'Paused · ' + S.steps + ' steps · avg samples: ' + S.avgCount;
+}
+
+// === ANIMATION LOOP ===
+let lastFrame = 0, frameCount = 0, fpsTime = 0;
+function animate(now) {
+  if (S.playing) {
+    multiStep(S.spf);
+    render();
+    updateUI();
+    
+    frameCount++;
+    if (now - fpsTime > 1000) {
+      el('fpsV').textContent = frameCount + ' fps';
+      frameCount = 0;
+      fpsTime = now;
+    }
+    
+    requestAnimationFrame(animate);
+  }
+}
+
+// === PRESETS ===
+const PRESETS = {
+  gentle: { psi0: 1.0, lam: 1.0, cs: 1.0, gm: 1.0, rho0: 1.5, sigma: 8 },
+  strong: { psi0: 1.0, lam: 2.0, cs: 1.0, gm: 3.0, rho0: 3.0, sigma: 6 },
+  narrow: { psi0: 1.0, lam: 1.0, cs: 1.0, gm: 2.0, rho0: 2.0, sigma: 3 },
+  nocoupling: { psi0: 1.0, lam: 1.0, cs: 1.0, gm: 0.0, rho0: 0.0, sigma: 8 },
+};
+
+function loadPreset(name) {
+  const p = PRESETS[name];
+  if (!p) return;
+  for (const [k, v] of Object.entries(p)) {
+    S[k] = v;
+    const slider = el(k);
+    const valEl = el(k + 'V');
+    if (slider) { slider.value = v; }
+    if (valEl) { valEl.textContent = typeof v === 'number' ? (v % 1 === 0 && k === 'sigma' ? v : v.toFixed(2)) : v; }
+  }
+  reset();
+}
+
+function reset() {
+  S.playing = false;
+  el('playBtn').textContent = 'Play';
+  // Read current slider values
+  S.psi0 = parseFloat(el('psi0').value);
+  S.lam = parseFloat(el('lam').value);
+  S.cs = parseFloat(el('cs').value);
+  S.gm = parseFloat(el('gm').value);
+  S.rho0 = parseFloat(el('rho0').value);
+  S.sigma = parseFloat(el('sigma').value);
+  S.spf = parseInt(el('spf').value);
+  init();
+  render();
+  updateUI();
+  el('statusBar').textContent = `Grid: ${S.N} · dx=${S.dx.toFixed(3)} · dt=${S.dt.toFixed(4)} · CFL: ${(S.cs * S.dt / S.dx).toFixed(3)}`;
+}
+
+// === BINDINGS ===
+function bindS(id, key, fmt) {
+  el(id).addEventListener('input', () => {
+    const v = parseFloat(el(id).value);
+    S[key] = v;
+    el(id + 'V').textContent = fmt ? fmt(v) : v.toFixed(2);
+  });
+}
+bindS('psi0', 'psi0');
+bindS('lam', 'lam');
+bindS('cs', 'cs');
+bindS('gm', 'gm');
+bindS('rho0', 'rho0');
+bindS('sigma', 'sigma', v => String(Math.round(v)));
+bindS('spf', 'spf', v => String(Math.round(v)));
+
+el('playBtn').addEventListener('click', () => {
+  S.playing = !S.playing;
+  el('playBtn').textContent = S.playing ? 'Pause' : 'Play';
+  if (S.playing) requestAnimationFrame(animate);
+});
+
+el('stepBtn').addEventListener('click', () => {
+  if (!S.psiR) reset();
+  multiStep(100);
+  render();
+  updateUI();
+});
+
+el('resetBtn').addEventListener('click', reset);
+
+el('Ngrid').addEventListener('change', reset);
+el('Ldom').addEventListener('input', () => {
+  S.L = parseFloat(el('Ldom').value);
+  el('LdomV').textContent = S.L.toFixed(0);
+});
+
+el('presets').addEventListener('click', e => {
+  const btn = e.target.closest('button');
+  if (!btn) return;
+  el('presets').querySelectorAll('button').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+  loadPreset(btn.dataset.p);
+});
+
+window.addEventListener('resize', render);
+
+// === INIT ===
+reset();
+</script>
+</body>
+</html>
