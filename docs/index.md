@@ -52,7 +52,7 @@ Large-scale parameter sweep tool for exploring phase diagrams and glider detecti
 Ray optics in scalar field backgrounds with analytical validation.
 
 ### TRR-G Klein–Gordon 1D (flipped)
-1‑D kink solver.
+1‑D Klein–Gordon solver – time‑domain evolution with Mexican‑hat & matter coupling (flipped).
 
 ## 🤝 Contributing
 

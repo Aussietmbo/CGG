@@ -42,7 +42,7 @@ Numerical solvers and diagnostic tools for field equations and validation.
 - TRR-G κ Isolation Test — Mismatch Diagnostics
 - TRR-G 3D κ Field Simulator
 - TRR-G Substrate Evaluator v2 — Dynamic Field Evolution
-- TRR-G Klein–Gordon 1D (flipped) — 1‑D kink solver with flipped boundary conditions
+- TRR-G Klein–Gordon 1D (flipped) — 1‑D Klein–Gordon solver – time‑domain evolution with Mexican‑hat & matter coupling (flipped)
 
 ### [Wave Dynamics & Resonance](simulators/wave-dynamics/)
 Simulators for wave propagation, resonance phenomena, and field dynamics.
