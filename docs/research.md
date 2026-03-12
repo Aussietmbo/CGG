@@ -34,6 +34,7 @@ All simulators referenced in the papers are available for interactive exploratio
 
 - **[TRR-G Compact Object Simulators](simulators/trr-g-core/)** — Interactive vortex, light, and wave tools
 - **[Field Solvers](simulators/field-solvers-diagnostics/)** — Numerical validation tools
+- **[CGG Solvers](simulators/solvers/)** — Miscellaneous boundary‑condition solvers
 - **[Wave Dynamics](simulators/wave-dynamics/)** — Wave tank and synthesis tools
 
 ### Documentation

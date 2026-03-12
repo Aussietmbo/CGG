@@ -31,6 +31,10 @@ Numerical solvers and diagnostic tools for field equations and validation.
 - TRR-G 3D κ Field Simulator
 - TRR-G Substrate Evaluator v2 — Dynamic Field Evolution
 
+### [CGG Solvers](simulators/solvers/)
+General-purpose field solvers and boundary-condition experiments.
+- TRR-G Klein–Gordon 1D (flipped) — 1‑D kink solver with flipped boundary conditions
+
 ### [Wave Dynamics & Resonance](simulators/wave-dynamics/)
 Simulators for wave propagation, resonance phenomena, and field dynamics.
 - TRR Wave Tank (GPU) – Dot-Product Coherence
