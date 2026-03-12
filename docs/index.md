@@ -12,8 +12,7 @@ A collection of open-access physics simulators and computational tools for resea
 | Category | Count | Description |
 |----------|-------|-------------|
 | **[TRR-G Compact Object Simulators](../simulators/trr-g-core/)** | 5 | Vortex nucleation, light propagation, wavefront dynamics |
-| **[Field Solvers & Diagnostics](../simulators/field-solvers-diagnostics/)** | 4 | Radial solver, κ isolation, 3D fields, substrate evaluation |
-| **[CGG Solvers](../simulators/solvers/)** | 1 | Klein‑Gordon 1D flipped boundary solver |
+| **[Field Solvers & Diagnostics](../simulators/field-solvers-diagnostics/)** | 5 | Radial solver, κ isolation, 3D fields, substrate evaluation, Klein‑Gordon |
 | **[Wave Dynamics & Resonance](../simulators/wave-dynamics/)** | 4 | Wave tank, Fourier synthesis, resonant spheres, solar coherence |
 | **[Cellular Automata](../simulators/cellular-automata/)** | 1 | Coherence-driven CA with FFT feedback |
 | **[Harmonic & Musical Resonance](../simulators/harmonic-resonance/)** | 2 | Big Chord, Lambdoma resonance keyboard |
@@ -25,7 +24,6 @@ A collection of open-access physics simulators and computational tools for resea
 - **[📄 Research Publications](research.md)** — Download TRR_CGG_V27 and citations
 - **[TRR-G Core Simulators](../simulators/trr-g-core/)** — Compact object physics
 - **[Field Solvers](../simulators/field-solvers-diagnostics/)** — Numerical equation solvers
-- **[CGG Solvers](../simulators/solvers/)** — Miscellaneous computational solvers
 - **GitHub Repository** — [Aussietmbo/CGG](https://github.com/Aussietmbo/CGG)
 
 ## 📊 Featured Simulators
