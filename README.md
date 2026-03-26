@@ -76,7 +76,7 @@ Comprehensive TRR-G Theory Document (March 2026 — Revision 4)
 
 The complete research paper covering theoretical framework, compact object physics, gravitational effects, and wave propagation.
 
-**[Anatomy of Gravity →](papers/Anatomy%20of%20Gravity.png)**
+**[Anatomy of Gravity Exhibit →](papers/Anatomy%20of%20Gravity.png)**
 
 All simulators are validated against peer research. Details and citations are available in each simulator's documentation.
 
