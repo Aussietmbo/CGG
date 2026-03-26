@@ -12,6 +12,8 @@ Quick access to our most interactive and visually striking tools:
 - **[Resonant Spheres Simulator](simulators/wave-dynamics/resonant-spheres-sim_v6.1.html)** — Interference pattern and focus analysis
 - **[CGG Vortex-Core Black Hole](simulators/trr-g-core/blackhole_cgg_vortex.html)** — Compact object interior vortex dynamics
 - **[TRR-G Klein–Gordon 1D (flipped)](simulators/field-solvers-diagnostics/TRRG_KleinGordon_1D_flipped.html)** — 1‑D solver
+- **[CGG — Coherence Architecture of the Elements](simulators/trr-g-core/cgg_periodic_v8.html)** — Periodic table coherence structure explorer
+- **[CGG Radial Overlap & Coupled VK Solver](simulators/field-solvers-diagnostics/radial_overlap_solver_2.html)** — Radial overlap and coupled Vortex-Kelvin field solver
 
 ---
 
@@ -35,6 +37,7 @@ Core simulators for studying compact object physics, vortex formation, and gravi
 - TRR-G — ψ Wavefront Propagation
 - TRR-G Vortex Field Explorer — WebGL
 - CGG Vortex-Core Black Hole
+- [CGG — Coherence Architecture of the Elements](simulators/trr-g-core/cgg_periodic_v8.html)
 
 ### [Field Solvers & Diagnostics](simulators/field-solvers-diagnostics/)
 Numerical solvers and diagnostic tools for field equations and validation.
@@ -42,8 +45,7 @@ Numerical solvers and diagnostic tools for field equations and validation.
 - TRR-G κ Isolation Test — Mismatch Diagnostics
 - TRR-G 3D κ Field Simulator
 - TRR-G Substrate Evaluator v2 — Dynamic Field Evolution
-- TRR-G Klein–Gordon 1D (flipped) — 1‑D Klein–Gordon solver – time‑domain evolution with Mexican‑hat & matter coupling (flipped)
-
+- TRR-G Klein–Gordon 1D (flipped) — 1‑D Klein–Gordon solver – time‑domain evolution with Mexican‑hat & matter coupling (flipped)- [CGG Radial Overlap & Coupled VK Solver](simulators/field-solvers-diagnostics/radial_overlap_solver_2.html)
 ### [Wave Dynamics & Resonance](simulators/wave-dynamics/)
 Simulators for wave propagation, resonance phenomena, and field dynamics.
 - TRR Wave Tank (GPU) – Dot-Product Coherence
@@ -68,11 +70,15 @@ Advanced visualization platforms for interactive exploration of field data.
 
 ##  Research & Publications
 
-### 📄 [Download: TRR_CGG_V27](papers/TRR_CGG_V27.pdf)
+### 📄 [Download: CGG_Paper_V31r4](papers/CGG_Paper_V31r4.docx)
 
-Comprehensive TRR-G Theory Document (March 2026)
+Comprehensive TRR-G Theory Document (March 2026 — Revision 4)
 
 The complete research paper covering theoretical framework, compact object physics, gravitational effects, and wave propagation.
+
+### Anatomy of Gravity
+
+![Anatomy of Gravity](papers/Anatomy%20of%20Gravity.png)
 
 All simulators are validated against peer research. Details and citations are available in each simulator's documentation.
 
