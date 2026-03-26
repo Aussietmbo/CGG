@@ -1,0 +1,884 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CGG Radial Overlap & Coupled VK Solver</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg: #0a0a0f;
+  --panel: rgba(15, 18, 25, 0.95);
+  --text: #e6eef7;
+  --muted: #7a8a9a;
+  --accent: #4ecdc4;
+  --accent2: #ff6b6b;
+  --accent3: #ffd93d;
+  --border: rgba(255,255,255,0.08);
+  --slider-track: #1a2030;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; font-size: 14px; }
+.header { background: var(--panel); padding: 12px 20px; border-bottom: 1px solid var(--border); }
+.header h1 { font-size: 18px; font-weight: 600; color: var(--accent); }
+.header .sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.main { display: flex; height: calc(100vh - 56px); }
+.controls { width: 320px; min-width: 320px; background: var(--panel); border-right: 1px solid var(--border); overflow-y: auto; padding: 16px; }
+.viewport { flex: 1; display: flex; flex-direction: column; padding: 12px; overflow-y: auto; }
+.section-title { font-size: 13px; font-weight: 600; color: var(--accent); text-transform: uppercase; letter-spacing: 0.5px; margin: 16px 0 8px; border-bottom: 1px solid var(--border); padding-bottom: 4px; }
+.section-title:first-child { margin-top: 0; }
+.row { display: flex; align-items: center; margin-bottom: 8px; gap: 8px; }
+.row label { flex: 0 0 80px; font-size: 12px; color: var(--muted); }
+.row input[type=range] { flex: 1; -webkit-appearance: none; height: 5px; border-radius: 3px; background: var(--slider-track); outline: none; }
+.row input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: var(--accent); cursor: pointer; }
+.row .val { flex: 0 0 55px; text-align: right; font-size: 12px; font-family: 'Consolas', monospace; color: var(--text); }
+.row input[type=number] { width: 70px; background: var(--slider-track); border: 1px solid var(--border); color: var(--text); padding: 3px 6px; border-radius: 3px; font-size: 12px; font-family: 'Consolas', monospace; }
+.btn { padding: 8px 14px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 600; transition: all 0.15s; }
+.btn-primary { background: var(--accent); color: #0a0a0f; }
+.btn-primary:hover { background: #5fe0d7; }
+.btn-secondary { background: rgba(78,205,196,0.15); color: var(--accent); border: 1px solid rgba(78,205,196,0.3); }
+.btn-secondary:hover { background: rgba(78,205,196,0.25); }
+.btn-export { background: rgba(255,217,61,0.15); color: var(--accent3); border: 1px solid rgba(255,217,61,0.3); }
+.btn-export:hover { background: rgba(255,217,61,0.25); }
+.btn-row { display: flex; gap: 8px; margin: 10px 0; flex-wrap: wrap; }
+.preset-row { display: flex; gap: 4px; flex-wrap: wrap; margin: 6px 0; }
+.preset { padding: 4px 8px; font-size: 11px; background: rgba(255,255,255,0.05); border: 1px solid var(--border); color: var(--muted); border-radius: 3px; cursor: pointer; }
+.preset:hover { background: rgba(78,205,196,0.1); color: var(--accent); border-color: rgba(78,205,196,0.3); }
+.readout { background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: 4px; padding: 10px; margin: 8px 0; font-family: 'Consolas', monospace; font-size: 11px; line-height: 1.6; }
+.readout .label { color: var(--muted); }
+.readout .value { color: var(--accent); }
+.readout .warn { color: var(--accent2); }
+.chart-container { flex: 1; min-height: 300px; position: relative; margin-bottom: 12px; }
+.chart-container canvas { width: 100% !important; height: 100% !important; }
+.tab-bar { display: flex; gap: 2px; margin-bottom: 8px; }
+.tab { padding: 6px 14px; font-size: 12px; cursor: pointer; background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 4px 4px 0 0; color: var(--muted); }
+.tab.active { background: rgba(78,205,196,0.1); color: var(--accent); border-color: rgba(78,205,196,0.3); border-bottom-color: transparent; }
+.status { font-size: 11px; color: var(--muted); padding: 4px 0; }
+.status.running { color: var(--accent3); }
+.status.done { color: var(--accent); }
+.status.error { color: var(--accent2); }
+.progress-bar { height: 3px; background: var(--slider-track); border-radius: 2px; margin: 4px 0; overflow: hidden; }
+.progress-fill { height: 100%; background: var(--accent); transition: width 0.1s; }
+@media (max-width: 768px) {
+  .main { flex-direction: column; }
+  .controls { width: 100%; min-width: unset; max-height: 40vh; border-right: none; border-bottom: 1px solid var(--border); }
+}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>CGG Radial Overlap & Coupled VK Stability Solver</h1>
+  <div class="sub">Soliton shooting · σ(d) sweep · eigenvalue splitting · helical shear · CSV export — CGG V31r3 §IV–V</div>
+</div>
+<div class="main">
+  <div class="controls">
+    <div class="section-title">Soliton Parameters</div>
+    <div class="row">
+      <label>g</label>
+      <input type="range" id="sl-g" min="1.1" max="8.0" step="0.01" value="2.86" oninput="updateSlider(this,'g')">
+      <span class="val" id="v-g">2.86</span>
+    </div>
+    <div class="row">
+      <label>ℓ</label>
+      <input type="range" id="sl-ell" min="0" max="3" step="1" value="1" oninput="updateSlider(this,'ell')">
+      <span class="val" id="v-ell">1</span>
+    </div>
+    <div class="row">
+      <label>m</label>
+      <input type="range" id="sl-m" min="0" max="3" step="1" value="0" oninput="updateSlider(this,'m')">
+      <span class="val" id="v-m">0</span>
+    </div>
+    <div class="row">
+      <label>A₀</label>
+      <input type="range" id="sl-A0" min="0.3" max="4.0" step="0.01" value="1.0" oninput="updateSlider(this,'A0')">
+      <span class="val" id="v-A0">1.00</span>
+    </div>
+
+    <div class="section-title">Sweep Configuration</div>
+    <div class="row">
+      <label>d/r_p min</label>
+      <input type="number" id="d-min" value="0.5" step="0.1" min="0.1">
+    </div>
+    <div class="row">
+      <label>d/r_p max</label>
+      <input type="number" id="d-max" value="6.0" step="0.1" min="0.5">
+    </div>
+    <div class="row">
+      <label>Points</label>
+      <input type="number" id="n-pts" value="80" step="10" min="10" max="500">
+    </div>
+
+    <div class="section-title">Presets</div>
+    <div class="preset-row">
+      <button class="preset" onclick="loadPreset('canonical')">Canonical ℓ=1</button>
+      <button class="preset" onclick="loadPreset('helical')">Helical m=1</button>
+      <button class="preset" onclick="loadPreset('ell2')">ℓ=2 m=0</button>
+      <button class="preset" onclick="loadPreset('highres')">High-Res 200pt</button>
+    </div>
+
+    <div class="section-title">Actions</div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="runShoot()">Shoot Soliton</button>
+      <button class="btn btn-primary" onclick="runSweep()">Run d-Sweep</button>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-export" onclick="exportCSV()">Export CSV</button>
+      <button class="btn btn-secondary" onclick="exportProfile()">Export Profile</button>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" id="progress" style="width:0%"></div></div>
+    <div class="status" id="status">Ready</div>
+
+    <div class="section-title">Soliton Diagnostics</div>
+    <div class="readout" id="diag">
+      <span class="label">μ:</span> <span class="value" id="d-mu">—</span><br>
+      <span class="label">κ:</span> <span class="value" id="d-kappa">—</span><br>
+      <span class="label">r_p:</span> <span class="value" id="d-rp">—</span><br>
+      <span class="label">N:</span> <span class="value" id="d-N">—</span><br>
+      <span class="label">I:</span> <span class="value" id="d-I">—</span><br>
+      <span class="label">Q₄:</span> <span class="value" id="d-Q4">—</span><br>
+      <span class="label">N·I:</span> <span class="value" id="d-NI">—</span><br>
+      <span class="label">γ_VK:</span> <span class="value" id="d-gVK">—</span><br>
+      <span class="label">Master I+L+6μN:</span> <span class="value" id="d-master">—</span>
+    </div>
+
+    <div class="section-title">Coupled VK Summary</div>
+    <div class="readout" id="vk-summary">
+      <span class="label">Run d-sweep to populate</span>
+    </div>
+  </div>
+
+  <div class="viewport">
+    <div class="tab-bar">
+      <div class="tab active" onclick="switchTab(0)">Radial Profile</div>
+      <div class="tab" onclick="switchTab(1)">σ(d) Overlap</div>
+      <div class="tab" onclick="switchTab(2)">Δμ & ω_ex</div>
+      <div class="tab" onclick="switchTab(3)">z_min(d)</div>
+    </div>
+    <div class="chart-container" id="chart-wrap">
+      <canvas id="chart0"></canvas>
+      <canvas id="chart1" style="display:none"></canvas>
+      <canvas id="chart2" style="display:none"></canvas>
+      <canvas id="chart3" style="display:none"></canvas>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════════════════
+const S = { g: 2.86, ell: 1, m: 0, A0: 1.0 };
+let soliton = null;   // { r, u, R, mu, kappa, rp, N, I, Q4, L }
+let sweepData = null;  // array of { d, d_rp, sigma, dmu, omega_ex, omega_phase, z_min_m0, z_min_m }
+const charts = [null, null, null, null];
+let activeTab = 0;
+
+// ═══════════════════════════════════════════════════════════════
+//  ANGULAR COUPLING COEFFICIENTS
+// ═══════════════════════════════════════════════════════════════
+function alphaLM(ell, m) {
+  // α_ℓm = ∫ |Y_ℓm|⁴ dΩ — computed via Gaunt integrals
+  // Closed-form for low ℓ:
+  if (ell === 0) return 1 / (4 * Math.PI);
+  if (ell === 1 && Math.abs(m) === 0) return 9 / (20 * Math.PI);
+  if (ell === 1 && Math.abs(m) === 1) return 3 / (20 * Math.PI);
+  if (ell === 2 && m === 0) return 25 / (28 * Math.PI);
+  if (ell === 2 && Math.abs(m) === 1) return 15 / (56 * Math.PI);
+  if (ell === 2 && Math.abs(m) === 2) return 15 / (56 * Math.PI);
+  if (ell === 3 && m === 0) return 49 / (36 * Math.PI);
+  // Fallback — approximate for higher ℓ
+  return (2 * ell + 1) / (4 * Math.PI) * 0.7;
+}
+
+function betaLM(ell, m) {
+  // β_ℓm = ∫ |Y_ℓm₁|² |Y_ℓm₂|² dΩ  for same (ℓ,m)
+  // Same as α_ℓm for self-coupling
+  return alphaLM(ell, m);
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  NONLINEAR RADIAL ODE SHOOTER
+//  u'' = [ℓ(ℓ+1)/r² - 2m*(μ - (1-g)*α*u²/r²)] * u
+//  with 2m = 1 convention
+// ═══════════════════════════════════════════════════════════════
+function shootSoliton(A0, ell, m_az, g, mu_trial) {
+  const alpha = alphaLM(ell, m_az);
+  const geff = (1 - g) * alpha;  // negative for g > 1 (attractive)
+  const Nr = 4000;
+  const rmax = 40.0;
+  const dr = rmax / Nr;
+
+  const r = new Float64Array(Nr);
+  const u = new Float64Array(Nr);
+  const up = new Float64Array(Nr);
+
+  // Initial conditions: u ~ A0 * r^(ℓ+1) near origin
+  const r0 = 1e-6;
+  r[0] = r0;
+  u[0] = A0 * Math.pow(r0, ell + 1);
+  up[0] = A0 * (ell + 1) * Math.pow(r0, ell);
+
+  // RK4 integration
+  function rhs_up(ri, ui, upi) {
+    if (ri < 1e-12) return 0;
+    const cent = ell * (ell + 1) / (ri * ri);
+    const nl = geff * ui * ui / (ri * ri);
+    return (cent + 2 * (-mu_trial + nl)) * ui;
+  }
+
+  for (let i = 0; i < Nr - 1; i++) {
+    const ri = r0 + i * dr;
+    r[i] = ri;
+    const ui = u[i], upi = up[i];
+
+    const k1u = upi;
+    const k1p = rhs_up(ri, ui, upi);
+    const r2 = ri + dr / 2;
+    const u2 = ui + k1u * dr / 2;
+    const p2 = upi + k1p * dr / 2;
+    const k2u = p2;
+    const k2p = rhs_up(r2, u2, p2);
+    const u3 = ui + k2u * dr / 2;
+    const p3 = upi + k2p * dr / 2;
+    const k3u = p3;
+    const k3p = rhs_up(r2, u3, p3);
+    const r4 = ri + dr;
+    const u4 = ui + k3u * dr;
+    const p4 = upi + k3p * dr;
+    const k4u = p4;
+    const k4p = rhs_up(r4, u4, p4);
+
+    u[i + 1] = ui + dr * (k1u + 2 * k2u + 2 * k3u + k4u) / 6;
+    up[i + 1] = upi + dr * (k1p + 2 * k2p + 2 * k3p + k4p) / 6;
+    r[i + 1] = r0 + (i + 1) * dr;
+
+    // Blow-up detection
+    if (Math.abs(u[i + 1]) > 1e10) return { r, u, up, nValid: i + 1, blowup: true };
+  }
+  return { r, u, up, nValid: Nr, blowup: false };
+}
+
+function findEigenvalue(A0, ell, m_az, g) {
+  // Bisection on μ to find normalizable bound state
+  // Scaling law gives good initial bracket
+  const ellp1 = ell + 1;
+  const beta_exp = 2 / ellp1;
+
+  // c(ℓ) estimates from V31r3 Table
+  const c_ell = [0.2405, 0.1366, 0.1172, 0.1084];
+  const c0 = ell < 4 ? c_ell[ell] : 0.10;
+  const mu_est = -c0 * Math.pow(A0, beta_exp);
+
+  let mu_lo = mu_est * 3;   // more negative
+  let mu_hi = mu_est * 0.3; // less negative
+  if (mu_hi > -1e-8) mu_hi = -1e-8;
+
+  // Ensure bracket: lo gives u → +∞, hi gives u → −∞ (or vice versa)
+  const rFar = 3800; // index for far-field check
+  let sol_lo = shootSoliton(A0, ell, m_az, g, mu_lo);
+  let sol_hi = shootSoliton(A0, ell, m_az, g, mu_hi);
+  const nCheck = Math.min(rFar, sol_lo.nValid - 1, sol_hi.nValid - 1);
+  if (nCheck < 100) return null;
+
+  let sign_lo = Math.sign(sol_lo.u[nCheck]);
+  let sign_hi = Math.sign(sol_hi.u[nCheck]);
+
+  // If same sign, widen bracket
+  let attempts = 0;
+  while (sign_lo === sign_hi && attempts < 20) {
+    mu_lo *= 1.5;
+    mu_hi *= 0.5;
+    if (mu_hi > -1e-10) mu_hi = -1e-10;
+    sol_lo = shootSoliton(A0, ell, m_az, g, mu_lo);
+    sol_hi = shootSoliton(A0, ell, m_az, g, mu_hi);
+    const nc = Math.min(rFar, sol_lo.nValid - 1, sol_hi.nValid - 1);
+    if (nc < 100) return null;
+    sign_lo = Math.sign(sol_lo.u[nc]);
+    sign_hi = Math.sign(sol_hi.u[nc]);
+    attempts++;
+  }
+  if (sign_lo === sign_hi) return null;
+
+  // Bisect
+  let mu_mid, sol_mid;
+  for (let iter = 0; iter < 60; iter++) {
+    mu_mid = (mu_lo + mu_hi) / 2;
+    sol_mid = shootSoliton(A0, ell, m_az, g, mu_mid);
+    const nc = Math.min(rFar, sol_mid.nValid - 1);
+    if (nc < 100) break;
+    const sign_mid = Math.sign(sol_mid.u[nc]);
+    if (sign_mid === sign_lo) mu_lo = mu_mid;
+    else mu_hi = mu_mid;
+    if (Math.abs(mu_hi - mu_lo) < 1e-12 * Math.abs(mu_mid)) break;
+  }
+
+  return { mu: mu_mid, sol: sol_mid };
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  COMPUTE SOLITON DIAGNOSTICS
+// ═══════════════════════════════════════════════════════════════
+function computeDiagnostics(sol, mu, ell, m_az, g) {
+  const { r, u, nValid } = sol;
+  const alpha = alphaLM(ell, m_az);
+  const geff = (1 - g) * alpha;
+  const dr = r[1] - r[0];
+
+  let N = 0, I_int = 0, L = 0, Q4 = 0;
+  let umax = 0, rp = 0;
+
+  for (let i = 1; i < nValid - 1; i++) {
+    const ri = r[i];
+    if (ri < 1e-12) continue;
+    const ui = u[i];
+    const ui_abs = Math.abs(ui);
+    const uprime = (u[i + 1] - u[i - 1]) / (2 * dr);
+
+    N += ui * ui * dr;
+    I_int += uprime * uprime * dr;
+    L += ell * (ell + 1) * ui * ui / (ri * ri) * dr;
+    Q4 += Math.pow(ui, 4) / (ri * ri) * dr;
+
+    if (ui_abs > umax) { umax = ui_abs; rp = ri; }
+  }
+
+  const kappa = Math.sqrt(2 * Math.abs(mu)); // 2m=1 convention
+  const NI = N * I_int;
+  const master = I_int + L + 6 * mu * N; // should be ~0
+
+  return { N, I: I_int, L, Q4, kappa, rp, umax, NI, master };
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  OVERLAP INTEGRAL σ(d)
+//  For two solitons on z-axis separated by d
+//  σ(d) = ∫ u₁²(r₁) u₂²(r₂) / (r₁² r₂²) * angular * d³x
+//  Simplified 1D: integrate along z-axis for co-axial solitons
+// ═══════════════════════════════════════════════════════════════
+function computeOverlap(sol, d_abs, ell, m_az) {
+  // Compute σ(d) by numerical integration
+  // For co-axial ℓ=1 m=0 solitons on z-axis:
+  // Use cylindrical coordinates (ρ_cyl, z)
+  // r₁ = sqrt(ρ² + z²), r₂ = sqrt(ρ² + (z-d)²)
+  // Integrate R₁²(r₁) R₂²(r₂) |Y₁₀(θ₁)|² |Y₁₀(θ₂)|² ρ dρ dz dφ
+
+  const { r, u, nValid } = sol;
+  const dr = r[1] - r[0];
+  const rmax = r[nValid - 1];
+
+  // Build interpolation for R(r) = u(r)/r
+  function R_interp(ri) {
+    if (ri < 1e-10 || ri >= rmax) return 0;
+    const idx = ri / dr;
+    const i0 = Math.floor(idx);
+    if (i0 >= nValid - 1) return 0;
+    const frac = idx - i0;
+    const u_val = u[i0] * (1 - frac) + u[i0 + 1] * frac;
+    return u_val / ri;
+  }
+
+  // Y₁₀ = sqrt(3/4π) cos(θ), |Y₁₀|² = (3/4π) cos²(θ)
+  // Y₁₁ = -sqrt(3/8π) sin(θ) e^{iφ}, |Y₁₁|² = (3/8π) sin²(θ)
+  const angFactor_m0 = 3 / (4 * Math.PI); // for |Y₁₀|²
+  const angFactor_m1 = 3 / (8 * Math.PI); // for |Y₁±₁|²
+
+  // 2D integration in (ρ_cyl, z) with azimuthal symmetry (factor 2π)
+  const Nz = 300, Nrho = 150;
+  const zmin = -rmax * 0.5, zmax = d_abs + rmax * 0.5;
+  const rhomax = rmax * 0.4;
+  const dz = (zmax - zmin) / Nz;
+  const drho = rhomax / Nrho;
+
+  let sigma = 0;
+  const m_use = Math.abs(m_az);
+
+  for (let iz = 0; iz < Nz; iz++) {
+    const z = zmin + (iz + 0.5) * dz;
+    for (let ir = 0; ir < Nrho; ir++) {
+      const rho = (ir + 0.5) * drho;
+
+      const r1 = Math.sqrt(rho * rho + z * z);
+      const r2 = Math.sqrt(rho * rho + (z - d_abs) * (z - d_abs));
+
+      if (r1 < 1e-10 || r2 < 1e-10) continue;
+
+      const R1 = R_interp(r1);
+      const R2 = R_interp(r2);
+      if (Math.abs(R1) < 1e-20 || Math.abs(R2) < 1e-20) continue;
+
+      const R1sq = R1 * R1;
+      const R2sq = R2 * R2;
+
+      // Angular factors
+      let ang1, ang2;
+      if (m_use === 0) {
+        const costh1 = z / r1;
+        const costh2 = (z - d_abs) / r2;
+        ang1 = angFactor_m0 * costh1 * costh1;
+        ang2 = angFactor_m0 * costh2 * costh2;
+      } else {
+        // m=1: |Y₁₁|² ∝ sin²θ
+        const sinth1_sq = rho * rho / (r1 * r1);
+        const sinth2_sq = rho * rho / (r2 * r2);
+        ang1 = angFactor_m1 * sinth1_sq;
+        ang2 = angFactor_m1 * sinth2_sq;
+      }
+
+      // Volume element: 2π ρ dρ dz
+      sigma += R1sq * R2sq * ang1 * ang2 * 2 * Math.PI * rho * drho * dz;
+    }
+  }
+
+  return sigma;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  EXCHANGE OVERLAP γ'(d)
+//  For m≠0: carries phase factor e^{2i(φ₂-φ₁)}
+//  On z-axis: φ₂ = φ₁ at all points, so exchange is real
+// ═══════════════════════════════════════════════════════════════
+function computeExchangeOverlap(sol, d_abs, ell, m_az) {
+  // For co-axial geometry, exchange = direct (same magnitude)
+  // because φ₂ = φ₁ everywhere on z-axis
+  // The distinction matters for off-axis geometry (non-collinear)
+  return computeOverlap(sol, d_abs, ell, m_az);
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  HELICAL SHEAR FREQUENCY ω_phase(d) for m ≠ 0
+// ═══════════════════════════════════════════════════════════════
+function computeHelicalShear(sol, d_abs, ell, m_az, g, mu) {
+  if (m_az === 0) return 0;
+  // ω_phase = 2|m| * |(1-g)| * γ'(d) / d
+  const gamma_prime = computeExchangeOverlap(sol, d_abs, ell, m_az);
+  return 2 * Math.abs(m_az) * Math.abs(1 - g) * gamma_prime / d_abs;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  SWEEP: compute σ(d), Δμ(d), ω_ex(d), ω_phase(d), z_min(d)
+// ═══════════════════════════════════════════════════════════════
+async function runSweep() {
+  if (!soliton) {
+    setStatus('Shoot soliton first!', 'error');
+    return;
+  }
+
+  const dMinRp = parseFloat(document.getElementById('d-min').value);
+  const dMaxRp = parseFloat(document.getElementById('d-max').value);
+  const nPts = parseInt(document.getElementById('n-pts').value);
+
+  const { mu, sol, diag } = soliton;
+  const rp = diag.rp;
+  const kappa = diag.kappa;
+  const N = diag.N;
+  const alpha = alphaLM(S.ell, S.m);
+  const gamma_VK = 3.49 * Math.abs(mu);
+
+  setStatus('Running d-sweep...', 'running');
+  sweepData = [];
+
+  for (let i = 0; i < nPts; i++) {
+    const frac = i / (nPts - 1);
+    const d_rp = dMinRp + frac * (dMaxRp - dMinRp);
+    const d = d_rp * rp;
+
+    // σ(d)
+    const sigma = computeOverlap(sol, d, S.ell, S.m);
+
+    // σ(0) from Pohozaev: Q₄ = 4|μ|N/((g-1)α)
+    const sigma0 = alpha * diag.Q4;
+
+    // Δμ from direct channel perturbation theory:
+    // Δμ = <ψ₂|V_pert|ψ₂>/<ψ₂|ψ₂> = (1-g) * σ(d) / N
+    // σ(d) already includes angular |Y|⁴ from 3D quadrature
+    // Result is in same units as μ (absolute eigenvalue shift)
+    const dmu = (N > 0) ? Math.abs(1 - S.g) * sigma / N : 0;
+    const dmu_ratio = (Math.abs(mu) > 0) ? dmu / Math.abs(mu) : 0;
+
+    // ω_ex = 0.91 * Δμ (beat frequency from exchange channel)
+    const omega_ex = 0.91 * dmu;
+
+    // ω_phase (helical shear, m≠0 only)
+    const omega_phase = (S.m !== 0) ? computeHelicalShear(sol, d, S.ell, S.m, S.g, mu) : 0;
+
+    // z_min
+    const omega_total_m0 = omega_ex;
+    const omega_total_m = omega_ex + omega_phase;
+    const z_min_m0 = (omega_total_m0 > 0) ? Math.ceil(gamma_VK / omega_total_m0) : Infinity;
+    const z_min_m = (omega_total_m > 0) ? Math.ceil(gamma_VK / omega_total_m) : Infinity;
+
+    sweepData.push({
+      d, d_rp, sigma, sigma_norm: (sigma0 > 0) ? sigma / sigma0 : 0,
+      dmu, dmu_ratio, omega_ex, omega_phase,
+      z_min_m0: Math.min(z_min_m0, 100),
+      z_min_m: Math.min(z_min_m, 100),
+      gamma_VK
+    });
+
+    // Update progress
+    document.getElementById('progress').style.width = (100 * (i + 1) / nPts) + '%';
+
+    // Yield to UI every 5 points
+    if (i % 5 === 0) await new Promise(r => setTimeout(r, 0));
+  }
+
+  setStatus(`Sweep complete: ${nPts} points`, 'done');
+  updateSweepCharts();
+  updateVKSummary();
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  SHOOTING ENTRY POINT
+// ═══════════════════════════════════════════════════════════════
+function runShoot() {
+  setStatus('Shooting soliton...', 'running');
+
+  setTimeout(() => {
+    const result = findEigenvalue(S.A0, S.ell, S.m, S.g);
+    if (!result) {
+      setStatus('Eigenvalue not found — try adjusting A₀ or g', 'error');
+      return;
+    }
+
+    const { mu, sol } = result;
+    const diag = computeDiagnostics(sol, mu, S.ell, S.m, S.g);
+
+    soliton = { mu, sol, diag };
+
+    // Update diagnostics
+    document.getElementById('d-mu').textContent = mu.toFixed(6);
+    document.getElementById('d-kappa').textContent = diag.kappa.toFixed(4);
+    document.getElementById('d-rp').textContent = diag.rp.toFixed(4);
+    document.getElementById('d-N').textContent = diag.N.toFixed(4);
+    document.getElementById('d-I').textContent = diag.I.toFixed(4);
+    document.getElementById('d-Q4').textContent = diag.Q4.toFixed(4);
+    document.getElementById('d-NI').textContent = diag.NI.toFixed(3);
+    document.getElementById('d-gVK').textContent = (3.49 * Math.abs(mu)).toFixed(4);
+    document.getElementById('d-master').textContent = diag.master.toExponential(3);
+
+    setStatus(`Soliton found: μ = ${mu.toFixed(6)}, r_p = ${diag.rp.toFixed(3)}`, 'done');
+    updateProfileChart();
+  }, 10);
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  CHART UPDATES
+// ═══════════════════════════════════════════════════════════════
+function updateProfileChart() {
+  if (!soliton) return;
+  const { sol, diag } = soliton;
+  const { r, u, nValid } = sol;
+
+  // Subsample for chart (every 4th point, up to r = 20)
+  const labels = [], uData = [], RData = [], gradData = [];
+  const dr = r[1] - r[0];
+  for (let i = 0; i < nValid && r[i] < 20; i += 4) {
+    labels.push(r[i].toFixed(2));
+    uData.push(u[i]);
+    RData.push(r[i] > 1e-6 ? u[i] / r[i] : 0);
+    if (i > 0 && i < nValid - 1) {
+      const grad = (u[i + 1] - u[i - 1]) / (2 * dr);
+      gradData.push(grad);
+    } else {
+      gradData.push(0);
+    }
+  }
+
+  if (charts[0]) charts[0].destroy();
+  charts[0] = new Chart(document.getElementById('chart0'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label: 'u(r) = rR(r)', data: uData, borderColor: '#4ecdc4', borderWidth: 2, pointRadius: 0, fill: false },
+        { label: 'R(r)', data: RData, borderColor: '#ff6b6b', borderWidth: 1.5, pointRadius: 0, fill: false, borderDash: [4, 2] },
+        { label: "u'(r)", data: gradData, borderColor: '#ffd93d', borderWidth: 1, pointRadius: 0, fill: false, borderDash: [2, 2] }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: '#e6eef7', font: { size: 11 } } },
+        title: { display: true, text: `Soliton Profile: ℓ=${S.ell}, m=${S.m}, A₀=${S.A0}, g=${S.g}`, color: '#e6eef7' }
+      },
+      scales: {
+        x: { title: { display: true, text: 'r', color: '#7a8a9a' }, ticks: { color: '#7a8a9a', maxTicksLimit: 15 }, grid: { color: 'rgba(255,255,255,0.05)' } },
+        y: { title: { display: true, text: 'amplitude', color: '#7a8a9a' }, ticks: { color: '#7a8a9a' }, grid: { color: 'rgba(255,255,255,0.05)' } }
+      }
+    }
+  });
+}
+
+function updateSweepCharts() {
+  if (!sweepData || sweepData.length === 0) return;
+
+  const labels = sweepData.map(p => p.d_rp.toFixed(2));
+
+  // Chart 1: σ(d) overlap
+  if (charts[1]) charts[1].destroy();
+  charts[1] = new Chart(document.getElementById('chart1'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label: 'σ(d)/σ(0)', data: sweepData.map(p => p.sigma_norm), borderColor: '#4ecdc4', borderWidth: 2, pointRadius: 0, fill: false },
+        { label: 'exp(−2κd) fit', data: sweepData.map(p => {
+            const kappa = soliton.diag.kappa;
+            return Math.exp(-2 * kappa * p.d);
+          }), borderColor: '#7a8a9a', borderWidth: 1, pointRadius: 0, fill: false, borderDash: [4, 4] }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: '#e6eef7', font: { size: 11 } } },
+        title: { display: true, text: 'Radial Overlap σ(d)/σ(0) vs Separation', color: '#e6eef7' }
+      },
+      scales: {
+        x: { title: { display: true, text: 'd / r_p', color: '#7a8a9a' }, ticks: { color: '#7a8a9a', maxTicksLimit: 15 }, grid: { color: 'rgba(255,255,255,0.05)' } },
+        y: { title: { display: true, text: 'σ(d)/σ(0)', color: '#7a8a9a' }, ticks: { color: '#7a8a9a' }, grid: { color: 'rgba(255,255,255,0.05)' },
+          type: 'logarithmic', min: 1e-8, max: 1.5
+        }
+      }
+    }
+  });
+
+  // Chart 2: Δμ/|μ| and ω_ex/|μ|
+  if (charts[2]) charts[2].destroy();
+  const datasets2 = [
+    { label: 'Δμ/|μ|', data: sweepData.map(p => p.dmu_ratio), borderColor: '#4ecdc4', borderWidth: 2, pointRadius: 0, fill: false, yAxisID: 'y' },
+    { label: 'ω_ex/|μ|', data: sweepData.map(p => p.omega_ex / Math.abs(soliton.mu)), borderColor: '#ff6b6b', borderWidth: 2, pointRadius: 0, fill: false, yAxisID: 'y' },
+    { label: 'γ_VK/|μ| = 3.49', data: sweepData.map(() => 3.49), borderColor: '#ffd93d', borderWidth: 1.5, pointRadius: 0, fill: false, borderDash: [6, 3], yAxisID: 'y' },
+  ];
+  if (S.m !== 0) {
+    datasets2.push({ label: 'ω_phase/|μ|', data: sweepData.map(p => p.omega_phase / Math.abs(soliton.mu)), borderColor: '#a78bfa', borderWidth: 2, pointRadius: 0, fill: false, yAxisID: 'y' });
+    datasets2.push({ label: '(ω_ex+ω_phase)/|μ|', data: sweepData.map(p => (p.omega_ex + p.omega_phase) / Math.abs(soliton.mu)), borderColor: '#34d399', borderWidth: 2, pointRadius: 0, fill: false, borderDash: [3, 2], yAxisID: 'y' });
+  }
+  charts[2] = new Chart(document.getElementById('chart2'), {
+    type: 'line',
+    data: { labels, datasets: datasets2 },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: '#e6eef7', font: { size: 11 } } },
+        title: { display: true, text: 'Eigenvalue Splitting & Coupling Frequencies', color: '#e6eef7' }
+      },
+      scales: {
+        x: { title: { display: true, text: 'd / r_p', color: '#7a8a9a' }, ticks: { color: '#7a8a9a', maxTicksLimit: 15 }, grid: { color: 'rgba(255,255,255,0.05)' } },
+        y: { title: { display: true, text: 'ratio to |μ|', color: '#7a8a9a' }, ticks: { color: '#7a8a9a' }, grid: { color: 'rgba(255,255,255,0.05)' }, type: 'logarithmic', min: 0.001, max: 50 }
+      }
+    }
+  });
+
+  // Chart 3: z_min(d)
+  if (charts[3]) charts[3].destroy();
+  const datasets3 = [
+    { label: 'z_min (m=0)', data: sweepData.map(p => p.z_min_m0), borderColor: '#4ecdc4', borderWidth: 2, pointRadius: 0, fill: false, stepped: true }
+  ];
+  if (S.m !== 0) {
+    datasets3.push({ label: `z_min (m=${S.m})`, data: sweepData.map(p => p.z_min_m), borderColor: '#a78bfa', borderWidth: 2, pointRadius: 0, fill: false, stepped: true });
+  }
+  datasets3.push({ label: 'V31r3: z_min = 4', data: sweepData.map(() => 4), borderColor: '#ffd93d', borderWidth: 1.5, pointRadius: 0, fill: false, borderDash: [6, 3] });
+
+  charts[3] = new Chart(document.getElementById('chart3'), {
+    type: 'line',
+    data: { labels, datasets: datasets3 },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: '#e6eef7', font: { size: 11 } } },
+        title: { display: true, text: 'Minimum Coordination Number z_min(d)', color: '#e6eef7' }
+      },
+      scales: {
+        x: { title: { display: true, text: 'd / r_p', color: '#7a8a9a' }, ticks: { color: '#7a8a9a', maxTicksLimit: 15 }, grid: { color: 'rgba(255,255,255,0.05)' } },
+        y: { title: { display: true, text: 'z_min', color: '#7a8a9a' }, ticks: { color: '#7a8a9a' }, grid: { color: 'rgba(255,255,255,0.05)' }, min: 0, max: 15 }
+      }
+    }
+  });
+}
+
+function updateVKSummary() {
+  if (!sweepData || !soliton) return;
+  const { mu, diag } = soliton;
+  const gamma_VK = 3.49 * Math.abs(mu);
+
+  // Find d where z_min = 4
+  let d_z4 = null;
+  for (const p of sweepData) {
+    if (p.z_min_m0 <= 4) { d_z4 = p; break; }
+  }
+
+  // Find d where z_min(m) = 4 for helical
+  let d_z4_m = null;
+  if (S.m !== 0) {
+    for (const p of sweepData) {
+      if (p.z_min_m <= 4) { d_z4_m = p; break; }
+    }
+  }
+
+  let html = `<span class="label">γ_VK:</span> <span class="value">${gamma_VK.toFixed(4)}</span> (= 3.49|μ|)<br>`;
+  html += `<span class="label">κ:</span> <span class="value">${diag.kappa.toFixed(4)}</span><br>`;
+  html += `<span class="label">Yukawa range:</span> <span class="value">${(1/(2*diag.kappa)).toFixed(4)}</span> = 1/(2κ)<br>`;
+
+  if (d_z4) {
+    html += `<span class="label">z_min=4 at:</span> <span class="value">d/r_p = ${d_z4.d_rp.toFixed(2)}</span> (m=0)<br>`;
+    html += `<span class="label">  Δμ/|μ| there:</span> <span class="value">${d_z4.dmu_ratio.toFixed(3)}</span><br>`;
+    html += `<span class="label">  ω_ex/|μ|:</span> <span class="value">${(d_z4.omega_ex / Math.abs(mu)).toFixed(3)}</span><br>`;
+  } else {
+    html += `<span class="warn">z_min=4 not reached in sweep range (m=0)</span><br>`;
+  }
+
+  if (S.m !== 0) {
+    if (d_z4_m) {
+      html += `<span class="label">z_min=4 at:</span> <span class="value">d/r_p = ${d_z4_m.d_rp.toFixed(2)}</span> (m=${S.m}, helical)<br>`;
+      html += `<span class="label">  ω_phase/|μ|:</span> <span class="value">${(d_z4_m.omega_phase / Math.abs(mu)).toFixed(3)}</span><br>`;
+    } else {
+      html += `<span class="warn">z_min=4 not reached (m=${S.m})</span><br>`;
+    }
+    html += `<span class="label">Helical advantage:</span> <span class="value">`;
+    if (d_z4 && d_z4_m) {
+      html += `d_crit shifts from ${d_z4.d_rp.toFixed(2)} to ${d_z4_m.d_rp.toFixed(2)} r_p`;
+    } else {
+      html += `—`;
+    }
+    html += `</span><br>`;
+  }
+
+  document.getElementById('vk-summary').innerHTML = html;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  CSV EXPORT
+// ═══════════════════════════════════════════════════════════════
+function exportCSV() {
+  if (!sweepData || sweepData.length === 0) {
+    setStatus('No sweep data — run sweep first', 'error');
+    return;
+  }
+
+  const mu = soliton.mu;
+  const header = [
+    '# CGG V31r3 Radial Overlap Sweep',
+    `# ell=${S.ell}, m=${S.m}, g=${S.g}, A0=${S.A0}`,
+    `# mu=${mu.toFixed(8)}, kappa=${soliton.diag.kappa.toFixed(6)}, r_p=${soliton.diag.rp.toFixed(6)}`,
+    `# gamma_VK=${(3.49*Math.abs(mu)).toFixed(6)}, N=${soliton.diag.N.toFixed(6)}, I=${soliton.diag.I.toFixed(6)}`,
+    `# N*I=${soliton.diag.NI.toFixed(4)}, Q4=${soliton.diag.Q4.toFixed(6)}`,
+    `# master_residual=${soliton.diag.master.toExponential(4)}`,
+    '#',
+    'd_abs,d_over_rp,sigma,sigma_norm,delta_mu,delta_mu_over_mu,omega_ex,omega_phase,omega_total,z_min_m0,z_min_m,gamma_VK'
+  ].join('\n');
+
+  const rows = sweepData.map(p =>
+    [p.d, p.d_rp, p.sigma, p.sigma_norm, p.dmu, p.dmu_ratio,
+     p.omega_ex, p.omega_phase, p.omega_ex + p.omega_phase,
+     p.z_min_m0, p.z_min_m, p.gamma_VK
+    ].map(v => typeof v === 'number' ? v.toExponential(8) : v).join(',')
+  );
+
+  const csv = header + '\n' + rows.join('\n');
+  downloadFile(`cgg_overlap_sweep_ell${S.ell}_m${S.m}_g${S.g}_A0${S.A0}.csv`, csv, 'text/csv');
+  setStatus('CSV exported', 'done');
+}
+
+function exportProfile() {
+  if (!soliton) {
+    setStatus('No soliton — shoot first', 'error');
+    return;
+  }
+  const { sol, mu, diag } = soliton;
+  const header = [
+    '# CGG V31r3 Soliton Radial Profile',
+    `# ell=${S.ell}, m=${S.m}, g=${S.g}, A0=${S.A0}`,
+    `# mu=${mu.toFixed(8)}, kappa=${diag.kappa.toFixed(6)}, r_p=${diag.rp.toFixed(6)}`,
+    '#',
+    'r,u,R,u_prime'
+  ].join('\n');
+
+  const dr = sol.r[1] - sol.r[0];
+  const rows = [];
+  for (let i = 0; i < sol.nValid && sol.r[i] < 30; i += 2) {
+    const ri = sol.r[i];
+    const ui = sol.u[i];
+    const Ri = ri > 1e-8 ? ui / ri : 0;
+    const upi = (i > 0 && i < sol.nValid - 1) ? (sol.u[i+1] - sol.u[i-1]) / (2*dr) : 0;
+    rows.push([ri, ui, Ri, upi].map(v => v.toExponential(10)).join(','));
+  }
+
+  const csv = header + '\n' + rows.join('\n');
+  downloadFile(`cgg_soliton_profile_ell${S.ell}_m${S.m}_g${S.g}_A0${S.A0}.csv`, csv, 'text/csv');
+  setStatus('Profile exported', 'done');
+}
+
+function downloadFile(filename, content, type) {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  UI HELPERS
+// ═══════════════════════════════════════════════════════════════
+function updateSlider(el, key) {
+  const val = parseFloat(el.value);
+  S[key] = (key === 'ell' || key === 'm') ? parseInt(el.value) : val;
+  const display = (key === 'ell' || key === 'm') ? S[key].toString() : val.toFixed(2);
+  document.getElementById('v-' + key).textContent = display;
+  // Clamp m ≤ ℓ
+  if (key === 'ell' && S.m > S.ell) {
+    S.m = S.ell;
+    document.getElementById('sl-m').value = S.m;
+    document.getElementById('sl-m').max = S.ell;
+    document.getElementById('v-m').textContent = S.m;
+  }
+  if (key === 'ell') {
+    document.getElementById('sl-m').max = S.ell;
+  }
+}
+
+function switchTab(idx) {
+  document.querySelectorAll('.tab').forEach((t, i) => t.classList.toggle('active', i === idx));
+  for (let i = 0; i < 4; i++) {
+    document.getElementById('chart' + i).style.display = i === idx ? 'block' : 'none';
+  }
+  activeTab = idx;
+}
+
+function setStatus(msg, cls) {
+  const el = document.getElementById('status');
+  el.textContent = msg;
+  el.className = 'status ' + (cls || '');
+}
+
+function loadPreset(name) {
+  const presets = {
+    canonical: { g: 2.86, ell: 1, m: 0, A0: 1.0, dmin: 0.5, dmax: 6.0, npts: 80 },
+    helical:   { g: 2.86, ell: 1, m: 1, A0: 1.0, dmin: 0.5, dmax: 6.0, npts: 80 },
+    ell2:      { g: 2.86, ell: 2, m: 0, A0: 1.0, dmin: 0.5, dmax: 8.0, npts: 80 },
+    highres:   { g: 2.86, ell: 1, m: 0, A0: 1.0, dmin: 0.3, dmax: 8.0, npts: 200 },
+  };
+  const p = presets[name];
+  if (!p) return;
+
+  S.g = p.g; S.ell = p.ell; S.m = p.m; S.A0 = p.A0;
+  document.getElementById('sl-g').value = p.g;
+  document.getElementById('v-g').textContent = p.g.toFixed(2);
+  document.getElementById('sl-ell').value = p.ell;
+  document.getElementById('v-ell').textContent = p.ell;
+  document.getElementById('sl-m').value = p.m;
+  document.getElementById('sl-m').max = p.ell;
+  document.getElementById('v-m').textContent = p.m;
+  document.getElementById('sl-A0').value = p.A0;
+  document.getElementById('v-A0').textContent = p.A0.toFixed(2);
+  document.getElementById('d-min').value = p.dmin;
+  document.getElementById('d-max').value = p.dmax;
+  document.getElementById('n-pts').value = p.npts;
+
+  setStatus(`Preset loaded: ${name}`, 'done');
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════════════
+document.getElementById('sl-m').max = S.ell;
+setStatus('Ready — click "Shoot Soliton" to begin', '');
+</script>
+</body>
+</html>
