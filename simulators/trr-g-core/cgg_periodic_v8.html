@@ -1,0 +1,1509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CGG — Coherence Architecture of the Elements</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600;700&family=Cormorant+Garamond:wght@600;700&display=swap');
+
+*{margin:0;padding:0;box-sizing:border-box}
+
+:root{
+  --bg:#04060e;
+  --panel:rgba(8,12,24,0.96);
+  --panel-2:rgba(10,15,28,0.92);
+  --card:rgba(14,18,35,0.8);
+  --text:#c8d4e4;
+  --muted:#4a5a72;
+  --dim:#2a3448;
+  --accent-s:#e8575f;
+  --accent-p:#3ec9be;
+  --accent-d:#9580f0;
+  --accent-f:#e8a830;
+  --border:rgba(255,255,255,0.05);
+  --glow-s:rgba(232,87,95,0.25);
+  --glow-p:rgba(62,201,190,0.25);
+  --glow-d:rgba(149,128,240,0.25);
+  --glow-f:rgba(232,168,48,0.25);
+}
+
+body{
+  font-family:'IBM Plex Mono',monospace;
+  background:var(--bg);
+  color:var(--text);
+  min-height:100vh;
+}
+
+body::before{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:
+    radial-gradient(ellipse 900px 500px at 15% 25%,rgba(62,201,190,0.03),transparent),
+    radial-gradient(ellipse 600px 700px at 85% 75%,rgba(149,128,240,0.03),transparent);
+}
+
+.app{
+  position:relative;z-index:1;max-width:1680px;margin:0 auto;padding:16px;
+  display:grid;grid-template-columns:320px minmax(0,1fr);gap:18px;align-items:start;
+}
+
+.sidebar{
+  position:sticky;top:16px;
+  display:flex;flex-direction:column;gap:12px;
+}
+
+.side-card{
+  background:var(--panel);
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:14px 16px;
+  box-shadow:0 8px 24px rgba(0,0,0,0.22);
+}
+
+.brand h1{
+  font-family:'Cormorant Garamond',serif;font-weight:700;
+  font-size:clamp(1.5rem,2.4vw,2.15rem);
+  line-height:1.02; letter-spacing:0.03em;
+}
+.brand h1 span{
+  background:linear-gradient(135deg,var(--accent-p),var(--accent-d));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+.tagline{
+  font-size:0.62rem;color:var(--muted);margin-top:8px;
+  letter-spacing:0.16em;text-transform:uppercase;
+}
+
+.side-card h3{
+  font-size:0.66rem;
+  color:var(--text);
+  letter-spacing:0.08em;
+  text-transform:uppercase;
+  margin-bottom:8px;
+}
+
+.framing{
+  font-size:0.64rem;line-height:1.72;color:var(--muted);
+}
+.framing strong{color:var(--accent-p);font-weight:600}
+.framing em{color:var(--text);font-style:normal}
+
+.nesting{
+  display:flex;flex-direction:column;gap:7px;
+}
+.nest-level{
+  padding:8px 10px;font-size:0.55rem;
+  border:1px solid var(--border);border-radius:8px;
+  background:var(--card);position:relative;
+}
+.nest-level .label{color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;font-size:0.43rem}
+.nest-level .name{font-weight:600;margin-top:3px}
+.nest-level .cgg{font-size:0.44rem;color:var(--accent-p);margin-top:3px}
+.nest-arrow{
+  align-self:center;color:var(--dim);font-size:0.8rem;line-height:1;
+}
+
+.inputs-bar{
+  display:grid;gap:8px;
+  font-size:0.56rem;color:var(--muted);
+}
+.input-param{
+  padding:7px 10px;border:1px solid var(--border);border-radius:7px;
+  background:rgba(255,255,255,0.02);
+}
+.input-param .val{color:var(--text);font-weight:600}
+.input-param .tag{
+  font-size:0.42rem;background:rgba(232,87,95,0.15);color:var(--accent-s);
+  padding:1px 4px;border-radius:2px;margin-left:4px;
+}
+
+.legend{
+  display:grid;gap:8px;
+  font-size:0.58rem;
+}
+.legend-item{display:flex;align-items:center;gap:7px}
+.legend-swatch{width:12px;height:12px;border-radius:3px;border:1px solid rgba(255,255,255,0.08)}
+
+.filters{display:flex;gap:6px;flex-wrap:wrap}
+.fbtn{
+  background:rgba(255,255,255,0.03);border:1px solid var(--border);
+  color:var(--muted);padding:5px 12px;border-radius:16px;
+  font-size:0.56rem;font-family:inherit;cursor:pointer;transition:all 0.2s;
+}
+.fbtn:hover,.fbtn.on{
+  background:rgba(62,201,190,0.1);border-color:rgba(62,201,190,0.25);color:var(--accent-p);
+}
+
+.view-tabs{display:flex;gap:6px;flex-wrap:wrap}
+.vtab{
+  background:rgba(255,255,255,0.03);border:1px solid var(--border);
+  color:var(--muted);padding:6px 14px;border-radius:7px;
+  font-size:0.57rem;font-family:inherit;cursor:pointer;transition:all 0.2s;
+}
+.vtab:hover,.vtab.on{background:rgba(149,128,240,0.1);border-color:rgba(149,128,240,0.25);color:var(--accent-d)}
+
+.foot{
+  font-size:0.54rem;color:var(--muted);line-height:1.75;
+}
+.foot .eq{color:var(--muted)}
+.foot .ti{
+  display:inline-block;background:rgba(62,201,190,0.1);color:var(--accent-p);
+  padding:1px 5px;border-radius:2px;font-size:0.42rem;margin:0 4px 0 0;
+}
+.equation-toggle{
+  width:100%;text-align:left;border:none;cursor:pointer;
+  background:rgba(255,255,255,0.02);color:var(--text);
+  border:1px solid var(--border);border-radius:8px;padding:8px 10px;
+  font-family:inherit;font-size:0.58rem;
+}
+.equation-toggle summary{list-style:none}
+.equation-toggle summary::-webkit-details-marker{display:none}
+.equation-toggle .summary-line{display:flex;justify-content:space-between;gap:10px;align-items:center}
+.equation-toggle .summary-line span:last-child{color:var(--muted)}
+.equation-body{padding-top:10px}
+
+.main{
+  min-width:0;
+  display:flex;flex-direction:column;gap:14px;
+}
+
+.main-top{
+  background:var(--panel-2);border:1px solid var(--border);border-radius:12px;
+  padding:14px 16px;
+}
+.main-top h2{
+  font-family:'Cormorant Garamond',serif;font-size:1.28rem;font-weight:700;
+  color:var(--text);margin-bottom:4px;
+}
+.main-top p{
+  font-size:0.68rem;line-height:1.7;color:var(--muted);max-width:980px;
+}
+.main-top strong{color:var(--accent-p)}
+
+.table-wrap{overflow-x:auto;padding-bottom:8px}
+.table-shell{
+  background:var(--panel);
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:14px;
+}
+
+.pgrid{
+  display:grid;grid-template-columns:repeat(18,minmax(62px,1fr));
+  gap:3px;min-width:1140px;
+}
+
+.el{
+  position:relative;aspect-ratio:1;min-height:62px;border-radius:7px;
+  cursor:pointer;transition:all 0.2s cubic-bezier(0.4,0,0.2,1);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  border:1px solid var(--border);overflow:hidden;
+}
+.el::after{
+  content:'';position:absolute;inset:0;border-radius:7px;
+  opacity:0;transition:opacity 0.2s;pointer-events:none;
+}
+.el:hover{transform:scale(1.16);z-index:20;border-color:rgba(255,255,255,0.15)}
+.el:hover::after{opacity:1}
+.el.sel{transform:scale(1.16);z-index:20;border-color:rgba(255,255,255,0.2)}
+.el.sel::after{opacity:1}
+.el.faded{opacity:0.12}
+
+.el.s-ch{background:rgba(232,87,95,0.1)}
+.el.s-ch::after{background:radial-gradient(circle,var(--glow-s),transparent 70%)}
+.el.s-ch .sym{color:var(--accent-s)}
+.el.p-ch{background:rgba(62,201,190,0.1)}
+.el.p-ch::after{background:radial-gradient(circle,var(--glow-p),transparent 70%)}
+.el.p-ch .sym{color:var(--accent-p)}
+.el.d-ch{background:rgba(149,128,240,0.1)}
+.el.d-ch::after{background:radial-gradient(circle,var(--glow-d),transparent 70%)}
+.el.d-ch .sym{color:var(--accent-d)}
+.el.f-ch{background:rgba(232,168,48,0.1)}
+.el.f-ch::after{background:radial-gradient(circle,var(--glow-f),transparent 70%)}
+.el.f-ch .sym{color:var(--accent-f)}
+
+.el .zn{font-size:0.44rem;color:var(--muted);position:absolute;top:3px;left:4px}
+.el .sym{font-size:clamp(0.95rem,1.4vw,1.18rem);font-weight:700;line-height:1}
+.el .ms{font-size:0.4rem;color:var(--muted);margin-top:2px}
+.el .badge{position:absolute;bottom:2px;right:3px;font-size:0.36rem;opacity:0.68;font-weight:500}
+
+.el .thumb{
+  position:absolute;inset:0;width:100%;height:100%;
+  opacity:0.84;pointer-events:none;mix-blend-mode:screen;
+}
+.el .core{
+  position:absolute;inset:0;
+  background:radial-gradient(circle at 50% 50%, rgba(255,255,255,0.05), transparent 55%);
+  pointer-events:none;
+}
+.el .zn,.el .sym,.el .ms,.el .badge{position:relative;z-index:2}
+
+.spacer{visibility:hidden}
+.gap-lbl{
+  display:flex;align-items:center;justify-content:center;
+  font-size:0.48rem;color:var(--dim);border:1px dashed rgba(255,255,255,0.06);
+  border-radius:7px;cursor:pointer;min-height:62px;aspect-ratio:1;
+}
+
+.la-section{margin-top:8px}
+.la-label{
+  font-size:0.5rem;color:var(--dim);margin-bottom:5px;padding-left:4px;
+  text-transform:uppercase;letter-spacing:0.12em
+}
+.la-row{
+  display:grid;grid-template-columns:repeat(15,minmax(62px,1fr));
+  gap:3px;min-width:948px;
+}
+@media(min-width:1140px){.la-row{margin-left:calc(3*(100%/18 + 3px))}}
+
+.detail{
+  background:var(--panel);border:1px solid var(--border);
+  border-radius:14px;padding:22px;display:none;
+  animation:slideUp 0.25s ease;
+}
+.detail.vis{display:grid;grid-template-columns:280px 1fr;gap:24px}
+@keyframes slideUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+.det-viz{display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start;gap:12px}
+.det-viz canvas{
+  width:256px;height:256px;border-radius:10px;border:1px solid var(--border);
+  background:rgba(0,0,0,0.2)
+}
+.det-viz .cap{font-size:0.54rem;color:var(--muted);line-height:1.6}
+
+.det-info h2{font-family:'Cormorant Garamond',serif;font-size:2.2rem;font-weight:700;line-height:1}
+.det-info .sub{font-size:0.82rem;color:var(--muted);margin:8px 0 14px;line-height:1.7}
+
+.det-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px}
+
+.df{
+  background:rgba(255,255,255,0.02);padding:14px 14px;border-radius:8px;border:1px solid var(--border);
+  min-height:108px;
+}
+.df .lbl{font-size:0.54rem;text-transform:uppercase;letter-spacing:0.09em;color:var(--muted);margin-bottom:6px}
+.df .val{font-size:1rem;font-weight:600;line-height:1.45}
+.df .nt{font-size:0.5rem;color:var(--muted);margin-top:6px;line-height:1.55}
+.df .tier{
+  display:inline-block;font-size:0.4rem;padding:1px 4px;border-radius:2px;
+  margin-left:4px;
+}
+.df .tier.t1{background:rgba(62,201,190,0.12);color:var(--accent-p)}
+.df .tier.t2{background:rgba(149,128,240,0.12);color:var(--accent-d)}
+.df .tier.t3{background:rgba(232,87,95,0.12);color:var(--accent-s)}
+.df .tier.input{background:rgba(232,168,48,0.12);color:var(--accent-f)}
+
+.nest-detail{
+  margin-top:14px;padding:14px 16px;
+  background:rgba(255,255,255,0.015);border:1px solid var(--border);border-radius:8px;
+  font-size:0.68rem;line-height:1.85;
+}
+.nest-detail .hd{
+  font-weight:600;color:var(--accent-p);margin-bottom:6px;font-size:0.56rem;
+  text-transform:uppercase;letter-spacing:0.09em
+}
+
+@media(max-width:1200px){
+  .app{grid-template-columns:1fr}
+  .sidebar{position:static}
+}
+
+@media(max-width:900px){
+  .detail.vis{grid-template-columns:1fr}
+  .det-viz{order:-1;align-items:center}
+  .det-viz canvas{width:min(100%,280px);height:auto;aspect-ratio:1}
+}
+
+@media(max-width:768px){
+  .pgrid,.la-row{min-width:0}
+  .pgrid{grid-template-columns:repeat(18,52px)}
+  .la-row{grid-template-columns:repeat(15,52px);margin-left:0}
+  .main-top p{font-size:0.64rem}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="side-card brand">
+      <h1>The <span>Coherence Architecture</span> of the Elements</h1>
+      <div class="tagline">CGG — Explaining why matter has the structure it does</div>
+    </div>
+
+    <div class="side-card">
+      <h3>Framework</h3>
+      <div class="framing">
+        <strong>What this table shows:</strong> CGG does not predict mass values — those are <em>measured inputs</em>.
+        CGG explains <em>why</em> particles exist as self-trapped soliton composites, <em>why</em> they have minimum masses
+        (BC3 threshold), <em>why</em> they nest into nucleons and nuclei (Yukawa binding from the direct channel),
+        and <em>what structural rules</em> govern stability (VK criterion, z<sub>min</sub>, cascade resonance).
+        Each element is shown with its CGG coherence mode architecture — the soliton channel, composite nesting depth,
+        and stability classification derived from the envelope equation.
+      </div>
+    </div>
+
+    <div class="side-card">
+      <h3>Nesting ladder</h3>
+      <div class="nesting">
+        <div class="nest-level">
+          <div class="label">Level 0</div>
+          <div class="name">Coherence Field ψ</div>
+          <div class="cgg">Mexican-hat vacuum Ψ₀</div>
+        </div>
+        <div class="nest-arrow">↓</div>
+        <div class="nest-level">
+          <div class="label">Level 1</div>
+          <div class="name">Soliton Modes</div>
+          <div class="cgg">R(r)·Y<sub>ℓm</sub>·e<sup>−iμt</sup></div>
+        </div>
+        <div class="nest-arrow">↓</div>
+        <div class="nest-level">
+          <div class="label">Level 2</div>
+          <div class="name">Composites (quarks)</div>
+          <div class="cgg">z ≥ z<sub>min</sub> locked modes</div>
+        </div>
+        <div class="nest-arrow">↓</div>
+        <div class="nest-level">
+          <div class="label">Level 3</div>
+          <div class="name">Nucleons (p, n)</div>
+          <div class="cgg">Nested soliton Yukawa binding</div>
+        </div>
+        <div class="nest-arrow">↓</div>
+        <div class="nest-level">
+          <div class="label">Level 4</div>
+          <div class="name">Nuclei → Atoms</div>
+          <div class="cgg">Z protons + N neutrons + e⁻</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-card">
+      <h3>Inputs and controls</h3>
+      <div class="inputs-bar">
+        <div class="input-param">m<sub>s</sub> = scalar mass <span class="val">(sets ω₀)</span> <span class="tag">INPUT</span></div>
+        <div class="input-param">C<sub>thresh</sub> = stability floor <span class="val">(sets min mass)</span> <span class="tag">INPUT</span></div>
+        <div class="input-param">g<sub>m</sub>Ψ₀² = 4πG <span class="val">(fixes coupling)</span> <span class="tag">DERIVED</span></div>
+      </div>
+      <div style="height:10px"></div>
+      <div class="legend">
+        <div class="legend-item"><div class="legend-swatch" style="background:var(--accent-s)"></div> s-block (ℓ=0 monopole)</div>
+        <div class="legend-item"><div class="legend-swatch" style="background:var(--accent-p)"></div> p-block (ℓ=1 dipole)</div>
+        <div class="legend-item"><div class="legend-swatch" style="background:var(--accent-d)"></div> d-block (ℓ=2 quadrupole)</div>
+        <div class="legend-item"><div class="legend-swatch" style="background:var(--accent-f)"></div> f-block (ℓ=3 octupole)</div>
+      </div>
+      <div style="height:12px"></div>
+      <div class="filters">
+        <button class="fbtn on" onclick="filt(-1)">All</button>
+        <button class="fbtn" onclick="filt(0)">s-block</button>
+        <button class="fbtn" onclick="filt(1)">p-block</button>
+        <button class="fbtn" onclick="filt(2)">d-block</button>
+        <button class="fbtn" onclick="filt(3)">f-block</button>
+      </div>
+      <div style="height:10px"></div>
+      <div class="view-tabs">
+        <button class="vtab on" id="vtab-mode" onclick="setView('mode')">Mode Architecture</button>
+        <button class="vtab" id="vtab-nest" onclick="setView('nest')">Nesting Depth</button>
+        <button class="vtab" id="vtab-stab" onclick="setView('stab')">Stability Class</button>
+      </div>
+    </div>
+
+    <details class="side-card equation-toggle">
+      <summary class="summary-line"><span>Core equations</span><span>expand</span></summary>
+      <div class="equation-body foot">
+        <div><span class="ti">Tier I</span> <span class="eq">i∂<sub>t</sub>A = −(1/2m)∇²A + |A|²A − g|A|²A</span></div>
+        <div><span class="eq">∇²(δC) = −(4πG/c²)ρ</span></div>
+        <div><span class="eq">γ<sub>VK</sub> = 3.49|μ|</span></div>
+        <div><span class="eq">μ = −c(ℓ)·A₀<sup>2/(ℓ+1)</sup></span></div>
+        <div style="color:var(--dim);margin-top:8px">Mass values are measured inputs. Structure is derived from the action. V31r4 §IV–VIII.</div>
+      </div>
+    </details>
+  </aside>
+
+  <main class="main">
+    <div class="main-top">
+      <h2>Periodic table view</h2>
+      <p>
+        <strong>Recommendation applied:</strong> the controls and explanatory text now live in a sidebar so the table stays readable,
+        and the lower detail section has been enlarged for actual use. The next physics upgrade should be to drive thumbnail intensity
+        more directly from <strong>|∇A|²</strong> and let <strong>μ</strong> control radial compression instead of using it only as a label.
+      </p>
+    </div>
+
+    <section class="table-shell">
+      <div class="table-wrap"><div class="pgrid" id="grid"></div></div>
+
+      <div class="la-section table-wrap">
+        <div class="la-label">Lanthanides — 4f soliton shell (octupole nesting)</div>
+        <div class="la-row" id="laRow"></div>
+        <div class="la-label" style="margin-top:6px">Actinides — 5f soliton shell (octupole nesting)</div>
+        <div class="la-row" id="acRow"></div>
+      </div>
+    </section>
+
+    <div class="detail" id="det">
+      <div class="det-viz">
+        <div id="threeContainer" style="width:100%;aspect-ratio:1;max-width:320px;border-radius:8px;overflow:hidden;border:1px solid var(--border);background:#050914;cursor:grab;"></div>
+        <div class="cap" id="cvsCap">Drag to rotate · Y<sub>ℓ,m</sub> soliton mode shape</div>
+      </div>
+      <div class="det-info" id="detInfo"></div>
+    </div>
+  </main>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// ═══════════════════════════════════════
+// ELEMENT DATA
+// ch: dominant channel (s/p/d/f)
+// l: angular quantum number
+// nest: nesting depth description
+// stab: stability classification
+// ═══════════════════════════════════════
+
+const EL=[
+// Main grid elements: [Z, sym, name, mass, ch, l, row, col]
+[1,'H','Hydrogen',1.008,'s',0,1,1],
+[2,'He','Helium',4.003,'s',0,1,18],
+[3,'Li','Lithium',6.941,'s',0,2,1],
+[4,'Be','Beryllium',9.012,'s',0,2,2],
+[5,'B','Boron',10.81,'p',1,2,13],
+[6,'C','Carbon',12.01,'p',1,2,14],
+[7,'N','Nitrogen',14.01,'p',1,2,15],
+[8,'O','Oxygen',16.00,'p',1,2,16],
+[9,'F','Fluorine',19.00,'p',1,2,17],
+[10,'Ne','Neon',20.18,'p',1,2,18],
+[11,'Na','Sodium',22.99,'s',0,3,1],
+[12,'Mg','Magnesium',24.31,'s',0,3,2],
+[13,'Al','Aluminium',26.98,'p',1,3,13],
+[14,'Si','Silicon',28.09,'p',1,3,14],
+[15,'P','Phosphorus',30.97,'p',1,3,15],
+[16,'S','Sulfur',32.07,'p',1,3,16],
+[17,'Cl','Chlorine',35.45,'p',1,3,17],
+[18,'Ar','Argon',39.95,'p',1,3,18],
+[19,'K','Potassium',39.10,'s',0,4,1],
+[20,'Ca','Calcium',40.08,'s',0,4,2],
+[21,'Sc','Scandium',44.96,'d',2,4,3],
+[22,'Ti','Titanium',47.87,'d',2,4,4],
+[23,'V','Vanadium',50.94,'d',2,4,5],
+[24,'Cr','Chromium',52.00,'d',2,4,6],
+[25,'Mn','Manganese',54.94,'d',2,4,7],
+[26,'Fe','Iron',55.85,'d',2,4,8],
+[27,'Co','Cobalt',58.93,'d',2,4,9],
+[28,'Ni','Nickel',58.69,'d',2,4,10],
+[29,'Cu','Copper',63.55,'d',2,4,11],
+[30,'Zn','Zinc',65.38,'d',2,4,12],
+[31,'Ga','Gallium',69.72,'p',1,4,13],
+[32,'Ge','Germanium',72.63,'p',1,4,14],
+[33,'As','Arsenic',74.92,'p',1,4,15],
+[34,'Se','Selenium',78.97,'p',1,4,16],
+[35,'Br','Bromine',79.90,'p',1,4,17],
+[36,'Kr','Krypton',83.80,'p',1,4,18],
+[37,'Rb','Rubidium',85.47,'s',0,5,1],
+[38,'Sr','Strontium',87.62,'s',0,5,2],
+[39,'Y','Yttrium',88.91,'d',2,5,3],
+[40,'Zr','Zirconium',91.22,'d',2,5,4],
+[41,'Nb','Niobium',92.91,'d',2,5,5],
+[42,'Mo','Molybdenum',95.95,'d',2,5,6],
+[43,'Tc','Technetium',98,'d',2,5,7],
+[44,'Ru','Ruthenium',101.1,'d',2,5,8],
+[45,'Rh','Rhodium',102.9,'d',2,5,9],
+[46,'Pd','Palladium',106.4,'d',2,5,10],
+[47,'Ag','Silver',107.9,'d',2,5,11],
+[48,'Cd','Cadmium',112.4,'d',2,5,12],
+[49,'In','Indium',114.8,'p',1,5,13],
+[50,'Sn','Tin',118.7,'p',1,5,14],
+[51,'Sb','Antimony',121.8,'p',1,5,15],
+[52,'Te','Tellurium',127.6,'p',1,5,16],
+[53,'I','Iodine',126.9,'p',1,5,17],
+[54,'Xe','Xenon',131.3,'p',1,5,18],
+[55,'Cs','Caesium',132.9,'s',0,6,1],
+[56,'Ba','Barium',137.3,'s',0,6,2],
+[72,'Hf','Hafnium',178.5,'d',2,6,4],
+[73,'Ta','Tantalum',180.9,'d',2,6,5],
+[74,'W','Tungsten',183.8,'d',2,6,6],
+[75,'Re','Rhenium',186.2,'d',2,6,7],
+[76,'Os','Osmium',190.2,'d',2,6,8],
+[77,'Ir','Iridium',192.2,'d',2,6,9],
+[78,'Pt','Platinum',195.1,'d',2,6,10],
+[79,'Au','Gold',197.0,'d',2,6,11],
+[80,'Hg','Mercury',200.6,'d',2,6,12],
+[81,'Tl','Thallium',204.4,'p',1,6,13],
+[82,'Pb','Lead',207.2,'p',1,6,14],
+[83,'Bi','Bismuth',209.0,'p',1,6,15],
+[84,'Po','Polonium',209,'p',1,6,16],
+[85,'At','Astatine',210,'p',1,6,17],
+[86,'Rn','Radon',222,'p',1,6,18],
+[87,'Fr','Francium',223,'s',0,7,1],
+[88,'Ra','Radium',226,'s',0,7,2],
+[104,'Rf','Rutherfordium',267,'d',2,7,4],
+[105,'Db','Dubnium',268,'d',2,7,5],
+[106,'Sg','Seaborgium',269,'d',2,7,6],
+[107,'Bh','Bohrium',270,'d',2,7,7],
+[108,'Hs','Hassium',277,'d',2,7,8],
+[109,'Mt','Meitnerium',278,'d',2,7,9],
+[110,'Ds','Darmstadtium',281,'d',2,7,10],
+[111,'Rg','Roentgenium',282,'d',2,7,11],
+[112,'Cn','Copernicium',285,'d',2,7,12],
+[113,'Nh','Nihonium',286,'p',1,7,13],
+[114,'Fl','Flerovium',289,'p',1,7,14],
+[115,'Mc','Moscovium',290,'p',1,7,15],
+[116,'Lv','Livermorium',293,'p',1,7,16],
+[117,'Ts','Tennessine',294,'p',1,7,17],
+[118,'Og','Oganesson',294,'p',1,7,18],
+];
+
+const LA=[
+[57,'La','Lanthanum',138.9,'d',2],[58,'Ce','Cerium',140.1,'f',3],
+[59,'Pr','Praseodymium',140.9,'f',3],[60,'Nd','Neodymium',144.2,'f',3],
+[61,'Pm','Promethium',145,'f',3],[62,'Sm','Samarium',150.4,'f',3],
+[63,'Eu','Europium',152.0,'f',3],[64,'Gd','Gadolinium',157.3,'f',3],
+[65,'Tb','Terbium',158.9,'f',3],[66,'Dy','Dysprosium',162.5,'f',3],
+[67,'Ho','Holmium',164.9,'f',3],[68,'Er','Erbium',167.3,'f',3],
+[69,'Tm','Thulium',168.9,'f',3],[70,'Yb','Ytterbium',173.0,'f',3],
+[71,'Lu','Lutetium',175.0,'d',2],
+];
+
+const AC=[
+[89,'Ac','Actinium',227,'d',2],[90,'Th','Thorium',232.0,'f',3],
+[91,'Pa','Protactinium',231.0,'f',3],[92,'U','Uranium',238.0,'f',3],
+[93,'Np','Neptunium',237,'f',3],[94,'Pu','Plutonium',244,'f',3],
+[95,'Am','Americium',243,'f',3],[96,'Cm','Curium',247,'f',3],
+[97,'Bk','Berkelium',247,'f',3],[98,'Cf','Californium',251,'f',3],
+[99,'Es','Einsteinium',252,'f',3],[100,'Fm','Fermium',257,'f',3],
+[101,'Md','Mendelevium',258,'f',3],[102,'No','Nobelium',259,'f',3],
+[103,'Lr','Lawrencium',266,'d',2],
+];
+
+// ── CGG Physics (from V31r4) ──
+const CL={0:0.2405,1:0.1366,2:0.1172,3:0.1084};
+const ZMIN={s:{0:2},p:{0:2,1:1},d:{0:4},f:{0:6}};
+const EXPO=l=>2/(l+1);
+const CHAN_NAMES={s:'Monopole',p:'Dipole',d:'Quadrupole',f:'Octupole'};
+const CHAN_FULL={s:'ℓ=0 (s)',p:'ℓ=1 (p)',d:'ℓ=2 (d)',f:'ℓ=3 (f)'};
+
+// Stability class based on Z
+function stabClass(Z){
+  // Known stable isotopes exist for Z=1-82 (except Tc=43, Pm=61)
+  if(Z===43||Z===61) return 'meta';
+  if(Z<=82) return 'stable';
+  if(Z<=92) return 'long'; // U, Th etc — long-lived
+  if(Z<=103) return 'short';
+  return 'synth';
+}
+
+function stabLabel(s){
+  return{stable:'Stable composite',meta:'Metastable (no stable isotope)',
+    long:'Long-lived decay chain',short:'Short-lived (high-q cascade)',
+    synth:'Synthetic (τ < seconds)'}[s];
+}
+
+function stabColor(s){
+  return{stable:'var(--accent-p)',meta:'var(--accent-f)',
+    long:'var(--accent-d)',short:'var(--accent-s)',synth:'var(--dim)'}[s];
+}
+
+// Nesting depth
+function nestDepth(Z){
+  if(Z<=0) return 0;
+  // quarks→nucleons→nucleus→atom
+  // All atoms are nesting level 4
+  // But the internal complexity varies with Z
+  return 4;
+}
+
+function nestDesc(Z){
+  const p=Z, n=Math.round(Z*1.2); // approximate neutron count
+  const quarks=p*3+n*3;
+  return `${p}p + ~${Math.round(Z*0.3+Z*0.9)}n → ${quarks} quarks → ${p+Math.round(Z*0.3+Z*0.9)} nucleons → Z=${Z} nucleus + ${Z}e⁻`;
+}
+
+function compositeDetail(Z,l,ch){
+  const sc=stabClass(Z);
+  const exp=EXPO(l);
+  const cl=CL[Math.min(l,3)]||0.10;
+  const zm=ZMIN[ch]?.[0]||2;
+
+  return `
+    <h2 style="color:var(--accent-${ch})">${DATA.sym} <span style="font-weight:400;font-size:0.9rem;color:var(--muted)">${DATA.name}</span></h2>
+    <div class="sub">Z = ${Z} · ${DATA.mass} u · ${CHAN_NAMES[ch]} channel · ${stabLabel(sc)}</div>
+  `;
+}
+
+// ── Current view mode ──
+let curView='mode';
+let curFilt=-1;
+let DATA=null; // selected element data object
+
+function mkObj(arr,isLaAc){
+  if(!isLaAc){
+    return{Z:arr[0],sym:arr[1],name:arr[2],mass:arr[3],ch:arr[4],l:arr[5],
+      row:arr[6],col:arr[7]};
+  }
+  const period = arr[0] < 89 ? 6 : 7;
+  const isEndpointD = arr[4] === 'd';
+  let col;
+  if(isEndpointD){
+    if(arr[0] === 57 || arr[0] === 89) col = 3;
+    else col = 17;
+  }
+  return{Z:arr[0],sym:arr[1],name:arr[2],mass:arr[3],ch:arr[4],l:arr[5],
+    row:period,col};
+}
+
+// ── Thumbnail helpers ──
+function inferredPeriod(o){
+  if(Number.isFinite(o.row)) return o.row;
+  if(o.Z>=57 && o.Z<=71) return 6;
+  if(o.Z>=89 && o.Z<=103) return 7;
+  return 1;
+}
+function blockPos(o){
+  if(o.ch==='s') return Math.max(1, o.col||1);
+  if(o.ch==='p') return Math.max(1, (o.col||13)-12);
+  if(o.ch==='d') return Math.max(1, (o.col||3)-2);
+  if(o.ch==='f'){
+    // Count only f-block elements (skip La/Lu and Ac/Lr which are d-block)
+    let count = 0;
+    for(const e of LA){
+      if(e[4]==='f') count++;
+      if(e[0]===o.Z) return e[4]==='f' ? count : 1;
+    }
+    count = 0;
+    for(const e of AC){
+      if(e[4]==='f') count++;
+      if(e[0]===o.Z) return e[4]==='f' ? count : 1;
+    }
+  }
+  return 1;
+}
+function blockCap(ch){ return {s:2,p:6,d:10,f:14}[ch]||2; }
+function principalShell(o){
+  const row=inferredPeriod(o);
+  if(o.ch==='s'||o.ch==='p') return row;
+  if(o.ch==='d') return Math.max(3,row-1);
+  if(o.ch==='f') return Math.max(4,row-2);
+  return row||1;
+}
+
+// ── Build element cell ──
+function mkCell(o){
+  const d=document.createElement('div');
+  d.className=`el ${o.ch}-ch`;
+  d.dataset.z=o.Z;d.dataset.l=o.l;d.dataset.ch=o.ch;d.dataset.sym=o.sym;d.dataset.name=o.name;d.dataset.mass=o.mass;d.dataset.cat=o.cat;d.dataset.row=o.row||0;d.dataset.col=o.col||0;d.dataset.extended=o.extended?1:0;
+
+  let extra='';
+  if(curView==='nest'){
+    extra=`<span class="badge">${o.Z>0?'L4':''}</span>`;
+  }else if(curView==='stab'){
+    const sc=stabClass(o.Z);
+    const c=stabColor(sc);
+    d.style.borderColor=c.replace('var(','').replace(')','');
+    extra=`<span class="badge" style="color:${c}">${sc==='stable'?'●':sc==='long'?'◐':sc==='meta'?'◑':'○'}</span>`;
+  }else{
+    extra=`<span class="badge">ℓ${o.l}</span>`;
+  }
+
+  d.innerHTML=`<canvas class="thumb" width="72" height="72"></canvas><div class="core"></div><span class="zn">${o.Z}</span><span class="sym">${o.sym}</span><span class="ms">${o.mass<10?o.mass.toFixed(3):o.mass<100?o.mass.toFixed(2):o.mass.toFixed(1)}</span>${extra}`;
+  d.onclick=()=>selectEl(o);
+  // Stagger thumbnail renders to avoid page freeze
+  const delay = (thumbQueue || 0);
+  thumbQueue = delay + 1;
+  setTimeout(()=>drawThumb(d.querySelector('.thumb'),o), delay * 12);
+  return d;
+}
+let thumbQueue = 0;
+
+function buildGrid(){
+  thumbQueue = 0;
+  const g=document.getElementById('grid');g.innerHTML='';
+  for(let r=1;r<=7;r++){
+    for(let c=1;c<=18;c++){
+      const arr=EL.find(e=>e[6]===r&&e[7]===c);
+      if((r===6&&c===3)||(r===7&&c===3)){
+        const p=document.createElement('div');p.className='gap-lbl';
+        p.textContent=r===6?'57–71':'89–103';
+        p.onclick=()=>document.querySelector('.la-section').scrollIntoView({behavior:'smooth'});
+        g.appendChild(p);continue;
+      }
+      if(arr){const o=mkObj(arr);g.appendChild(mkCell(o));}
+      else{const s=document.createElement('div');s.className='spacer';g.appendChild(s);}
+    }
+  }
+  const lr=document.getElementById('laRow');lr.innerHTML='';
+  LA.forEach(a=>{const o=mkObj(a,true);lr.appendChild(mkCell(o));});
+  const ar=document.getElementById('acRow');ar.innerHTML='';
+  AC.forEach(a=>{const o=mkObj(a,true);ar.appendChild(mkCell(o));});
+
+  applyFilter();
+}
+
+function filt(l){
+  curFilt=l;
+  document.querySelectorAll('.fbtn').forEach((b,i)=>b.classList.toggle('on',l===-1?i===0:i===l+1));
+  applyFilter();
+}
+
+function applyFilter(){
+  document.querySelectorAll('.el').forEach(e=>{
+    const el=parseInt(e.dataset.l);
+    e.classList.toggle('faded',curFilt!==-1&&el!==curFilt);
+  });
+}
+
+function setView(v){
+  curView=v;
+  document.querySelectorAll('.vtab').forEach(t=>t.classList.remove('on'));
+  document.getElementById('vtab-'+v).classList.add('on');
+  buildGrid();
+  if(DATA)selectEl(DATA);
+}
+
+// ── Detail panel ──
+function selectEl(o){
+  DATA=o;
+  const pan=document.getElementById('det');pan.classList.add('vis');
+
+  const l=o.l,ch=o.ch;
+  const sc=stabClass(o.Z);
+  const exp=EXPO(l);
+  const cl=(CL[Math.min(l,3)]||0.10);
+  // z_min from V31r4 §4.8 — solver-validated values only
+  // ℓ=1 m=0: z_min=2 [Tier I, 80-200 sweep points]
+  // ℓ=1 m=±1: z_min=1 [Tier I, helical phase-shear]
+  // ℓ=2 m=0: z_min=4 [Tier I, solver-validated]
+  // ℓ=0: not computed (Townes soliton, different stability class)
+  // ℓ=3: not solver-validated, rough estimate from ℓ-scaling
+  const zmLabel = (function(){
+    if(l===0) return {m0:'—', hel:'—', note:'ℓ=0 Townes: VK analysis differs (§4.3)', tier:'t3'};
+    if(l===1) return {m0:'2', hel:'1', note:'Solver-validated (§4.8, 80–200 pts)', tier:'t1'};
+    if(l===2) return {m0:'4', hel:'~2', note:'m=0 solver-validated; helical estimated', tier:'t1'};
+    if(l===3) return {m0:'~6', hel:'~2', note:'Estimated from ℓ-scaling; not solver-validated', tier:'t3'};
+    return {m0:'~'+2*l, hel:'~'+l, note:'Estimated', tier:'t3'};
+  })();
+
+  const nProtons=o.Z;
+  const nNeutrons=Math.round(o.mass)-o.Z;
+  const nQuarks=(nProtons+Math.max(0,nNeutrons))*3;
+
+  document.getElementById('detInfo').innerHTML=`
+    <h2 style="color:var(--accent-${ch})">${o.sym} <span style="font-weight:400;font-size:0.9rem;color:var(--muted)">${o.name}</span></h2>
+    <div class="sub">Z = ${o.Z} · ${o.mass} u · ${CHAN_NAMES[ch]} soliton channel · <span style="color:${stabColor(sc)}">${stabLabel(sc)}</span></div>
+    <div class="det-grid">
+      <div class="df">
+        <div class="lbl">Outermost Soliton Channel</div>
+        <div class="val" style="color:var(--accent-${ch})">${CHAN_FULL[ch]} — Y<sub>${l},m</sub></div>
+        <div class="nt">Dominant mode of valence shell <span class="tier t1">Tier I</span></div>
+      </div>
+      <div class="df">
+        <div class="lbl">Eigenvalue Scaling</div>
+        <div class="val">μ = −c(${l})·A₀<sup>${exp.toFixed(3)}</sup></div>
+        <div class="nt">c(${l}) = ${cl.toFixed(4)} at g = 2.86 <span class="tier t1">Tier I</span></div>
+      </div>
+      <div class="df">
+        <div class="lbl">Atomic Mass</div>
+        <div class="val">${o.mass} u</div>
+        <div class="nt">= ${(o.mass*931.494).toFixed(1)} MeV/c² <span class="tier input">INPUT</span></div>
+      </div>
+      <div class="df">
+        <div class="lbl">VK Stability</div>
+        <div class="val">γ<sub>VK</sub> = 3.49|μ| → z<sub>min</sub> = ${zmLabel.m0} (m=0), ${zmLabel.hel} (helical)</div>
+        <div class="nt">${zmLabel.note} <span class="tier ${zmLabel.tier}">${zmLabel.tier==='t1'?'Tier I':'Tier III est.'}</span></div>
+      </div>
+      <div class="df">
+        <div class="lbl">Stability Classification</div>
+        <div class="val" style="color:${stabColor(sc)}">${stabLabel(sc)}</div>
+        <div class="nt">${sc==='stable'?'All cascade channels locked':'Higher-q channels → τ_q ∝ R^(q−2), R≈0.24'} <span class="tier t1">Tier I</span></div>
+      </div>
+      <div class="df">
+        <div class="lbl">Composite Nesting</div>
+        <div class="val">${nProtons}p + ${Math.max(0,nNeutrons)}n → ${nQuarks} valence quarks</div>
+        <div class="nt">Level 4: quarks→nucleons→nucleus→atom <span class="tier t1">Tier I (structure)</span></div>
+      </div>
+      <div class="df">
+        <div class="lbl">Pair Production Threshold</div>
+        <div class="val">${(o.mass*931.494*2).toFixed(0)} MeV</div>
+        <div class="nt">Minimum energy to excite 2 patterns above C<sub>thresh</sub> <span class="tier t1">Tier I (mechanism)</span></div>
+      </div>
+      <div class="df">
+        <div class="lbl">Gravitational Density Source</div>
+        <div class="val">ρ ∝ |∇A|² · H(|A|² − C<sub>thresh</sub>)</div>
+        <div class="nt">Interference gradients, not bulk amplitude <span class="tier t1">Tier I</span></div>
+      </div>
+    </div>
+    <div class="nest-detail">
+      <div class="hd">CGG Structural Explanation — Why ${o.sym} Exists</div>
+      ${o.Z===1?'The simplest atom: 1 proton (3 quarks as nested soliton composite with Yukawa binding, range λ=1/(2√(2m|μ|))) + 1 electron. The proton is a z≥z<sub>min</sub> cluster of ℓ=1 modes locked by exchange coupling. The electron is a minimum-energy self-trapped pattern at the BC3 threshold. Atomic binding requires field content beyond the current CGG action (§XIII — 1/r Coulomb, not 1/r³ dipole).':
+      o.Z===2?'Closed s-shell: 2p+2n nucleus with 2 electrons. The alpha particle (⁴He nucleus) is exceptionally stable — in CGG terms, the 4-nucleon configuration achieves optimal nesting overlap with all exchange channels saturated. Noble gas: all soliton shells closed.':
+      o.Z===6?'Carbon: the basis of organic chemistry. In CGG, the 4 valence electrons occupy ℓ=1 (p-channel) soliton states. The tetrahedral bonding geometry reflects the angular structure of Y<sub>1,m</sub> modes. The versatility of carbon bonding (sp, sp², sp³) maps to different composite configurations of the same ℓ=1 channel.':
+      o.Z===26?'Iron: the endpoint of stellar nucleosynthesis. In CGG, Fe-56 has the highest binding energy per nucleon — the nested soliton composite achieves maximum Yukawa binding efficiency. The d-channel (ℓ=2) valence modes create the magnetic structure (quadrupole interference patterns).':
+      o.Z===79?'Gold: d-block element with fully occupied d-shell + 1 s-electron. Relativistic contraction of the s-orbital (in standard QM) corresponds in CGG to coherence-length running: the high nuclear charge Z=79 creates strong ∇²(δC), shortening the effective soliton radius via m²<sub>eff</sub> = m²<sub>s</sub> + 2g<sub>m</sub>ρ<sub>m</sub>.':
+      o.Z===92?'Uranium: heaviest naturally occurring element. In CGG, the f-channel (ℓ=3 octupole) soliton modes create the complex nuclear structure. Radioactive: the composite is not fully cascade-locked — higher-q channels decay via τ<sub>q</sub> ∝ R<sup>q−2</sup>, driving alpha and beta emission.':
+      `Z=${o.Z}: ${nProtons} protons + ${Math.max(0,nNeutrons)} neutrons forming a nested soliton composite. The ${ch}-channel (ℓ=${l}) valence structure determines chemical behavior through the angular coupling coefficients α<sub>ℓm</sub>. ${sc==='stable'?'All cascade resonance channels are locked within the composite.':'Higher-q cascade channels are unlocked → radioactive decay.'}`}
+    </div>
+  `;
+
+  document.querySelectorAll('.el').forEach(e=>e.classList.remove('sel'));
+  document.querySelector(`.el[data-z="${o.Z}"]`)?.classList.add('sel');
+
+  animFrame = 0;
+  drawMode(o);
+}
+
+// ── Spherical harmonic viz ──
+
+
+function approxM(o){
+  const l=o.l||0;
+  if(l===0) return 0;
+
+  // Accurate m assignment based on Hund's rule filling order.
+  // For a partially filled subshell with n_e electrons out of 2(2l+1):
+  //   First (2l+1) electrons: fill m = +l, +(l-1), ..., -l (one spin each)
+  //   Next (2l+1) electrons: pair in same order m = +l, +(l-1), ..., -l
+  // The "dominant m" for visualization = the LAST m added.
+  // For a CLOSED subshell (all 2(2l+1) filled): return special marker 'closed'
+  // which triggers spherical display (Unsöld's theorem).
+
+  const pos = blockPos(o);  // 1-indexed position within block
+  const cap = blockCap(o.ch); // total electrons in block (2,6,10,14)
+  const halfCap = cap/2;     // = 2l+1
+
+  // m filling sequence: +l, +(l-1), ..., 0, ..., -(l-1), -l
+  const mSequence = [];
+  for(let mi=l; mi>=-l; mi--) mSequence.push(mi);
+  // Full sequence: first pass spin-up, then spin-down in same order
+  const fullSequence = [...mSequence, ...mSequence];
+
+  const idx = Math.min(pos, cap) - 1; // 0-indexed
+  if(idx < 0) return 0;
+
+  // Closed subshell check
+  if(pos >= cap) return -999; // sentinel for "closed shell → show sphere"
+
+  return fullSequence[idx];
+}
+
+// Is this element at a closed-subshell configuration?
+function isClosedShell(o){
+  const l=o.l||0;
+  if(l===0){
+    // s-block: pos 2 = closed (He, Be, Mg, Ca, Sr, Ba, Ra)
+    const pos=blockPos(o);
+    return pos >= 2;
+  }
+  return approxM(o) === -999;
+}
+
+function clamp(v,a,b){return Math.max(a,Math.min(b,v))}
+function fac(n){let r=1;for(let i=2;i<=n;i++)r*=i;return r}
+
+function Plm(l,m,x){
+  const am=Math.abs(m);if(am>l)return 0;
+  let pmm=1;
+  if(am>0){const s=Math.sqrt((1-x)*(1+x));let f=1;for(let i=1;i<=am;i++){pmm*=-f*s;f+=2}}
+  if(l===am)return pmm;
+  let p1=x*(2*am+1)*pmm;if(l===am+1)return p1;
+  let p2=0;for(let i=am+2;i<=l;i++){p2=(x*(2*i-1)*p1-(i+am-1)*pmm)/(i-am);pmm=p1;p1=p2}
+  return p2;
+}
+
+function Ylm(l,m,th,ph){
+  const am=Math.abs(m);
+  const norm=Math.sqrt((2*l+1)/(4*Math.PI)*fac(l-am)/fac(l+am));
+  const P=Plm(l,am,Math.cos(th));
+  if(m>0)return Math.SQRT2*norm*P*Math.cos(m*ph);
+  if(m<0)return Math.SQRT2*norm*P*Math.sin(am*ph);
+  return norm*P;
+}
+
+
+let animFrame = 0; // legacy compat
+
+function modeParams(o){
+  const pos=blockPos(o);
+  const cap=blockCap(o.ch);
+  const frac=(pos-0.5)/cap;
+  const n=principalShell(o);
+  const l=o.l||0;
+  const m=approxM(o);
+  const expo=EXPO(l);
+  const cl=CL[Math.min(l,3)]||0.10;
+  const A0=0.84 + 0.54*frac; // occupancy proxy, normalized only
+  const mu=cl*Math.pow(A0, expo);
+  const zmin = l===1 ? 2 : l===2 ? 4 : l===3 ? 6 : 2;
+  const mBoost = 1 + 0.18*Math.abs(m);
+  const shellScale = Math.max(0.58, 1.26 - 1.05*mu);
+  const kr = (n + l + 0.70 + 0.35*Math.abs(m))*mBoost;
+  const thresh = 0.022 + 0.010*l + 0.006*Math.abs(m) + 0.010*mu;
+  return {pos,cap,frac,n,l,m,expo,cl,A0,mu,zmin,shellScale,kr,thresh};
+}
+
+
+// ═══════════════════════════════════════
+// ═══════════════════════════════════════
+// CGG COMPOSITE INTERFERENCE GPU RENDERER
+// z_min soliton modes · |∇A_total|² density
+// ═══════════════════════════════════════
+
+let threeScene, threeCamera, threeRenderer;
+let threeInited = false;
+let shaderPoints = null;
+let outlinePointsRef = null;
+let shaderMat = null;
+let nestShells = [];
+let currentParticleCount = 0;
+const PARTICLE_COUNTS = {s:12000, p:104000, d:208000, f:208000};
+
+// ── Composite mode centers ──
+function computeCenters(zmin, sep) {
+  const d = sep * 0.5;
+  if(zmin <= 1) return [[0,0,0]];
+  if(zmin === 2) return [[0,0,-d],[0,0,d]];
+  if(zmin === 3) { const a=d; return [[a,0,0],[-a*0.5,a*0.866,0],[-a*0.5,-a*0.866,0]]; }
+  if(zmin === 4) { const a=d; return [[a,0,-a*0.577],[-a,0,-a*0.577],[0,a,a*0.577],[0,-a,a*0.577]]; }
+  if(zmin === 6) { const a=d; return [[a,0,0],[-a,0,0],[0,a,0],[0,-a,0],[0,0,a],[0,0,-a]]; }
+  const out=[]; for(let i=0;i<zmin;i++){const ang=2*Math.PI*i/zmin;out.push([d*Math.cos(ang),d*Math.sin(ang),0]);} return out;
+}
+
+// ── GLSL vertex shader: composite soliton field + gradient density ──
+const CGG_VERT = `
+precision highp float;
+uniform float uTime;
+uniform float uPointSize;
+uniform float uColHue;
+uniform int uL, uM, uZmin;
+uniform vec3 uC0, uC1, uC2, uC3, uC4, uC5;
+uniform float uBrightness;
+varying vec3 vColor;
+varying float vAlpha;
+
+float plm(int l, int m, float x) {
+  int am = m < 0 ? -m : m;
+  if(am > l) return 0.0;
+  float sx = sqrt(max(0.0, 1.0 - x*x));
+  float pmm = 1.0;
+  if(am > 0) { float f = 1.0; for(int i=1;i<=7;i++){if(i>am)break;pmm*=-f*sx;f+=2.0;} }
+  if(l == am) return pmm;
+  float p1 = x * (2.0*float(am)+1.0) * pmm;
+  if(l == am+1) return p1;
+  float p2 = 0.0;
+  for(int i=0;i<=7;i++){int ii=am+2+i;if(ii>l)break;p2=(x*(2.0*float(ii)-1.0)*p1-(float(ii)+float(am)-1.0)*pmm)/(float(ii)-float(am));pmm=p1;p1=p2;}
+  return p2;
+}
+
+float fact(int n){float r=1.0;for(int i=2;i<=12;i++){if(i>n)break;r*=float(i);}return r;}
+
+float ylm(int l, int m, float theta, float phi) {
+  int am = m<0?-m:m;
+  float norm = sqrt((2.0*float(l)+1.0)/(12.5663706)*fact(l-am)/fact(l+am));
+  float P = plm(l, am, cos(theta));
+  if(m>0) return 1.41421356*norm*P*cos(float(m)*phi);
+  if(m<0) return 1.41421356*norm*P*sin(float(am)*phi);
+  return norm*P;
+}
+
+float solitonR(float r, int l) {
+  float rp = 0.42 + 0.07*float(l);
+  float w = rp * 0.35;
+  float rl = 1.0;
+  for(int i=0;i<4;i++){if(i>=l)break;rl*=r;}
+  return rl * exp(-r*r/(2.0*rp*rp)) / cosh((r-rp)/w);
+}
+
+float evalMode(vec3 p, vec3 c, int l, int m) {
+  vec3 d = p - c;
+  float r = max(length(d), 0.01);
+  float theta = acos(clamp(d.y/r,-1.0,1.0));
+  float phi = atan(d.z, d.x);
+  return solitonR(r, l) * ylm(l, m, theta, phi);
+}
+
+vec3 hsl2rgb(float h, float s, float l) {
+  vec3 rgb = clamp(abs(mod(h*6.0+vec3(0,4,2),6.0)-3.0)-1.0,0.0,1.0);
+  return l + s*(rgb-0.5)*(1.0-abs(2.0*l-1.0));
+}
+
+void main() {
+  vec3 p = position;
+  vec3 centers[6];
+  centers[0]=uC0;centers[1]=uC1;centers[2]=uC2;centers[3]=uC3;centers[4]=uC4;centers[5]=uC5;
+
+  // Composite field
+  float A = 0.0;
+  for(int i=0;i<6;i++){if(i>=uZmin)break; A+=evalMode(p,centers[i],uL,uM);}
+
+  // Numerical gradient |∇A|²
+  float eps = 0.018;
+  float Ax1=0.0,Ax2=0.0,Ay1=0.0,Ay2=0.0,Az1=0.0,Az2=0.0;
+  for(int i=0;i<6;i++){
+    if(i>=uZmin)break;
+    Ax1+=evalMode(p+vec3(eps,0,0),centers[i],uL,uM);
+    Ax2+=evalMode(p-vec3(eps,0,0),centers[i],uL,uM);
+    Ay1+=evalMode(p+vec3(0,eps,0),centers[i],uL,uM);
+    Ay2+=evalMode(p-vec3(0,eps,0),centers[i],uL,uM);
+    Az1+=evalMode(p+vec3(0,0,eps),centers[i],uL,uM);
+    Az2+=evalMode(p-vec3(0,0,eps),centers[i],uL,uM);
+  }
+  float dAdx=(Ax1-Ax2)/(2.0*eps);
+  float dAdy=(Ay1-Ay2)/(2.0*eps);
+  float dAdz=(Az1-Az2)/(2.0*eps);
+  float gradSq = dAdx*dAdx + dAdy*dAdy + dAdz*dAdz;
+
+  // Threshold gate
+  float gate = A*A > 0.0008 ? 1.0 : 0.0;
+  float rho = gradSq * gate;
+
+  // Tuned for small viewport + additive blending (NOT saturated)
+  float intensity = pow(rho, 0.38) * uBrightness;
+  intensity = clamp(intensity, 0.0, 1.0);
+
+  // Discard very dim particles entirely (GPU efficiency)
+  if(intensity < 0.008) { gl_Position = vec4(2.0,2.0,2.0,1.0); gl_PointSize=0.0; vAlpha=0.0; vColor=vec3(0); return; }
+
+  // Color by sign of A × gradient intensity
+  float hue = uColHue;
+  if(A < 0.0) hue = mod(hue + 0.45, 1.0);
+
+  // Cap lightness so even peak regions stay saturated, not white
+  float sat = 0.70 + 0.30 * intensity;
+  float lit = 0.06 + 0.22 * intensity;
+  vColor = hsl2rgb(hue, sat, lit);
+
+  // Very subtle warm tint at extreme density only
+  vColor += vec3(0.7, 0.55, 0.3) * pow(intensity, 6.0) * 0.25;
+
+  // Lower alpha — prevents white-out where lobes overlap
+  vAlpha = 0.05 * pow(intensity, 0.65);
+
+  float sz = uPointSize * (0.3 + 0.6 * intensity);
+  vec4 mvPos = modelViewMatrix * vec4(p, 1.0);
+  gl_PointSize = sz * (180.0 / -mvPos.z);
+  gl_Position = projectionMatrix * mvPos;
+}`;
+
+const CGG_FRAG = `
+precision highp float;
+varying vec3 vColor;
+varying float vAlpha;
+void main() {
+  vec2 uv = gl_PointCoord - 0.5;
+  float dist = length(uv);
+  if(dist > 0.5) discard;
+  float alpha = vAlpha * smoothstep(0.5, 0.12, dist);
+  gl_FragColor = vec4(vColor, alpha);
+}`;
+
+function buildParticles(count, radius) {
+  const pos = new Float32Array(count * 3);
+  for(let i=0; i<count; i++) {
+    const r = radius * Math.cbrt(Math.random());
+    const th = Math.random()*Math.PI*2;
+    const ph = Math.acos(2*Math.random()-1);
+    pos[i*3]   = r*Math.sin(ph)*Math.cos(th);
+    pos[i*3+1] = r*Math.sin(ph)*Math.sin(th);
+    pos[i*3+2] = r*Math.cos(ph);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  return geo;
+}
+
+function initThree(){
+  const container = document.getElementById('threeContainer');
+  if(!container || threeInited) return;
+  threeInited = true;
+
+  const W = container.clientWidth || 320;
+  const H = container.clientHeight || 320;
+
+  threeScene = new THREE.Scene();
+  threeScene.background = new THREE.Color(0x050914);
+
+  threeCamera = new THREE.PerspectiveCamera(36, W/H, 0.1, 100);
+  threeCamera.position.set(0, 0.6, 3.8);
+
+  threeRenderer = new THREE.WebGLRenderer({antialias:true});
+  threeRenderer.setSize(W, H);
+  threeRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  container.appendChild(threeRenderer.domElement);
+
+  // ── Outline/halo shader: same field, bigger softer darker particles ──
+  const CGG_OUTLINE_FRAG = `
+precision highp float;
+varying vec3 vColor;
+varying float vAlpha;
+void main() {
+  vec2 uv = gl_PointCoord - 0.5;
+  float dist = length(uv);
+  if(dist > 0.5) discard;
+  // Very soft falloff for halo effect
+  float alpha = vAlpha * smoothstep(0.5, 0.0, dist) * smoothstep(0.0, 0.2, dist);
+  gl_FragColor = vec4(vColor, alpha);
+}`;
+
+  const outlineMat = new THREE.ShaderMaterial({
+    uniforms: {
+      uTime:{value:0}, uPointSize:{value:4.5}, uColHue:{value:0.48},
+      uBrightness:{value:0.9},
+      uL:{value:1}, uM:{value:0}, uZmin:{value:2},
+      uC0:{value:new THREE.Vector3()}, uC1:{value:new THREE.Vector3()},
+      uC2:{value:new THREE.Vector3()}, uC3:{value:new THREE.Vector3()},
+      uC4:{value:new THREE.Vector3()}, uC5:{value:new THREE.Vector3()},
+    },
+    vertexShader: CGG_VERT.replace(
+      // Override the color/alpha section for the outline pass:
+      // darker, more saturated, lower alpha
+      'float sat = 0.70 + 0.30 * intensity;',
+      'float sat = 0.55 + 0.20 * intensity;'
+    ).replace(
+      'float lit = 0.06 + 0.22 * intensity;',
+      'float lit = 0.02 + 0.08 * intensity;'
+    ).replace(
+      'vColor += vec3(0.7, 0.55, 0.3) * pow(intensity, 6.0) * 0.25;',
+      '// no hot glow on outline'
+    ).replace(
+      'vAlpha = 0.05 * pow(intensity, 0.65);',
+      'vAlpha = 0.035 * pow(intensity, 0.5);'
+    ).replace(
+      'float sz = uPointSize * (0.3 + 0.6 * intensity);',
+      'float sz = uPointSize * (0.6 + 0.9 * intensity);'
+    ),
+    fragmentShader: CGG_OUTLINE_FRAG,
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+  });
+
+  // Outline layer renders FIRST (behind)
+  const initCount = PARTICLE_COUNTS.p; // default
+  currentParticleCount = initCount;
+  const outlineGeo = buildParticles(initCount, 1.6);
+  outlinePointsRef = new THREE.Points(outlineGeo, outlineMat);
+  outlinePointsRef.renderOrder = 0;
+  threeScene.add(outlinePointsRef);
+
+  // Shader material — bright field layer
+  shaderMat = new THREE.ShaderMaterial({
+    uniforms: {
+      uTime:{value:0}, uPointSize:{value:2.0}, uColHue:{value:0.48},
+      uBrightness:{value:0.9},
+      uL:{value:1}, uM:{value:0}, uZmin:{value:2},
+      uC0:{value:new THREE.Vector3()}, uC1:{value:new THREE.Vector3()},
+      uC2:{value:new THREE.Vector3()}, uC3:{value:new THREE.Vector3()},
+      uC4:{value:new THREE.Vector3()}, uC5:{value:new THREE.Vector3()},
+    },
+    vertexShader: CGG_VERT,
+    fragmentShader: CGG_FRAG,
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+  });
+
+  // Store outline reference on the NEW shaderMat
+  shaderMat._outlineMat = outlineMat;
+
+  const geo = buildParticles(initCount, 1.6);
+  shaderPoints = new THREE.Points(geo, shaderMat);
+  threeScene.add(shaderPoints);
+
+  setupOrbitControls(container);
+  animateThree();
+}
+
+// ── Orbit controls ──
+let orbitState = {isDragging:false, prevX:0, prevY:0, rotX:0.3, rotY:0, targetRotX:0.3, targetRotY:0, autoRotate:true};
+
+function setupOrbitControls(container){
+  const el = container;
+  function onStart(x,y){orbitState.isDragging=true;orbitState.prevX=x;orbitState.prevY=y;orbitState.autoRotate=false;el.style.cursor='grabbing'}
+  function onMove(x,y){if(!orbitState.isDragging)return;orbitState.targetRotY+=(x-orbitState.prevX)*0.008;orbitState.targetRotX+=(y-orbitState.prevY)*0.008;orbitState.targetRotX=Math.max(-1.4,Math.min(1.4,orbitState.targetRotX));orbitState.prevX=x;orbitState.prevY=y}
+  function onEnd(){orbitState.isDragging=false;el.style.cursor='grab';clearTimeout(orbitState._t);orbitState._t=setTimeout(()=>orbitState.autoRotate=true,3000)}
+  el.addEventListener('mousedown',e=>{e.preventDefault();onStart(e.clientX,e.clientY)});
+  window.addEventListener('mousemove',e=>onMove(e.clientX,e.clientY));
+  window.addEventListener('mouseup',onEnd);
+  el.addEventListener('touchstart',e=>{e.preventDefault();onStart(e.touches[0].clientX,e.touches[0].clientY)},{passive:false});
+  el.addEventListener('touchmove',e=>{onMove(e.touches[0].clientX,e.touches[0].clientY)},{passive:false});
+  el.addEventListener('touchend',onEnd);
+  el.addEventListener('wheel',e=>{e.preventDefault();const z=threeCamera.position.z+e.deltaY*0.004;threeCamera.position.z=Math.max(2,Math.min(7,z))},{passive:false});
+}
+
+function animateThree(){
+  requestAnimationFrame(animateThree);
+  if(orbitState.autoRotate) orbitState.targetRotY += 0.003;
+  orbitState.rotX += (orbitState.targetRotX - orbitState.rotX)*0.07;
+  orbitState.rotY += (orbitState.targetRotY - orbitState.rotY)*0.07;
+  const dist = threeCamera.position.length()||3.8;
+  threeCamera.position.set(dist*Math.sin(orbitState.rotY)*Math.cos(orbitState.rotX), dist*Math.sin(orbitState.rotX), dist*Math.cos(orbitState.rotY)*Math.cos(orbitState.rotX));
+  threeCamera.lookAt(0,0,0);
+  if(shaderMat) {
+    shaderMat.uniforms.uTime.value = performance.now()*0.001;
+    if(shaderMat._outlineMat) shaderMat._outlineMat.uniforms.uTime.value = shaderMat.uniforms.uTime.value;
+  }
+  threeRenderer.render(threeScene, threeCamera);
+}
+
+// ── Build nesting shells (core, nucleon, nuclear) ──
+function buildNestShells(Z, channelColor) {
+  for(const s of nestShells){threeScene.remove(s);s.geometry.dispose();s.material.dispose();}
+  nestShells=[];
+
+  // Core
+  const coreR = 0.04;
+  const coreGeo = new THREE.SphereGeometry(coreR, 12, 8);
+  const coreMat = new THREE.MeshBasicMaterial({color:new THREE.Color(channelColor), transparent:true, opacity:0.7});
+  const coreMesh = new THREE.Mesh(coreGeo, coreMat);
+  threeScene.add(coreMesh); nestShells.push(coreMesh);
+
+  // Nucleon shell
+  const nR = 0.08 + 0.012*Math.pow(Z, 0.33);
+  const nGeo = new THREE.SphereGeometry(nR, 16, 12);
+  const nMat = new THREE.MeshBasicMaterial({color:new THREE.Color(channelColor), transparent:true, opacity:0.06, side:THREE.DoubleSide, depthWrite:false, wireframe:true});
+  const nMesh = new THREE.Mesh(nGeo, nMat); threeScene.add(nMesh); nestShells.push(nMesh);
+}
+
+function drawMode(o){
+  const container = document.getElementById('threeContainer');
+  if(!container) return;
+  if(!threeInited) initThree();
+
+  // Resize
+  const W=container.clientWidth, H=container.clientHeight;
+  if(threeRenderer && threeRenderer.domElement.width!==W){
+    threeRenderer.setSize(W,H);
+    threeCamera.aspect=W/H;
+    threeCamera.updateProjectionMatrix();
+  }
+
+  const ch = o.ch;
+  const l = o.l||0;
+  const rawM = approxM(o);
+  const closed = isClosedShell(o);
+  const m = closed ? 0 : rawM;
+
+  // Rebuild particle clouds if count changed (per-block density)
+  // d and f blocks: gradient 208K → 420K across the block
+  let targetCount;
+  if(ch==='d' || ch==='f') {
+    const pos = blockPos(o);
+    const cap = blockCap(ch);
+    const frac = Math.max(0, Math.min(1, (pos - 1) / Math.max(1, cap - 1)));
+    if(ch==='d') targetCount = Math.round(74000 + frac * (180000 - 74000));
+    else         targetCount = Math.round(104000 + frac * (210000 - 104000));
+  } else {
+    targetCount = PARTICLE_COUNTS[ch] || PARTICLE_COUNTS.p;
+  }
+  if(targetCount !== currentParticleCount && shaderPoints && outlinePointsRef) {
+    currentParticleCount = targetCount;
+    // Rebuild bright layer
+    threeScene.remove(shaderPoints);
+    shaderPoints.geometry.dispose();
+    const newGeo = buildParticles(targetCount, 1.6);
+    shaderPoints = new THREE.Points(newGeo, shaderMat);
+    threeScene.add(shaderPoints);
+    // Rebuild outline layer
+    threeScene.remove(outlinePointsRef);
+    outlinePointsRef.geometry.dispose();
+    const newOutGeo = buildParticles(targetCount, 1.6);
+    outlinePointsRef = new THREE.Points(newOutGeo, shaderMat._outlineMat);
+    outlinePointsRef.renderOrder = 0;
+    threeScene.add(outlinePointsRef);
+  }
+
+  const colMap = {s:0.0, p:0.48, d:0.72, f:0.12};
+  const colHex = {s:'#e8575f', p:'#3ec9be', d:'#9580f0', f:'#e8a830'};
+  const hue = colMap[ch] ?? 0.48;
+
+  // z_min for composite arrangement
+  const zmin = closed ? 1 : (l===0?2 : l===1?(Math.abs(m)>=1?1:2) : l===2?4 : l===3?6 : 2);
+
+  // Separation: composite-scale d ~ 1.2 r_p (§4.8)
+  const sep = 1.1 - 0.08*l;
+
+  // Set centers
+  const centers = computeCenters(zmin, sep);
+  if(shaderMat){
+    const mats = [shaderMat, shaderMat._outlineMat].filter(Boolean);
+    for(const mat of mats) {
+      mat.uniforms.uL.value = l;
+      mat.uniforms.uM.value = m;
+      mat.uniforms.uZmin.value = zmin;
+      mat.uniforms.uColHue.value = hue;
+      // Per-block brightness: compensate for particle count × lobe overlap
+      // s: 12K → 1.8, p: 104K → 0.75
+      // d/f: gradient 208K→420K, brightness 0.40→0.22
+      let bright;
+      if(ch==='s') bright = 1.8;
+      else if(ch==='p') bright = 0.75;
+      else {
+        const bPos = blockPos(o);
+        const bCap = blockCap(ch);
+        const bFrac = Math.max(0, Math.min(1, (bPos-1)/Math.max(1,bCap-1)));
+        const base = ch==='d' ? 0.80 : 0.55;
+        const end  = ch==='d' ? 0.42 : 0.30;
+        bright = base + bFrac * (end - base);
+      }
+      mat.uniforms.uBrightness.value = bright;
+      for(let i=0;i<6;i++){
+        const c=centers[i]||[0,0,0];
+        mat.uniforms[`uC${i}`].value.set(c[0],c[1],c[2]);
+      }
+    }
+  }
+
+  buildNestShells(o.Z, colHex[ch]||'#3ec9be');
+
+  // Reset view
+  orbitState.targetRotY = 0.3;
+  orbitState.targetRotX = 0.25;
+  orbitState.autoRotate = true;
+
+  // Caption
+  if(closed){
+    document.getElementById('cvsCap').innerHTML =
+      `Drag to rotate · Closed ${ch}-subshell · z=${zmin} composite · |∇A|² density`;
+  } else {
+    const mStr = m>=0 ? String(m) : '−'+Math.abs(m);
+    document.getElementById('cvsCap').innerHTML =
+      `Drag to rotate · z<sub>min</sub>=${zmin} composite · Y<sub>${l},${mStr}</sub> · ρ ∝ |∇A<sub>total</sub>|²`;
+  }
+}
+function drawThumb(canvas, o){
+  if(!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0,0,W,H);
+
+  const cols={s:[232,87,95],p:[62,201,190],d:[149,128,240],f:[232,168,48]};
+  const bc = cols[o.ch] || cols.p;
+  // Negative-sign complement color (hue shifted ~160°)
+  const bcNeg = [
+    Math.round(bc[0]*0.25 + (255-bc[0])*0.3),
+    Math.round(bc[1]*0.25 + (255-bc[1])*0.3),
+    Math.round(bc[2]*0.25 + (255-bc[2])*0.3)
+  ];
+
+  const l = o.l || 0;
+  const rawM = approxM(o);
+  const closed = isClosedShell(o);
+
+  // Closed shell or ℓ=0: soft sphere
+  if(closed || l === 0){
+    const R = W * 0.32;
+    const grad = ctx.createRadialGradient(W/2-R*0.15, H/2-R*0.15, 0, W/2, H/2, R);
+    grad.addColorStop(0, `rgba(${bc[0]},${bc[1]},${bc[2]},0.55)`);
+    grad.addColorStop(0.6, `rgba(${bc[0]},${bc[1]},${bc[2]},0.25)`);
+    grad.addColorStop(1, `rgba(${bc[0]},${bc[1]},${bc[2]},0.03)`);
+    ctx.fillStyle = grad;
+    ctx.beginPath(); ctx.arc(W/2, H/2, R, 0, 2*Math.PI); ctx.fill();
+    return;
+  }
+
+  const m = rawM;
+  const zmin = l===1?(Math.abs(m)>=1?1:2) : l===2?4 : l===3?6 : 2;
+  const sep = 1.1 - 0.08*l;
+  const centers = computeCenters(zmin, sep);
+
+  // Soliton radial profile (JS version matching shader)
+  function sR(r, ll) {
+    const rp = 0.42 + 0.07*ll;
+    const w = rp*0.35;
+    let rl = 1; for(let i=0;i<ll;i++) rl *= r;
+    return rl * Math.exp(-r*r/(2*rp*rp)) / Math.cosh((r-rp)/w);
+  }
+
+  // Evaluate single mode at (x,y,z) centered at c
+  function evalM(px,py,pz, cx,cy,cz) {
+    const dx=px-cx, dy=py-cy, dz=pz-cz;
+    const r = Math.max(Math.sqrt(dx*dx+dy*dy+dz*dz), 0.01);
+    const th = Math.acos(Math.max(-1,Math.min(1,dy/r)));
+    const ph = Math.atan2(dz, dx);
+    return sR(r, l) * Ylm(l, m, th, ph);
+  }
+
+  // Render xz cross-section (y=0 slice) with slight tilt for depth
+  const img = ctx.createImageData(W,H);
+  const d = img.data;
+  const scale = 1.5; // scene units span
+  const eps = 0.02;
+
+  // Two-pass: first compute field + gradient, find max
+  const N = W * H;
+  const rhoArr = new Float32Array(N);
+  const signArr = new Float32Array(N);
+  let maxRho = 1e-12;
+
+  for(let yi=0; yi<H; yi++){
+    for(let xi=0; xi<W; xi++){
+      // Map pixel to xz-plane with slight y-tilt for 3D feel
+      const sx = (xi/W - 0.5) * 2 * scale;
+      const sz = (yi/H - 0.5) * 2 * scale;
+      const sy = sx * 0.15; // slight tilt
+
+      // Composite field
+      let A = 0;
+      for(let k=0;k<centers.length;k++) A += evalM(sx,sy,sz, centers[k][0],centers[k][1],centers[k][2]);
+
+      // Gradient (central differences in the slice plane)
+      let Ax1=0,Ax2=0,Az1=0,Az2=0;
+      for(let k=0;k<centers.length;k++){
+        Ax1 += evalM(sx+eps,sy,sz, centers[k][0],centers[k][1],centers[k][2]);
+        Ax2 += evalM(sx-eps,sy,sz, centers[k][0],centers[k][1],centers[k][2]);
+        Az1 += evalM(sx,sy,sz+eps, centers[k][0],centers[k][1],centers[k][2]);
+        Az2 += evalM(sx,sy,sz-eps, centers[k][0],centers[k][1],centers[k][2]);
+      }
+      const gx=(Ax1-Ax2)/(2*eps), gz=(Az1-Az2)/(2*eps);
+      const gradSq = gx*gx + gz*gz;
+      const gate = A*A > 0.0008 ? 1 : 0;
+      const rho = gradSq * gate;
+
+      const idx = yi*W+xi;
+      rhoArr[idx] = rho;
+      signArr[idx] = A >= 0 ? 1 : -1;
+      if(rho > maxRho) maxRho = rho;
+    }
+  }
+
+  // Second pass: color
+  for(let yi=0; yi<H; yi++){
+    for(let xi=0; xi<W; xi++){
+      const idx = yi*W+xi;
+      const rho = rhoArr[idx];
+      const sgn = signArr[idx];
+      let intensity = Math.pow(rho/maxRho, 0.4);
+      if(intensity < 0.02) continue;
+
+      const c = sgn > 0 ? bc : bcNeg;
+      const bright = 0.25 + 0.75 * intensity;
+      const alpha = Math.round(255 * Math.min(1, intensity * 0.85));
+
+      const i = idx*4;
+      // Additive-style: max blend for the thumbnail
+      d[i]   = Math.max(d[i],   Math.round(c[0]*bright));
+      d[i+1] = Math.max(d[i+1], Math.round(c[1]*bright));
+      d[i+2] = Math.max(d[i+2], Math.round(c[2]*bright));
+      d[i+3] = Math.max(d[i+3], alpha);
+    }
+  }
+  ctx.putImageData(img,0,0);
+
+  // Soft vignette to blend into dark cell background
+  const vg = ctx.createRadialGradient(W/2,H/2,W*0.28, W/2,H/2,W*0.52);
+  vg.addColorStop(0, 'rgba(0,0,0,0)');
+  vg.addColorStop(1, 'rgba(4,6,14,0.85)');
+  ctx.fillStyle = vg;
+  ctx.fillRect(0,0,W,H);
+}
+function inferRow(Z,ch){
+  if(ch==='f'){
+    if(Z>=57 && Z<=71) return 6;
+    if(Z>=89 && Z<=103) return 7;
+  }
+  return 0;
+}
+
+// static detail viewer: no animation
+
+// ── Init ──
+buildGrid();
+selectEl(mkObj(EL[0]));
+</script>
+</body>
+</html>
